@@ -11,19 +11,22 @@
       @if (totalAprobado() > 0) {
         <span class="total-chip">✓ ARS {{ totalAprobado() | arsNum }} aprobado</span>
       }
-      <button class="btn-add" (click)="showForm.set(!showForm())">
+      <button class="btn-add" (click)="showForm() ? cancelForm() : showForm.set(true)">
         {{ showForm() ? '✕ Cancelar' : '+ Agregar' }}
       </button>
     </div>
   </div>
 
-  <!-- Formulario nuevo presupuesto -->
+  <!-- Formulario nuevo / edición -->
   @if (showForm()) {
     <form class="form-card" (ngSubmit)="save()">
+      @if (editingId()) {
+        <div class="form-edit-badge">Editando presupuesto</div>
+      }
       <div class="form-grid">
         <div class="field field--required">
           <label>Rubro *</label>
-          <select [(ngModel)]="form.rubroId" name="rubroId" required (ngModelChange)="onRubroChange()">
+          <select [(ngModel)]="form.rubroId" name="rubroId" required (ngModelChange)="onRubroChange()" [disabled]="!!editingId()">
             <option value="">Seleccioná un rubro</option>
             @for (r of rubros(); track r._id) {
               <option [value]="r._id">{{ r.nombre }}</option>
@@ -32,7 +35,7 @@
         </div>
         <div class="field field--required">
           <label>Subrubro *</label>
-          <select [(ngModel)]="form.subrubroId" name="subrubroId" required (ngModelChange)="onSubrubroChange()" [disabled]="!form.rubroId">
+          <select [(ngModel)]="form.subrubroId" name="subrubroId" required (ngModelChange)="onSubrubroChange()" [disabled]="!form.rubroId || !!editingId()">
             <option value="">{{ form.rubroId ? 'Seleccioná un subrubro' : 'Primero elegí un rubro' }}</option>
             @for (s of subrubros(); track s._id) {
               <option [value]="s._id">{{ s.nombre }}</option>
@@ -63,22 +66,25 @@
             <input type="number" [(ngModel)]="form.monto" name="monto" placeholder="0" min="0" required />
           </div>
         </div>
-        <div class="field">
-          <label>Archivos adjuntos</label>
-          <label class="file-btn">
-            📎 {{ form.archivos.length ? form.archivos.length + ' archivo(s)' : 'Seleccionar' }}
-            <input type="file" multiple hidden (change)="onFiles($event)"
-              accept=".pdf,.xlsx,.xls,.docx,.jpg,.png" />
-          </label>
-        </div>
+        @if (!editingId()) {
+          <div class="field">
+            <label>Archivos adjuntos</label>
+            <label class="file-btn">
+              📎 {{ form.archivos.length ? form.archivos.length + ' archivo(s)' : 'Seleccionar' }}
+              <input type="file" multiple hidden (change)="onFiles($event)"
+                accept=".pdf,.xlsx,.xls,.docx,.jpg,.png" />
+            </label>
+          </div>
+        }
         <div class="field">
           <label>Notas</label>
           <input [(ngModel)]="form.notas" name="notas" placeholder="Opcional" />
         </div>
       </div>
       <div class="form-actions">
+        <button type="button" class="btn-secondary" (click)="cancelForm()">Cancelar</button>
         <button type="submit" class="btn-primary" [disabled]="saving()">
-          {{ saving() ? 'Guardando...' : 'Guardar presupuesto' }}
+          {{ saving() ? 'Guardando...' : editingId() ? 'Guardar cambios' : 'Guardar presupuesto' }}
         </button>
       </div>
     </form>
@@ -112,6 +118,7 @@
             <button class="estado-btn estado-btn--{{ item.estado }}" (click)="cycleEstado(item)" title="Click para cambiar estado">
               {{ item.estado }}
             </button>
+            <button class="btn-edit" (click)="startEdit(item)" title="Editar">✎</button>
             <button class="btn-del" (click)="remove(item)" title="Eliminar">🗑️</button>
           </div>
         </div>

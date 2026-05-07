@@ -7,6 +7,7 @@ import { ProveedorService } from '../../../../core/services/proveedor.service';
 import { ConfigService, Rubro, Subrubro } from '../../../../core/services/config.service';
 import { ReservaService } from '../../../../core/services/reserva.service';
 import { SolicitudService } from '../../../../core/services/solicitud.service';
+import { ConfirmService } from '../../../../core/services/confirm.service';
 import {
   Presupuesto, Gasto, Moneda, MetodoPago,
   METODO_LABELS, METODO_ICONS, METODO_HINT,
@@ -32,6 +33,7 @@ export class ObraComponent implements OnInit {
   private cfgSvc       = inject(ConfigService);
   private reservaSvc   = inject(ReservaService);
   private solicitudSvc = inject(SolicitudService);
+  private confirmSvc   = inject(ConfirmService);
 
   // ── Data ────────────────────────────────────────────────
   presupuestos = signal<Presupuesto[]>([]);
@@ -117,6 +119,47 @@ export class ObraComponent implements OnInit {
     reservaId: string;
     metodoPago: MetodoPago | '';
   } = { fecha: '', comprobante: null, fuente: '', reservaId: '', metodoPago: '' };
+
+  // ── UI: Edit gasto ──────────────────────────────────────
+  editingGastoId = signal<string | null>(null);
+  savingEditGasto = signal(false);
+  editGastoForm: { monto: number | null; moneda: string; fecha: string; descripcion: string; notas: string; proveedorId: string } =
+    { monto: null, moneda: 'ARS', fecha: '', descripcion: '', notas: '', proveedorId: '' };
+
+  startEditGasto(g: Gasto) {
+    this.editGastoForm = {
+      monto:       g.monto,
+      moneda:      g.moneda,
+      fecha:       g.fecha ? g.fecha.substring(0, 10) : '',
+      descripcion: g.descripcion ?? '',
+      notas:       g.notas ?? '',
+      proveedorId: (g.proveedorId as any)?._id ?? '',
+    };
+    this.editingGastoId.set(g._id);
+  }
+
+  cancelEditGasto() { this.editingGastoId.set(null); }
+
+  saveEditGasto(g: Gasto) {
+    if (!this.editGastoForm.monto || !this.editGastoForm.fecha) return;
+    this.savingEditGasto.set(true);
+    const data: any = {
+      monto:       this.editGastoForm.monto,
+      moneda:      this.editGastoForm.moneda,
+      fecha:       this.editGastoForm.fecha,
+      descripcion: this.editGastoForm.descripcion,
+      notas:       this.editGastoForm.notas,
+      proveedorId: this.editGastoForm.proveedorId || null,
+    };
+    this.gastoSvc.update(this.projectId, g._id, data).subscribe({
+      next: updated => {
+        this.gastos.update(l => l.map(x => x._id === g._id ? updated : x));
+        this.editingGastoId.set(null);
+        this.savingEditGasto.set(false);
+      },
+      error: () => this.savingEditGasto.set(false),
+    });
+  }
 
   // ── UI: Pago form ────────────────────────────────────────
   activePagoGastoId = signal<string | null>(null);
@@ -228,8 +271,8 @@ export class ObraComponent implements OnInit {
     });
   }
 
-  removePres(p: Presupuesto) {
-    if (!confirm('¿Eliminar este presupuesto?')) return;
+  async removePres(p: Presupuesto) {
+    if (!await this.confirmSvc.confirm('Esta acción no se puede deshacer.', '¿Eliminar presupuesto?')) return;
     this.presSvc.remove(this.projectId, p._id).subscribe(() => {
       this.presupuestos.update(l => l.filter(x => x._id !== p._id));
       if (this.selectedId() === p._id) this.deselect();
@@ -300,6 +343,8 @@ export class ObraComponent implements OnInit {
           });
         }
 
+        // El backend eliminó el presupuesto — quitarlo de la lista
+        this.presupuestos.update(l => l.filter(x => x._id !== p._id));
         this.savingGenerar.set(false);
         this.generandoGastoPresId.set(null);
         this.selectedId.set(item._id); this.selectedType.set('gasto');
@@ -308,11 +353,12 @@ export class ObraComponent implements OnInit {
     });
   }
 
-  removeGasto(g: Gasto) {
-    if (!confirm('¿Eliminar este gasto?')) return;
-    this.gastoSvc.remove(this.projectId, g._id).subscribe(() =>
-      this.gastos.update(l => l.filter(x => x._id !== g._id))
-    );
+  async removeGasto(g: Gasto) {
+    if (!await this.confirmSvc.confirm('Esta acción no se puede deshacer.', '¿Eliminar este gasto?')) return;
+    this.gastoSvc.remove(this.projectId, g._id).subscribe(() => {
+      this.gastos.update(l => l.filter(x => x._id !== g._id));
+      if (this.selectedId() === g._id) this.deselect();
+    });
   }
 
   // ── Pagos ────────────────────────────────────────────────
@@ -326,7 +372,7 @@ export class ObraComponent implements OnInit {
   cancelPago() { this.activePagoGastoId.set(null); this.pagoError.set(null); }
 
   savePago(g: Gasto) {
-    if (!this.pagoForm.monto || !this.pagoForm.fecha || !this.pagoForm.metodoPago) return;
+    if (!this.pagoForm.monto || !this.pagoForm.fecha) return;
 
     if (this.pagoForm.reservaId) {
       const rv = this.reservas().find(r => r._id === this.pagoForm.reservaId);
@@ -509,44 +555,48 @@ export class ObraComponent implements OnInit {
   }
 
   private buildComprobanteHtml(g: Gasto): string {
-    const num       = g._id.slice(-6).toUpperCase();
     const fecha     = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
     const fmtM      = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
     const totalPag  = totalPagadoGasto(g);
     const restante  = Math.max(0, g.monto - totalPag);
     const estado    = estadoGasto(g);
-    const estadoTxt = estado === 'pagado' ? 'PAGADO' : estado === 'parcial' ? 'PAGO PARCIAL' : 'PENDIENTE';
+    const estadoColor = estado === 'pagado' ? '#166534' : estado === 'parcial' ? '#92400e' : '#888';
+    const estadoTxt   = estado === 'pagado' ? 'PAGADO' : estado === 'parcial' ? 'PAGO PARCIAL' : 'PENDIENTE';
+    const logoUrl   = `${window.location.origin}/assets/logo%20brume%20vector2.png`;
 
-    const pagosRows = g.pagos.map(p => `
+    // Last payment (hero)
+    const lastPago  = g.pagos.length ? g.pagos[g.pagos.length - 1] : null;
+    const lastFecha = lastPago
+      ? new Date(lastPago.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+      : fecha;
+
+    // History = all pagos except the last
+    const histPagos = g.pagos.length > 1 ? g.pagos.slice(0, g.pagos.length - 1) : [];
+    const histRows  = histPagos.map(p => `
       <tr>
         <td>${new Date(p.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-        <td>${METODO_LABELS[p.metodoPago] ?? p.metodoPago}</td>
         <td>${p.referencia ?? '—'}</td>
         <td class="tr">${g.moneda} ${fmtM(p.monto)}</td>
       </tr>`).join('');
-
-    const pagosSection = g.pagos.length ? `
+    const histSection = histPagos.length ? `
       <div class="sep"></div>
-      <div class="section-lbl">Historial de pagos</div>
+      <div class="section-lbl">Pagos anteriores</div>
       <table class="tbl">
-        <thead><tr><th>Fecha</th><th>Método</th><th>Referencia</th><th class="tr">Monto</th></tr></thead>
-        <tbody>${pagosRows}</tbody>
+        <thead><tr><th>Fecha</th><th>Referencia</th><th class="tr">Monto</th></tr></thead>
+        <tbody>${histRows}</tbody>
       </table>` : '';
-
-    const estadoColor = estado === 'pagado' ? '#166534' : estado === 'parcial' ? '#92400e' : '#999';
 
     return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Comprobante Orden de Pago N° ${num} — Brumelab Arch</title>
+<title>Comprobante de pago — Brumelab Arch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',system-ui,sans-serif;background:#f4f4f2;color:#111;-webkit-font-smoothing:antialiased}
 
-  /* ── Toolbar ── */
   .bar{position:fixed;top:0;left:0;right:0;height:52px;background:#111;display:flex;align-items:center;
     justify-content:space-between;padding:0 2rem;z-index:10;gap:1rem}
   .bar-brand{color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;white-space:nowrap}
@@ -557,71 +607,66 @@ export class ObraComponent implements OnInit {
   .btn-pri{background:#fff;color:#111}
   .btn-pri:hover{background:#f0f0f0}
 
-  /* ── Page ── */
   .page{padding:70px 1.5rem 3rem;display:flex;justify-content:center;min-height:100vh}
-
-  /* ── Document ── */
-  .doc{background:#fff;width:100%;max-width:700px;border-radius:16px;padding:3rem 3.5rem 2.5rem;
+  .doc{background:#fff;width:100%;max-width:680px;border-radius:16px;padding:2.75rem 3.25rem 2.5rem;
     box-shadow:0 2px 16px rgba(0,0,0,0.07);border:1px solid #e8e8e8;height:fit-content}
 
-  /* ── Header ── */
-  .doc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.75rem}
-  .brand-name{font-size:1rem;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#111;line-height:1}
-  .brand-sub{font-size:0.68rem;color:#aaa;margin-top:0.22rem;font-weight:400}
-  .doc-right{text-align:right}
-  .doc-type{font-size:0.63rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#aaa}
-  .doc-num{font-size:1.8rem;font-weight:900;color:#111;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;line-height:1.05;margin-top:0.1rem}
+  /* Header */
+  .doc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem}
+  .brand-logo{height:32px;width:auto;display:block}
+  .brand-sub{font-size:0.65rem;color:#bbb;margin-top:0.28rem;font-weight:400}
+  .doc-head-right{text-align:right}
+  .doc-estado{display:inline-block;font-size:0.6rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;
+    padding:0.2rem 0.65rem;border-radius:20px;border:1px solid currentColor;margin-bottom:0.3rem}
+  .doc-fecha{font-size:0.72rem;color:#aaa}
 
-  /* ── Dividers ── */
-  .line{height:2px;background:#111;margin-bottom:1.5rem;border-radius:1px;border:none}
-  .sep{height:1px;background:#e8e8e8;margin:1.5rem 0;border:none}
+  .line{height:2px;background:#111;margin-bottom:1.75rem;border-radius:1px;border:none}
+  .sep{height:1px;background:#ebebeb;margin:1.5rem 0;border:none}
 
-  /* ── Meta row ── */
-  .meta{display:flex;gap:2.5rem;margin-bottom:1.75rem;flex-wrap:wrap}
-  .meta-item{display:flex;flex-direction:column;gap:0.18rem}
-  .lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#aaa}
-  .val{font-size:0.84rem;font-weight:600;color:#111}
+  /* Hero — último pago */
+  .pago-hero{margin-bottom:1.75rem}
+  .pago-hero__label{font-size:0.6rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#aaa;margin-bottom:0.55rem}
+  .pago-hero__amount{font-size:2.6rem;font-weight:900;color:#111;font-variant-numeric:tabular-nums;
+    letter-spacing:-0.03em;line-height:1;margin-bottom:0.4rem}
+  .pago-hero__date{font-size:0.8rem;color:#666;margin-bottom:0.25rem}
+  .pago-hero__ref{font-size:0.74rem;color:#aaa;font-style:italic}
 
-  /* ── Concept ── */
-  .concept{background:#fafafa;border:1px solid #ebebeb;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem}
-  .concept-name{font-size:0.95rem;font-weight:700;color:#111}
-  .concept-code{font-size:0.75rem;font-weight:400;color:#bbb;margin-left:0.35rem}
-  .concept-desc{font-size:0.8rem;color:#555;margin-top:0.3rem;line-height:1.4}
-  .concept-notes{font-size:0.74rem;color:#aaa;margin-top:0.2rem;font-style:italic}
+  /* Trabajo — concepto + proveedor integrados */
+  .trabajo{background:#fafafa;border:1px solid #ebebeb;border-radius:10px;
+    padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;flex-direction:column;gap:0.3rem}
+  .trabajo-nombre{font-size:0.92rem;font-weight:800;color:#111}
+  .trabajo-code{font-size:0.68rem;font-weight:400;color:#ccc;margin-left:0.3rem;font-variant-numeric:tabular-nums}
+  .trabajo-prov{font-size:0.78rem;color:#555;margin-top:0.1rem}
+  .trabajo-prov span{font-weight:600;color:#333}
+  .trabajo-desc{font-size:0.78rem;color:#666;line-height:1.45;margin-top:0.1rem}
+  .trabajo-notes{font-size:0.72rem;color:#aaa;font-style:italic}
 
-  /* ── Proveedor ── */
-  .prov-row{display:flex;align-items:baseline;gap:1rem;margin-bottom:1.35rem}
+  /* Saldo — secondary */
+  .saldo{margin-bottom:0.5rem}
+  .section-lbl{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#ccc;margin-bottom:0.55rem}
+  .saldo-rows{display:flex;flex-direction:column;gap:0.28rem}
+  .saldo-row{display:flex;justify-content:space-between;align-items:baseline;font-size:0.78rem;color:#aaa}
+  .saldo-row span:last-child{font-weight:700;font-variant-numeric:tabular-nums;color:#888}
+  .saldo-row--highlight span{color:#555}
+  .saldo-row--highlight span:last-child{color:#111;font-size:0.86rem}
 
-  /* ── Amount ── */
-  .amount-wrap{display:flex;align-items:flex-start;gap:1.5rem;margin-bottom:0.25rem;flex-wrap:wrap}
-  .amount-box{border:2px solid #111;border-radius:12px;padding:1rem 1.5rem;min-width:175px}
-  .amount-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:0.3rem}
-  .amount-val{font-size:1.55rem;font-weight:900;color:#111;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1}
-  .amount-detail{display:flex;flex-direction:column;gap:0.35rem;padding-bottom:0.1rem}
-  .amount-row{display:flex;justify-content:space-between;gap:1.25rem;font-size:0.78rem;color:#666}
-  .amount-row span:last-child{font-weight:700;font-variant-numeric:tabular-nums}
-  .amount-row.pending span{color:#111;font-weight:700}
-
-  /* ── Pagos table ── */
-  .section-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:0.6rem}
-  .tbl{width:100%;border-collapse:collapse;font-size:0.78rem}
-  .tbl th{text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;font-size:0.6rem;color:#aaa;
-    padding:0.3rem 0.5rem;border-bottom:2px solid #111}
-  .tbl td{padding:0.42rem 0.5rem;color:#111;border-bottom:1px solid #f0f0f0;font-variant-numeric:tabular-nums}
+  /* Historial */
+  .tbl{width:100%;border-collapse:collapse;font-size:0.76rem}
+  .tbl th{text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;font-size:0.58rem;color:#bbb;
+    padding:0.28rem 0.5rem;border-bottom:1px solid #e8e8e8}
+  .tbl td{padding:0.38rem 0.5rem;color:#888;border-bottom:1px solid #f5f5f5;font-variant-numeric:tabular-nums}
   .tbl tr:last-child td{border-bottom:none}
-  .tr{text-align:right;font-weight:700}
+  .tr{text-align:right;font-weight:600}
 
-  /* ── Signatures ── */
+  /* Signatures */
   .sigs{display:grid;grid-template-columns:1fr 1fr;gap:3rem;margin:2rem 0 1rem}
   .sig-space{height:3rem}
   .sig-line{height:1px;background:#111;margin-bottom:0.5rem}
   .sig-name{font-size:0.82rem;font-weight:700;color:#111}
   .sig-role{font-size:0.68rem;color:#aaa;margin-top:0.1rem}
 
-  /* ── Footer ── */
-  .doc-foot{font-size:0.6rem;color:#ccc;text-align:center;padding-top:1rem;border-top:1px solid #f0f0f0;letter-spacing:0.03em}
+  .doc-foot{font-size:0.58rem;color:#ccc;text-align:center;padding-top:1rem;border-top:1px solid #f0f0f0;letter-spacing:0.03em}
 
-  /* ── Print ── */
   @media print{
     .bar{display:none!important}
     body{background:#fff}
@@ -646,55 +691,63 @@ export class ObraComponent implements OnInit {
 
   <div class="doc-head">
     <div>
-      <div class="brand-name">Brumelab Arch</div>
+      <img src="${logoUrl}" alt="Brumelab Arch" class="brand-logo" />
       <div class="brand-sub">Arquitectura · Diseño · Construcción</div>
     </div>
-    <div class="doc-right">
-      <div class="doc-type">Orden de Pago</div>
-      <div class="doc-num">N° ${num}</div>
+    <div class="doc-head-right">
+      <div class="doc-estado" style="color:${estadoColor}">${estadoTxt}</div>
+      <div class="doc-fecha">${fecha}</div>
+      ${this.projectName ? `<div class="doc-fecha" style="margin-top:0.15rem">${this.projectName}</div>` : ''}
     </div>
   </div>
 
   <hr class="line">
 
-  <div class="meta">
-    <div class="meta-item">
-      <span class="lbl">Fecha de emisión</span>
-      <span class="val">${fecha}</span>
+  ${lastPago ? `
+  <div class="pago-hero">
+    <div class="pago-hero__label">Este pago</div>
+    <div class="pago-hero__amount">${g.moneda} ${fmtM(lastPago.monto)}</div>
+    <div class="pago-hero__date">${lastFecha}</div>
+    ${lastPago.referencia ? `<div class="pago-hero__ref">${lastPago.referencia}</div>` : ''}
+    ${lastPago.notas ? `<div class="pago-hero__ref">${lastPago.notas}</div>` : ''}
+  </div>` : `
+  <div class="pago-hero">
+    <div class="pago-hero__label">Monto del gasto</div>
+    <div class="pago-hero__amount">${g.moneda} ${fmtM(g.monto)}</div>
+    <div class="pago-hero__date">${fecha}</div>
+  </div>`}
+
+  <div class="trabajo">
+    <div>
+      <span class="trabajo-nombre">${g.subrubroId.nombre}</span>
+      <span class="trabajo-code">${g.subrubroId.codigo}</span>
     </div>
-    ${this.projectName ? `<div class="meta-item"><span class="lbl">Proyecto</span><span class="val">${this.projectName}</span></div>` : ''}
-    <div class="meta-item">
-      <span class="lbl">Estado</span>
-      <span class="val" style="color:${estadoColor}">${estadoTxt}</span>
+    ${g.proveedorId ? `<div class="trabajo-prov">Proveedor · <span>${g.proveedorId.nombre}</span></div>` : ''}
+    ${g.descripcion ? `<div class="trabajo-desc">${g.descripcion}</div>` : ''}
+    ${g.notas ? `<div class="trabajo-notes">${g.notas}</div>` : ''}
+  </div>
+
+  <div class="saldo">
+    <div class="section-lbl">Resumen del gasto</div>
+    <div class="saldo-rows">
+      <div class="saldo-row saldo-row--highlight">
+        <span>Total presupuestado</span>
+        <span>${g.moneda} ${fmtM(g.monto)}</span>
+      </div>
+      ${totalPag > 0 ? `
+      <div class="saldo-row">
+        <span>Pagado acumulado</span>
+        <span>${g.moneda} ${fmtM(totalPag)}</span>
+      </div>` : ''}
+      ${restante > 0 ? `
+      <div class="saldo-row">
+        <span>Saldo pendiente</span>
+        <span>${g.moneda} ${fmtM(restante)}</span>
+      </div>` : ''}
     </div>
   </div>
 
-  <div class="concept">
-    <div class="lbl">Concepto</div>
-    <div class="concept-name">${g.subrubroId.nombre}<span class="concept-code">${g.subrubroId.codigo}</span></div>
-    ${g.descripcion ? `<div class="concept-desc">${g.descripcion}</div>` : ''}
-    ${g.notas ? `<div class="concept-notes">${g.notas}</div>` : ''}
-  </div>
-
-  ${g.proveedorId ? `
-  <div class="prov-row">
-    <span class="lbl">Proveedor</span>
-    <span class="val">${g.proveedorId.nombre}</span>
-  </div>` : ''}
-
-  <div class="amount-wrap">
-    <div class="amount-box">
-      <div class="amount-lbl">Monto total</div>
-      <div class="amount-val">${g.moneda} ${fmtM(g.monto)}</div>
-    </div>
-    ${estado !== 'sin_pago' ? `
-    <div class="amount-detail">
-      <div class="amount-row"><span>Pagado</span><span>${g.moneda} ${fmtM(totalPag)}</span></div>
-      ${estado !== 'pagado' ? `<div class="amount-row pending"><span>Saldo pendiente</span><span>${g.moneda} ${fmtM(restante)}</span></div>` : ''}
-    </div>` : ''}
-  </div>
-
-  ${pagosSection}
+  ${histSection}
 
   <hr class="sep">
 
@@ -736,7 +789,7 @@ export class ObraComponent implements OnInit {
     return {
       fecha:      this.todayISO(),
       monto:      null as any,
-      metodoPago: '' as MetodoPago | '',
+      metodoPago: 'efectivo' as MetodoPago | '',
       referencia: '',
       notas:      '',
       reservaId:  '',

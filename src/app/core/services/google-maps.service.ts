@@ -15,25 +15,34 @@ const API_KEY = environment.googleMapsApiKey;
 export class GoogleMapsService {
   private loaded = false;
   private loading = false;
-  private queue: Array<() => void> = [];
+  private queue: Array<{ resolve: () => void; reject: (e: unknown) => void }> = [];
 
   load(): Promise<void> {
     if (this.loaded) return Promise.resolve();
-    return new Promise((resolve) => {
-      this.queue.push(resolve);
+    return new Promise((resolve, reject) => {
+      this.queue.push({ resolve, reject });
       if (this.loading) return;
       this.loading = true;
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places&loading=async`;
       script.async = true;
       script.onload = async () => {
-        // With loading=async, importLibrary ensures the library is fully initialized
-        if ((google.maps as any).importLibrary) {
-          await (google.maps as any).importLibrary('places');
+        try {
+          if ((google.maps as any).importLibrary) {
+            await (google.maps as any).importLibrary('places');
+          }
+          this.loaded = true;
+          this.queue.forEach(({ resolve: res }) => res());
+        } catch (err) {
+          this.queue.forEach(({ reject: rej }) => rej(err));
+        } finally {
+          this.loading = false;
+          this.queue = [];
         }
-        this.loaded = true;
+      };
+      script.onerror = (err) => {
         this.loading = false;
-        this.queue.forEach(cb => cb());
+        this.queue.forEach(({ reject: rej }) => rej(err));
         this.queue = [];
       };
       document.head.appendChild(script);

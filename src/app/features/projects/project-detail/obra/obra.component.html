@@ -178,16 +178,14 @@
           <div class="obra-list__section-label">Gastos</div>
         }
         @for (g of gastos(); track g._id) {
-          <div class="obra-row obra-row--gasto" [class.obra-row--active]="selectedId() === g._id" (click)="select('gasto', g._id)">
-            <div class="obra-row__track">
-              <div class="obra-row__track-fill obra-row__track-fill--{{ estadoG(g) }}" [style.height.%]="pctPagado(g)"></div>
-            </div>
+          <div class="obra-row" [class.obra-row--active]="selectedId() === g._id" (click)="select('gasto', g._id)">
+            <span class="obra-row__dot obra-row__dot--gasto-{{ estadoG(g) }}"></span>
             <div class="obra-row__body">
               <span class="obra-row__name">{{ g.subrubroId.nombre }}</span>
               @if (g.proveedorId) { <span class="obra-row__meta">{{ g.proveedorId.nombre }}</span> }
             </div>
             <span class="obra-row__amount">{{ fmt(g.monto, g.moneda) }}</span>
-            <span class="obra-row__badge obra-row__badge--{{ estadoG(g) }}">
+            <span class="obra-row__badge obra-row__badge--gasto-{{ estadoG(g) }}">
               @if (estadoG(g) === 'sin_pago') { Sin pago }
               @if (estadoG(g) === 'parcial')  { Parcial }
               @if (estadoG(g) === 'pagado')   { Pagado }
@@ -425,49 +423,31 @@
         <!-- ── GASTO DETAIL ── -->
         @if (selectedGasto(); as g) {
 
-          <!-- Header: estado + cerrar -->
+          <!-- Header: cerrar -->
           <div class="dp-header">
-            <div class="dp-header__left">
+            <button class="detail-close" (click)="deselect()">×</button>
+          </div>
+
+          <!-- Identidad + estado inline -->
+          <div class="dp-identity">
+            <div class="dp-identity__header">
+              <div class="dp-identity__title">{{ g.subrubroId.nombre }}</div>
               <span class="detail-badge detail-badge--{{ estadoG(g) }}">
                 @if (estadoG(g) === 'sin_pago') { Sin pago }
                 @if (estadoG(g) === 'parcial')  { Parcial }
                 @if (estadoG(g) === 'pagado')   { Pagado }
               </span>
             </div>
-            <button class="detail-close" (click)="deselect()">×</button>
-          </div>
-
-          <!-- Identidad -->
-          <div class="dp-identity">
-            <div class="dp-identity__title">{{ g.subrubroId.nombre }}</div>
             @if (g.proveedorId) {
               <div class="dp-identity__sub">{{ g.proveedorId.nombre }}</div>
             }
           </div>
 
-          <!-- Bloque financiero -->
+          <!-- Monto total -->
           <div class="dp-financial">
             <div class="dp-financial__row">
               <span class="dp-financial__label">Total</span>
               <span class="dp-financial__amount">{{ fmt(g.monto, g.moneda) }}</span>
-            </div>
-            @if (estadoG(g) !== 'sin_pago') {
-              <div class="dp-financial__row">
-                <span class="dp-financial__label">Pagado</span>
-                <span class="dp-financial__value">{{ fmt(totalPagadoG(g), g.moneda) }}</span>
-              </div>
-            }
-            @if (estadoG(g) !== 'pagado') {
-              <div class="dp-financial__row dp-financial__row--accent">
-                <span class="dp-financial__label">Restante</span>
-                <span class="dp-financial__value">{{ fmt(restante(g), g.moneda) }}</span>
-              </div>
-            }
-            <div class="dp-progress">
-              <div class="dp-progress__bar">
-                <div class="dp-progress__fill dp-progress__fill--{{ estadoG(g) }}" [style.width.%]="pctPagado(g)"></div>
-              </div>
-              <span class="dp-progress__pct">{{ pctPagado(g) }}%</span>
             </div>
           </div>
 
@@ -526,27 +506,57 @@
             }
           </div>
 
-          <!-- Historial de pagos -->
+          <!-- Pagos -->
           <div class="dp-section">
             <div class="dp-section__title">
               Pagos @if (g.pagos.length) { <span class="count-chip">{{ g.pagos.length }}</span> }
             </div>
             @if (g.pagos.length) {
-              <div class="pagos-list">
-                @for (pago of g.pagos; track pago._id) {
-                  <div class="pago-row">
-                    <span class="pago-metodo">{{ metodoLabels[pago.metodoPago] }}</span>
-                    <div class="pago-row__info">
-                      @if (pago.referencia) { <span class="pago-ref">{{ pago.referencia }}</span> }
-                      @if (pago.notas)      { <span class="pago-nota">{{ pago.notas }}</span> }
-                      @if (pago.reservaId)  { <span class="pago-reserva-tag">↳ {{ reservaNombre(pago.reservaId) }}</span> }
-                    </div>
-                    <span class="pago-fecha">{{ fmtFecha(pago.fecha) }}</span>
-                    <span class="pago-monto">{{ fmt(pago.monto, g.moneda) }}</span>
-                    <button class="btn-icon btn-icon--del" (click)="deletePago(g, pago._id)" title="Eliminar">×</button>
+
+              <!-- Último pago destacado -->
+              <div class="pago-last">
+                <div class="pago-last__top">
+                  <span class="pago-last__label">Último pago</span>
+                  <span class="pago-last__fecha">{{ fmtFecha(g.pagos[g.pagos.length - 1].fecha) }}</span>
+                </div>
+                <div class="pago-last__bottom">
+                  <span class="pago-last__amount">{{ fmt(g.pagos[g.pagos.length - 1].monto, g.moneda) }}</span>
+                  <div class="pago-last__meta">
+                    @if (g.pagos[g.pagos.length - 1].referencia) {
+                      <span class="pago-ref">{{ g.pagos[g.pagos.length - 1].referencia }}</span>
+                    }
+                    @if (g.pagos[g.pagos.length - 1].notas) {
+                      <span class="pago-nota">{{ g.pagos[g.pagos.length - 1].notas }}</span>
+                    }
+                    @if (g.pagos[g.pagos.length - 1].reservaId) {
+                      <span class="pago-reserva-tag">↳ {{ reservaNombre(g.pagos[g.pagos.length - 1].reservaId!) }}</span>
+                    }
                   </div>
-                }
+                  <button class="btn-icon btn-icon--del" (click)="deletePago(g, g.pagos[g.pagos.length - 1]._id)" title="Eliminar">×</button>
+                </div>
               </div>
+
+              <!-- Historial anterior -->
+              @if (g.pagos.length > 1) {
+                <div class="pagos-history">
+                  <div class="pagos-history__label">Historial</div>
+                  <div class="pagos-list">
+                    @for (pago of g.pagos.slice(0, g.pagos.length - 1); track pago._id) {
+                      <div class="pago-row">
+                        <div class="pago-row__info">
+                          @if (pago.referencia) { <span class="pago-ref">{{ pago.referencia }}</span> }
+                          @if (pago.notas)      { <span class="pago-nota">{{ pago.notas }}</span> }
+                          @if (pago.reservaId)  { <span class="pago-reserva-tag">↳ {{ reservaNombre(pago.reservaId) }}</span> }
+                        </div>
+                        <span class="pago-fecha">{{ fmtFecha(pago.fecha) }}</span>
+                        <span class="pago-monto">{{ fmt(pago.monto, g.moneda) }}</span>
+                        <button class="btn-icon btn-icon--del" (click)="deletePago(g, pago._id)" title="Eliminar">×</button>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
             } @else {
               <span class="detail-empty-label">Sin pagos registrados</span>
             }
@@ -602,23 +612,6 @@
                         </select>
                       </div>
                     }
-                    <div class="field field--full">
-                      <label>Método de pago *</label>
-                      <div class="metodo-grid">
-                        @for (m of metodos; track m) {
-                          <label class="metodo-option" [class.metodo-option--active]="pagoForm.metodoPago === m">
-                            <input type="radio" [(ngModel)]="pagoForm.metodoPago" name="pf_metodo" [value]="m" hidden required />
-                            <span class="metodo-option__label">{{ metodoLabels[m] }}</span>
-                          </label>
-                        }
-                      </div>
-                    </div>
-                    @if (pagoForm.metodoPago && metodoHint[pagoForm.metodoPago]) {
-                      <div class="field">
-                        <label>{{ metodoHint[pagoForm.metodoPago] }}</label>
-                        <input [(ngModel)]="pagoForm.referencia" name="pf_ref" [placeholder]="metodoHint[pagoForm.metodoPago]" />
-                      </div>
-                    }
                     <div class="field">
                       <label>Notas</label>
                       <input [(ngModel)]="pagoForm.notas" name="pf_notas" placeholder="Opcional" />
@@ -627,7 +620,7 @@
                   @if (pagoError()) { <div class="pago-error"><span>⚠</span> {{ pagoError() }}</div> }
                   <div class="form-actions">
                     <button type="button" class="btn btn--ghost btn--sm" (click)="cancelPago()">Cancelar</button>
-                    <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingPago() || !pagoForm.metodoPago">
+                    <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingPago()">
                       {{ savingPago() ? 'Guardando…' : 'Registrar pago' }}
                     </button>
                   </div>
@@ -640,8 +633,67 @@
             </div>
           }
 
+          <!-- Formulario edición gasto -->
+          @if (editingGastoId() === g._id) {
+            <div class="dp-edit-form">
+              <div class="dp-edit-form__grid">
+                <div class="dp-field">
+                  <label>Monto</label>
+                  <div class="input-group">
+                    <select [(ngModel)]="editGastoForm.moneda" name="egMoneda" class="input-prefix">
+                      <option value="ARS">ARS</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                    <input type="number" [(ngModel)]="editGastoForm.monto" name="egMonto" min="0" />
+                  </div>
+                </div>
+                <div class="dp-field">
+                  <label>Fecha</label>
+                  <input type="date" [(ngModel)]="editGastoForm.fecha" name="egFecha" />
+                </div>
+                <div class="dp-field dp-field--full">
+                  <label>Descripción</label>
+                  <input [(ngModel)]="editGastoForm.descripcion" name="egDesc" placeholder="Opcional" />
+                </div>
+                <div class="dp-field dp-field--full">
+                  <label>Notas</label>
+                  <input [(ngModel)]="editGastoForm.notas" name="egNotas" placeholder="Opcional" />
+                </div>
+              </div>
+              <div class="dp-edit-form__actions">
+                <button class="btn btn--ghost btn--sm" (click)="cancelEditGasto()">Cancelar</button>
+                <button class="btn btn--primary btn--sm" (click)="saveEditGasto(g)" [disabled]="savingEditGasto()">
+                  {{ savingEditGasto() ? 'Guardando...' : 'Guardar cambios' }}
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Saldos (pagado / restante / progreso) -->
+          @if (estadoG(g) !== 'sin_pago') {
+            <div class="dp-balances">
+              <div class="dp-financial__row">
+                <span class="dp-financial__label">Pagado</span>
+                <span class="dp-financial__value">{{ fmt(totalPagadoG(g), g.moneda) }}</span>
+              </div>
+              @if (estadoG(g) !== 'pagado') {
+                <div class="dp-financial__row dp-financial__row--accent">
+                  <span class="dp-financial__label">Restante</span>
+                  <span class="dp-financial__value">{{ fmt(restante(g), g.moneda) }}</span>
+                </div>
+              }
+              <div class="dp-progress">
+                <div class="dp-progress__bar">
+                  <div class="dp-progress__fill dp-progress__fill--{{ estadoG(g) }}" [style.width.%]="pctPagado(g)"></div>
+                </div>
+                <span class="dp-progress__pct">{{ pctPagado(g) }}%</span>
+              </div>
+            </div>
+          }
+
           <!-- Barra de acciones -->
-          @if (activePagoGastoId() !== g._id) {
+          @if (activePagoGastoId() !== g._id && editingGastoId() !== g._id) {
             <div class="dp-actions">
               <div class="dp-actions__primary">
                 @if (estadoG(g) !== 'pagado') {
@@ -650,6 +702,7 @@
                 <button class="btn btn--ghost btn--sm" (click)="imprimirComprobante(g)">Imprimir comprobante</button>
               </div>
               <div class="dp-actions__utility">
+                <button class="btn-icon btn-icon--edit" (click)="startEditGasto(g)" title="Editar">✎</button>
                 <button class="btn-icon btn-icon--del" (click)="removeGasto(g)" title="Eliminar">×</button>
               </div>
             </div>

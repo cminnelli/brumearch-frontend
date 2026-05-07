@@ -1,0 +1,14 @@
+@if (svc.state(); as s) {
+  <div class="overlay" (click)="svc.respond(false)">
+    <div class="dialog" (click)="$event.stopPropagation()">
+      <h3 class="dialog__title">{{ s.title }}</h3>
+      <p class="dialog__message">{{ s.message }}</p>
+      <div class="dialog__actions">
+        <button class="btn-cancel" (click)="svc.respond(false)">Cancelar</button>
+        <button class="btn-confirm" [class.btn-confirm--danger]="s.danger" (click)="svc.respond(true)">
+          {{ s.confirmText }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

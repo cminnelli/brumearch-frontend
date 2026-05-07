@@ -152,7 +152,7 @@
 
       <div class="plan-modal__header">
         <span class="plan-modal__title">
-          {{ editIdx() === null ? 'Nueva fila de costo' : 'Editar · ' + (lineas()[editIdx()!]?.subrubroId?.nombre ?? '') }}
+          {{ editIdx() === null ? 'Nueva fila de costo' : 'Editar · ' + lineas()[editIdx()!].subrubroId.nombre }}
         </span>
         <button class="plan-modal__close" (click)="closePanel()">✕</button>
       </div>

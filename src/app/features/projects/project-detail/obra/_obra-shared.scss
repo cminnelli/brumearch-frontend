@@ -289,6 +289,44 @@
 
 .btn-del:hover { opacity: 1; }
 
+.btn-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+  padding: 0.2rem;
+}
+
+.btn-edit:hover { opacity: 1; }
+
+.btn-secondary {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--c-text-sub);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-family: var(--font);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  &:hover { border-color: var(--c-text); color: var(--c-text); }
+}
+
+.form-edit-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #92690a;
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 0.2rem 0.6rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.03em;
+}
+
 /* Empty state */
 .empty-state {
   text-align: center;

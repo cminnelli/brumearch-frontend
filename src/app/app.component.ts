@@ -4,11 +4,12 @@ import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
 import { AuthService } from './core/services/auth.service';
 import { ChatComponent } from './shared/components/chat/chat.component';
+import { ConfirmDialogComponent } from './shared/components/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, ChatComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, ChatComponent, ConfirmDialogComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })

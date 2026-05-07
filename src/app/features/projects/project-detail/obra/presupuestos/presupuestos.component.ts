@@ -36,6 +36,7 @@ export class PresupuestosComponent implements OnInit, OnChanges {
   proveedores  = signal<Proveedor[]>([]);
   showForm     = signal(false);
   saving       = signal(false);
+  editingId    = signal<string | null>(null);
 
   form = this.emptyForm();
 
@@ -56,7 +57,7 @@ export class PresupuestosComponent implements OnInit, OnChanges {
   onRubroChange() {
     this.form.subrubroId = '';
     this.subrubros.set(
-      this.allSubrubros().filter(s => s.rubroId._id === this.form.rubroId)
+      this.allSubrubros().filter(s => (s.rubroId as any)._id === this.form.rubroId)
     );
     this.proveedores.set([]);
   }
@@ -66,9 +67,62 @@ export class PresupuestosComponent implements OnInit, OnChanges {
     if (sid) this.provSvc.list(sid).subscribe((d) => this.proveedores.set(d));
   }
 
+  startEdit(item: Presupuesto) {
+    const sub = this.allSubrubros().find(s => s._id === item.subrubroId._id);
+    const rubroId = (sub?.rubroId as any)?._id ?? '';
+
+    this.form = {
+      ...this.emptyForm(),
+      rubroId,
+      subrubroId: item.subrubroId._id,
+      proveedorId: item.proveedorId?._id ?? '',
+      descripcion: item.descripcion ?? '',
+      monto: item.monto,
+      moneda: item.moneda,
+      notas: item.notas ?? '',
+    };
+
+    this.subrubros.set(
+      this.allSubrubros().filter(s => (s.rubroId as any)._id === rubroId)
+    );
+    if (item.subrubroId._id) {
+      this.provSvc.list(item.subrubroId._id).subscribe(d => this.proveedores.set(d));
+    }
+
+    this.editingId.set(item._id);
+    this.showForm.set(true);
+  }
+
+  cancelForm() {
+    this.form = this.emptyForm();
+    this.editingId.set(null);
+    this.showForm.set(false);
+  }
+
   save() {
     if (!this.form.subrubroId || !this.form.monto) return;
     this.saving.set(true);
+
+    if (this.editingId()) {
+      const data: any = {
+        subrubroId:  this.form.subrubroId,
+        monto:       this.form.monto,
+        moneda:      this.form.moneda,
+        proveedorId: this.form.proveedorId || null,
+        descripcion: this.form.descripcion,
+        notas:       this.form.notas,
+      };
+      this.svc.update(this.projectId, this.editingId()!, data).subscribe({
+        next: (item) => {
+          this.items.update((l) => l.map((x) => x._id === item._id ? item : x));
+          this.cancelForm();
+          this.saving.set(false);
+        },
+        error: () => this.saving.set(false),
+      });
+      return;
+    }
+
     const fd = new FormData();
     fd.append('subrubroId',  this.form.subrubroId);
     fd.append('monto',       String(this.form.monto));
@@ -81,8 +135,7 @@ export class PresupuestosComponent implements OnInit, OnChanges {
     this.svc.create(this.projectId, fd).subscribe({
       next: (item) => {
         this.items.update((l) => [item, ...l]);
-        this.form = this.emptyForm();
-        this.showForm.set(false);
+        this.cancelForm();
         this.saving.set(false);
       },
       error: () => this.saving.set(false),

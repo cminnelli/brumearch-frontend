@@ -78,6 +78,7 @@ export class ProvidersMapComponent implements AfterViewInit, OnChanges, OnDestro
 
   async ngAfterViewInit() {
     await this.gmaps.load();
+    if (!this.mapEl?.nativeElement) return;
     this.initMap();
     this.mapReady = true;
     this.renderMarkers();

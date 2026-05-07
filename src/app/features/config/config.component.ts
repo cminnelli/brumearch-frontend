@@ -379,22 +379,19 @@ export class ConfigComponent implements OnInit {
 
   // ── Direcciones ────────────────────────────────────────
   addFormDireccion() {
-    this.proveedorForm.direcciones.push({ label: '', address: '' });
+    this.proveedorForm.direcciones = [...this.proveedorForm.direcciones, { label: '', address: '' }];
   }
 
   removeFormDireccion(i: number) {
-    this.proveedorForm.direcciones.splice(i, 1);
+    this.proveedorForm.direcciones = this.proveedorForm.direcciones.filter((_: Direccion, idx: number) => idx !== i);
   }
 
   onFormDireccionChange(i: number, loc: MapLocation | null) {
-    if (loc) {
-      this.proveedorForm.direcciones[i] = {
-        label: this.proveedorForm.direcciones[i].label || '',
-        address: loc.address, lat: loc.lat, lng: loc.lng,
-      };
-    } else {
-      this.proveedorForm.direcciones[i] = { label: this.proveedorForm.direcciones[i].label || '', address: '' };
-    }
+    const dirs = [...this.proveedorForm.direcciones];
+    dirs[i] = loc
+      ? { label: dirs[i].label || '', address: loc.address, lat: loc.lat, lng: loc.lng }
+      : { label: dirs[i].label || '', address: '' };
+    this.proveedorForm.direcciones = dirs;
   }
 
   getFormDireccionLoc(i: number): MapLocation | null {
@@ -405,22 +402,19 @@ export class ConfigComponent implements OnInit {
 
   addDraftDireccion() {
     if (!this.draft.direcciones) this.draft.direcciones = [];
-    this.draft.direcciones.push({ label: '', address: '' });
+    this.draft.direcciones = [...this.draft.direcciones, { label: '', address: '' }];
   }
 
   removeDraftDireccion(i: number) {
-    this.draft.direcciones.splice(i, 1);
+    this.draft.direcciones = this.draft.direcciones.filter((_: Direccion, idx: number) => idx !== i);
   }
 
   onDraftDireccionChange(i: number, loc: MapLocation | null) {
-    if (loc) {
-      this.draft.direcciones[i] = {
-        label: this.draft.direcciones[i].label || '',
-        address: loc.address, lat: loc.lat, lng: loc.lng,
-      };
-    } else {
-      this.draft.direcciones[i] = { label: this.draft.direcciones[i].label || '', address: '' };
-    }
+    const dirs = [...this.draft.direcciones];
+    dirs[i] = loc
+      ? { label: dirs[i].label || '', address: loc.address, lat: loc.lat, lng: loc.lng }
+      : { label: dirs[i].label || '', address: '' };
+    this.draft.direcciones = dirs;
   }
 
   getDraftDireccionLoc(i: number): MapLocation | null {

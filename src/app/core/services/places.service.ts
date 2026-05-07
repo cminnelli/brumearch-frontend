@@ -120,9 +120,12 @@ export class PlacesService {
     try {
       const results = await this.searchNew(textQuery);
       if (results.length > 0) return results;
+    } catch { /* fallthrough to legacy */ }
+
+    try {
       return await this.searchLegacy(textQuery);
     } catch {
-      return this.searchLegacy(textQuery);
+      return [];
     }
   }
 

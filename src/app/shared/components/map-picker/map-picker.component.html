@@ -7,6 +7,7 @@
       type="text"
       placeholder="Buscar barrio, ciudad o dirección..."
       autocomplete="off"
+      (keydown.enter)="$event.preventDefault()"
     />
     @if (location()) {
       <button type="button" class="mp-clear" (click)="clear()" title="Limpiar">✕</button>
