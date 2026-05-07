@@ -1,0 +1,127 @@
+<div class="section">
+
+  <div class="section__header">
+    <div class="section__title">
+      <span>Presupuestos</span>
+      @if (items().length) {
+        <span class="count-pill">{{ items().length }}</span>
+      }
+    </div>
+    <div class="section__header-right">
+      @if (totalAprobado() > 0) {
+        <span class="total-chip">✓ ARS {{ totalAprobado() | arsNum }} aprobado</span>
+      }
+      <button class="btn-add" (click)="showForm.set(!showForm())">
+        {{ showForm() ? '✕ Cancelar' : '+ Agregar' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Formulario nuevo presupuesto -->
+  @if (showForm()) {
+    <form class="form-card" (ngSubmit)="save()">
+      <div class="form-grid">
+        <div class="field field--required">
+          <label>Rubro *</label>
+          <select [(ngModel)]="form.rubroId" name="rubroId" required (ngModelChange)="onRubroChange()">
+            <option value="">Seleccioná un rubro</option>
+            @for (r of rubros(); track r._id) {
+              <option [value]="r._id">{{ r.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="field field--required">
+          <label>Subrubro *</label>
+          <select [(ngModel)]="form.subrubroId" name="subrubroId" required (ngModelChange)="onSubrubroChange()" [disabled]="!form.rubroId">
+            <option value="">{{ form.rubroId ? 'Seleccioná un subrubro' : 'Primero elegí un rubro' }}</option>
+            @for (s of subrubros(); track s._id) {
+              <option [value]="s._id">{{ s.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label>Proveedor</label>
+          <select [(ngModel)]="form.proveedorId" name="proveedorId">
+            <option value="">Sin proveedor</option>
+            @for (p of proveedores(); track p._id) {
+              <option [value]="p._id">{{ p.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label>Descripción</label>
+          <input [(ngModel)]="form.descripcion" name="descripcion" placeholder="Ej: Hormigón H21 para losa" />
+        </div>
+        <div class="field field--required">
+          <label>Monto *</label>
+          <div class="input-group">
+            <select [(ngModel)]="form.moneda" name="moneda" class="input-prefix">
+              <option value="ARS">ARS</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+            <input type="number" [(ngModel)]="form.monto" name="monto" placeholder="0" min="0" required />
+          </div>
+        </div>
+        <div class="field">
+          <label>Archivos adjuntos</label>
+          <label class="file-btn">
+            📎 {{ form.archivos.length ? form.archivos.length + ' archivo(s)' : 'Seleccionar' }}
+            <input type="file" multiple hidden (change)="onFiles($event)"
+              accept=".pdf,.xlsx,.xls,.docx,.jpg,.png" />
+          </label>
+        </div>
+        <div class="field">
+          <label>Notas</label>
+          <input [(ngModel)]="form.notas" name="notas" placeholder="Opcional" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar presupuesto' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <!-- Lista -->
+  @if (items().length) {
+    <div class="list">
+      @for (item of items(); track item._id) {
+        <div class="item-card">
+          <div class="item-card__left">
+            <div class="item-meta">
+              <span class="item-subrubro">{{ item.subrubroId.nombre }}</span>
+              @if (item.proveedorId) {
+                <span class="item-proveedor">· {{ item.proveedorId.nombre }}</span>
+              }
+            </div>
+            @if (item.descripcion) {
+              <p class="item-desc">{{ item.descripcion }}</p>
+            }
+            @if (item.archivos.length) {
+              <div class="item-files">
+                @for (f of item.archivos; track f.filename) {
+                  <span class="file-chip">📎 {{ f.originalName }}</span>
+                }
+              </div>
+            }
+          </div>
+          <div class="item-card__right">
+            <span class="item-monto">{{ formatMonto(item.monto, item.moneda) }}</span>
+            <button class="estado-btn estado-btn--{{ item.estado }}" (click)="cycleEstado(item)" title="Click para cambiar estado">
+              {{ item.estado }}
+            </button>
+            <button class="btn-del" (click)="remove(item)" title="Eliminar">🗑️</button>
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (!showForm()) {
+    <div class="empty-state">
+      <p>Sin presupuestos cargados</p>
+      <button class="btn-add-empty" (click)="showForm.set(true)">+ Agregar el primero</button>
+    </div>
+  }
+
+</div>

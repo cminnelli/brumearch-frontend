@@ -1,0 +1,74 @@
+<!-- Botón flotante -->
+<button class="chat-fab" (click)="toggle()" [class.chat-fab--open]="isOpen()" title="Asistente IA">
+  @if (isOpen()) {
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  } @else {
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+  }
+</button>
+
+<!-- Panel de chat -->
+@if (isOpen()) {
+  <div class="chat-panel">
+    <div class="chat-panel__header">
+      <div class="chat-panel__title">
+        <span class="chat-panel__dot"></span>
+        <span>Brumelab AI</span>
+        @if (projectName()) {
+          <span class="chat-panel__context-badge" [title]="projectName()!">{{ projectName() }}</span>
+        }
+      </div>
+      <div class="chat-panel__actions">
+        <button class="chat-icon-btn" (click)="clearChat()" title="Nueva conversación">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+          </svg>
+        </button>
+        <button class="chat-icon-btn" (click)="toggle()" title="Cerrar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="chat-panel__messages">
+      @for (msg of messages(); track $index) {
+        <div class="chat-msg" [class.chat-msg--user]="msg.role === 'user'" [class.chat-msg--assistant]="msg.role === 'assistant'">
+          <div class="chat-msg__bubble" [innerHTML]="formatContent(msg.content)"></div>
+        </div>
+      }
+
+      @if (loading()) {
+        <div class="chat-msg chat-msg--assistant">
+          <div class="chat-msg__bubble chat-msg__bubble--typing">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      }
+
+      <div #messagesEnd></div>
+    </div>
+
+    <div class="chat-panel__input">
+      <textarea
+        [(ngModel)]="input"
+        (keydown)="onKeydown($event)"
+        placeholder="Preguntá sobre tus proyectos..."
+        rows="1"
+        [disabled]="loading()"
+      ></textarea>
+      <button class="chat-send-btn" (click)="send()" [disabled]="!input.trim() || loading()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+}

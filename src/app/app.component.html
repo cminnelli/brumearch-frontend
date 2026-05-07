@@ -1,0 +1,26 @@
+@if (showNav) {
+  <nav class="navbar">
+    <a class="navbar__brand" routerLink="/dashboard" aria-label="Brumelab Arch">
+      <img src="assets/logo brume vector2.png" alt="Brumelab Arch" class="navbar__logo" />
+    </a>
+    <ul class="navbar__links">
+      <li><a routerLink="/dashboard" routerLinkActive="active">Dashboard</a></li>
+      <li><a routerLink="/projects" routerLinkActive="active">Proyectos</a></li>
+      <li><a routerLink="/config" routerLinkActive="active">Configuración</a></li>
+      <li><a routerLink="/entorno" routerLinkActive="active">Entorno</a></li>
+    </ul>
+    <div class="navbar__user">
+      @if (auth.currentUser()) {
+        <span class="user-name">{{ auth.currentUser()!.name }}</span>
+      }
+      <button class="btn-logout" (click)="auth.logout()">Salir</button>
+    </div>
+  </nav>
+}
+<main [class.main-content]="showNav">
+  <router-outlet />
+</main>
+
+@if (showNav && auth.isAuthenticated) {
+  <app-chat />
+}

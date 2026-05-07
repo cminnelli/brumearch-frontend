@@ -1,0 +1,795 @@
+<div class="obra">
+
+  <!-- ─── TOOLBAR ──────────────────────────────────────── -->
+  <div class="obra-toolbar">
+    <div class="obra-filters">
+      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'todos'"       (click)="obraFilter.set('todos')">Todos</button>
+      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'cotizaciones'" (click)="obraFilter.set('cotizaciones')">
+        Cotizaciones @if (solicitudes().length) { <span class="obra-filter__badge">{{ solicitudes().length }}</span> }
+      </button>
+      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'pendiente'"   (click)="obraFilter.set('pendiente')">
+        Pendiente @if (presPendientes().length) { <span class="obra-filter__badge">{{ presPendientes().length }}</span> }
+      </button>
+      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'aprobado'"    (click)="obraFilter.set('aprobado')">
+        Aprobado @if (presAprobados().length) { <span class="obra-filter__badge">{{ presAprobados().length }}</span> }
+      </button>
+      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'rechazado'"   (click)="obraFilter.set('rechazado')">
+        Rechazado @if (presRechazados().length) { <span class="obra-filter__badge obra-filter__badge--muted">{{ presRechazados().length }}</span> }
+      </button>
+      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'gasto'"       (click)="obraFilter.set('gasto')">
+        Gastos @if (gastos().length) { <span class="obra-filter__badge">{{ gastos().length }}</span> }
+      </button>
+    </div>
+    <div class="obra-toolbar__actions">
+      @if (obraFilter() !== 'gasto') {
+        <button class="btn btn--ghost btn--sm" (click)="showSolicitudForm.set(!showSolicitudForm()); showPresForm.set(false)">
+          {{ showSolicitudForm() ? '✕ Cancelar' : '+ Cotización' }}
+        </button>
+        <button class="btn btn--primary btn--sm" (click)="showPresForm.set(!showPresForm()); showSolicitudForm.set(false)">
+          {{ showPresForm() ? '✕ Cancelar' : '+ Presupuesto' }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ─── NUEVA SOLICITUD FORM ─────────────────────────── -->
+  @if (showSolicitudForm()) {
+    <form class="obra-sheet" (ngSubmit)="saveSolicitud()">
+      <div class="obra-sheet__title">Nueva solicitud de cotización</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Rubro *</label>
+          <select [(ngModel)]="solicitudForm.rubroId" name="sq_rubro" required (ngModelChange)="onSolicitudRubroChange()">
+            <option value="">Seleccioná rubro</option>
+            @for (r of rubros(); track r._id) { <option [value]="r._id">{{ r.nombre }}</option> }
+          </select>
+        </div>
+        <div class="field">
+          <label>Subrubro *</label>
+          <select [(ngModel)]="solicitudForm.subrubroId" name="sq_sub" required [disabled]="!solicitudForm.rubroId">
+            <option value="">{{ solicitudForm.rubroId ? 'Seleccioná subrubro' : '← Primero rubro' }}</option>
+            @for (s of solicitudFormSubs(); track s._id) { <option [value]="s._id">{{ s.nombre }}</option> }
+          </select>
+        </div>
+        <div class="field field--full">
+          <label>Descripción del trabajo</label>
+          <input [(ngModel)]="solicitudForm.descripcion" name="sq_desc" placeholder="Ej: Pintura interior PB y PH, 2 manos…" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="showSolicitudForm.set(false)">Cancelar</button>
+        <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingSolicitud() || !solicitudForm.subrubroId">
+          {{ savingSolicitud() ? 'Guardando…' : 'Crear solicitud' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <!-- ─── NUEVO PRESUPUESTO FORM ───────────────────────── -->
+  @if (showPresForm()) {
+    <form class="obra-sheet" (ngSubmit)="savePres()">
+      <div class="obra-sheet__title">Nuevo presupuesto</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Rubro *</label>
+          <select [(ngModel)]="presForm.rubroId" name="pr_rubro" required (ngModelChange)="onPresRubroChange()">
+            <option value="">Seleccioná rubro</option>
+            @for (r of rubros(); track r._id) { <option [value]="r._id">{{ r.nombre }}</option> }
+          </select>
+        </div>
+        <div class="field">
+          <label>Subrubro *</label>
+          <select [(ngModel)]="presForm.subrubroId" name="pr_sub" required (ngModelChange)="onPresSubChange()" [disabled]="!presForm.rubroId">
+            <option value="">{{ presForm.rubroId ? 'Seleccioná subrubro' : '← Primero rubro' }}</option>
+            @for (s of presFormSubs(); track s._id) { <option [value]="s._id">{{ s.nombre }}</option> }
+          </select>
+        </div>
+        <div class="field">
+          <label>Proveedor</label>
+          <select [(ngModel)]="presForm.proveedorId" name="pr_prov">
+            <option value="">Sin proveedor</option>
+            @for (p of presFormProvs(); track p._id) { <option [value]="p._id">{{ p.nombre }}</option> }
+          </select>
+        </div>
+        <div class="field">
+          <label>Monto *</label>
+          <div class="input-group">
+            <select [(ngModel)]="presForm.moneda" name="pr_moneda" class="input-prefix">
+              <option value="ARS">ARS</option><option value="USD">USD</option><option value="EUR">EUR</option>
+            </select>
+            <input type="number" [(ngModel)]="presForm.monto" name="pr_monto" placeholder="0" min="0" required />
+          </div>
+        </div>
+        <div class="field field--full">
+          <label>Descripción</label>
+          <input [(ngModel)]="presForm.descripcion" name="pr_desc" placeholder="Mano de obra albañilería…" />
+        </div>
+        <div class="field field--full">
+          <label>Archivos</label>
+          <label class="file-btn">
+            ↑ {{ presForm.archivos.length ? presForm.archivos.length + ' archivo(s)' : 'Adjuntar PDF, planillas, imágenes…' }}
+            <input type="file" multiple hidden (change)="onPresFiles($event)" accept=".pdf,.xlsx,.xls,.docx,.jpg,.png" />
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="showPresForm.set(false)">Cancelar</button>
+        <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingPres()">
+          {{ savingPres() ? 'Guardando…' : 'Guardar presupuesto' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <!-- ─── MASTER / DETAIL SPLIT ────────────────────────── -->
+  <div class="obra-split" [class.obra-split--open]="selectedId()">
+
+    <!-- LIST PANE ─────────────────────────────────────── -->
+    <div class="obra-list-pane">
+
+      <!-- Solicitudes -->
+      @if (obraFilter() === 'todos' || obraFilter() === 'cotizaciones') {
+        @if (solicitudes().length) {
+          @if (obraFilter() === 'todos') {
+            <div class="obra-list__section-label">Cotizaciones</div>
+          }
+          @for (s of solicitudes(); track s._id) {
+            <div class="obra-row" [class.obra-row--active]="selectedId() === s._id" (click)="select('sol', s._id)">
+              <span class="obra-row__dot obra-row__dot--sol-{{ s.estado }}"></span>
+              <div class="obra-row__body">
+                <span class="obra-row__name">{{ s.subrubroId.nombre }}</span>
+                <span class="obra-row__meta">{{ s.cotizaciones.length }} cotizacion{{ s.cotizaciones.length !== 1 ? 'es' : '' }}</span>
+              </div>
+              <span class="obra-row__badge obra-row__badge--sol-{{ s.estado }}">
+                {{ s.estado === 'abierta' ? 'Abierta' : 'Cerrada' }}
+              </span>
+            </div>
+          }
+        }
+      }
+
+      <!-- Presupuestos -->
+      @if (obraFilter() !== 'gasto' && obraFilter() !== 'cotizaciones') {
+        @if (obraFilter() === 'todos' && presupuestos().length) {
+          <div class="obra-list__section-label">Presupuestos</div>
+        }
+        @for (p of presupuestos(); track p._id) {
+          @if (obraFilter() === 'todos' || obraFilter() === p.estado) {
+            <div class="obra-row" [class.obra-row--active]="selectedId() === p._id" (click)="select('pres', p._id)">
+              <span class="obra-row__dot obra-row__dot--pres-{{ p.estado }}"></span>
+              <div class="obra-row__body">
+                <span class="obra-row__name">{{ p.subrubroId.nombre }}</span>
+                @if (p.proveedorId) { <span class="obra-row__meta">{{ p.proveedorId.nombre }}</span> }
+              </div>
+              <span class="obra-row__amount">{{ fmt(p.monto, p.moneda) }}</span>
+              <span class="obra-row__badge obra-row__badge--pres-{{ p.estado }}">
+                @if (p.estado === 'pendiente') { Pendiente }
+                @if (p.estado === 'aprobado')  { Aprobado }
+                @if (p.estado === 'rechazado') { Rechazado }
+              </span>
+            </div>
+          }
+        }
+      }
+
+      <!-- Gastos -->
+      @if (obraFilter() === 'todos' || obraFilter() === 'gasto') {
+        @if (obraFilter() === 'todos' && gastos().length) {
+          <div class="obra-list__section-label">Gastos</div>
+        }
+        @for (g of gastos(); track g._id) {
+          <div class="obra-row obra-row--gasto" [class.obra-row--active]="selectedId() === g._id" (click)="select('gasto', g._id)">
+            <div class="obra-row__track">
+              <div class="obra-row__track-fill obra-row__track-fill--{{ estadoG(g) }}" [style.height.%]="pctPagado(g)"></div>
+            </div>
+            <div class="obra-row__body">
+              <span class="obra-row__name">{{ g.subrubroId.nombre }}</span>
+              @if (g.proveedorId) { <span class="obra-row__meta">{{ g.proveedorId.nombre }}</span> }
+            </div>
+            <span class="obra-row__amount">{{ fmt(g.monto, g.moneda) }}</span>
+            <span class="obra-row__badge obra-row__badge--{{ estadoG(g) }}">
+              @if (estadoG(g) === 'sin_pago') { Sin pago }
+              @if (estadoG(g) === 'parcial')  { Parcial }
+              @if (estadoG(g) === 'pagado')   { Pagado }
+            </span>
+          </div>
+        }
+      }
+
+      <!-- Empty state -->
+      @if (!presupuestos().length && !gastos().length && !solicitudes().length) {
+        <div class="obra-empty">
+          <p class="obra-empty__title">Sin elementos</p>
+          <p class="obra-empty__desc">Creá el primer presupuesto o pedí cotizaciones.</p>
+        </div>
+      }
+    </div>
+
+    <!-- DETAIL PANE ────────────────────────────────────── -->
+    @if (selectedId()) {
+      <div class="obra-detail-pane">
+
+        <!-- ── PRESUPUESTO DETAIL ── -->
+        @if (selectedPres(); as p) {
+
+          <!-- Header: estado + código + cerrar -->
+          <div class="dp-header">
+            <div class="dp-header__left">
+              <span class="detail-badge detail-badge--pres-{{ p.estado }}">
+                @if (p.estado === 'pendiente') { Pendiente }
+                @if (p.estado === 'aprobado')  { Aprobado }
+                @if (p.estado === 'rechazado') { Rechazado }
+              </span>
+              <span class="dp-code">{{ p.subrubroId.codigo }}</span>
+            </div>
+            <button class="detail-close" (click)="deselect()">×</button>
+          </div>
+
+          <!-- Identidad -->
+          <div class="dp-identity">
+            <div class="dp-identity__title">{{ p.subrubroId.nombre }}</div>
+            @if (p.proveedorId) {
+              <div class="dp-identity__sub">{{ p.proveedorId.nombre }}</div>
+            }
+          </div>
+
+          <!-- Monto hero -->
+          <div class="dp-hero">
+            <span class="dp-hero__amount">{{ fmt(p.monto, p.moneda) }}</span>
+          </div>
+
+          <!-- Meta strip -->
+          <div class="dp-meta">
+            @if (p.descripcion) {
+              <span class="dp-meta__item">{{ p.descripcion }}</span>
+              <span class="dp-meta__sep">·</span>
+            }
+            @if (p.notas) {
+              <span class="dp-meta__item dp-meta__item--muted">{{ p.notas }}</span>
+              <span class="dp-meta__sep">·</span>
+            }
+            <span class="dp-meta__item dp-meta__item--date">{{ fmtFecha(p.createdAt) }}</span>
+          </div>
+
+          <!-- Archivos -->
+          @if (p.archivos.length) {
+            <div class="dp-section">
+              <div class="dp-section__title">Archivos</div>
+              <div class="file-list">
+                @for (f of p.archivos; track f.filename) {
+                  <a class="file-card" [href]="fileUrl(f.filename)" target="_blank">
+                    <span class="file-card__icon">{{ fileIcon(f.mimetype) }}</span>
+                    <div class="file-card__body">
+                      <span class="file-card__name">{{ f.originalName }}</span>
+                      <span class="file-card__size">{{ fmtSize(f.size) }}</span>
+                    </div>
+                    <span class="file-card__arrow">↗</span>
+                  </a>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Formulario: editar -->
+          @if (editingPresId() === p._id) {
+            <div class="dp-form">
+              <div class="dp-form__title">Editar presupuesto</div>
+              <form (ngSubmit)="saveEditPres(p._id)">
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Monto *</label>
+                    <div class="input-group">
+                      <select [(ngModel)]="editPresForm.moneda" name="em_moneda" class="input-prefix">
+                        <option value="ARS">ARS</option><option value="USD">USD</option><option value="EUR">EUR</option>
+                      </select>
+                      <input type="number" [(ngModel)]="editPresForm.monto" name="em_monto" min="0" required />
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Proveedor</label>
+                    <select [(ngModel)]="editPresForm.proveedorId" name="em_prov">
+                      <option value="">Sin proveedor</option>
+                      @for (pv of editProvs(); track pv._id) { <option [value]="pv._id">{{ pv.nombre }}</option> }
+                    </select>
+                  </div>
+                  <div class="field field--full">
+                    <label>Descripción</label>
+                    <input [(ngModel)]="editPresForm.descripcion" name="em_desc" />
+                  </div>
+                  <div class="field field--full">
+                    <label>Notas</label>
+                    <input [(ngModel)]="editPresForm.notas" name="em_notas" />
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="cancelEditPres()">Cancelar</button>
+                  <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingEdit()">
+                    {{ savingEdit() ? 'Guardando…' : 'Guardar cambios' }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          }
+
+          <!-- Formulario: generar gasto -->
+          @if (generandoGastoPresId() === p._id) {
+            <div class="dp-form">
+              <div class="dp-form__title">Generar gasto · {{ fmt(p.monto, p.moneda) }}</div>
+              <form (ngSubmit)="confirmarGenerarGasto(p)">
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Fecha *</label>
+                    <input type="date" [(ngModel)]="generarGastoForm.fecha" name="gf_fecha" required />
+                  </div>
+                  <div class="field">
+                    <label>Factura / comprobante</label>
+                    <label class="file-btn">
+                      ↑ {{ generarGastoForm.comprobante ? generarGastoForm.comprobante.name : 'Adjuntar (opcional)' }}
+                      <input type="file" hidden (change)="onGenerarComprobante($event)" accept=".pdf,.xlsx,.xls,.jpg,.png" />
+                    </label>
+                  </div>
+                </div>
+                <div class="fuente-pago">
+                  <div class="fuente-pago__label">¿Cómo se paga?</div>
+                  <div class="fuente-pago__options">
+                    <label class="fuente-option" [class.fuente-option--active]="generarGastoForm.fuente === ''">
+                      <input type="radio" [(ngModel)]="generarGastoForm.fuente" name="gf_fuente" value="" hidden />
+                      <span class="fuente-option__title">Registrar después</span>
+                      <span class="fuente-option__sub">Solo crear el gasto</span>
+                    </label>
+                    @if (reservas().length) {
+                      <label class="fuente-option" [class.fuente-option--active]="generarGastoForm.fuente === 'reserva'">
+                        <input type="radio" [(ngModel)]="generarGastoForm.fuente" name="gf_fuente" value="reserva" hidden />
+                        <span class="fuente-option__title">Reserva de obra</span>
+                        <span class="fuente-option__sub">Debitar de un fondo</span>
+                      </label>
+                    }
+                    <label class="fuente-option" [class.fuente-option--active]="generarGastoForm.fuente === 'cliente'">
+                      <input type="radio" [(ngModel)]="generarGastoForm.fuente" name="gf_fuente" value="cliente" hidden />
+                      <span class="fuente-option__title">Pago del cliente</span>
+                      <span class="fuente-option__sub">El propietario paga</span>
+                    </label>
+                  </div>
+                  @if (generarGastoForm.fuente === 'reserva') {
+                    <div class="fuente-pago__detail">
+                      <div class="field">
+                        <label>Reserva *</label>
+                        <select [(ngModel)]="generarGastoForm.reservaId" name="gf_reserva" (ngModelChange)="generarError.set(null)">
+                          <option value="">Seleccioná reserva</option>
+                          @for (rv of reservas(); track rv._id) {
+                            <option [value]="rv._id">{{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label>Método *</label>
+                        <select [(ngModel)]="generarGastoForm.metodoPago" name="gf_metodo_r">
+                          <option value="">Método</option>
+                          @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
+                        </select>
+                      </div>
+                    </div>
+                  }
+                  @if (generarGastoForm.fuente === 'cliente') {
+                    <div class="fuente-pago__detail">
+                      <div class="field">
+                        <label>Método *</label>
+                        <select [(ngModel)]="generarGastoForm.metodoPago" name="gf_metodo_c">
+                          <option value="">Método</option>
+                          @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
+                        </select>
+                      </div>
+                    </div>
+                  }
+                </div>
+                @if (generarError()) { <div class="pago-error"><span>⚠</span> {{ generarError() }}</div> }
+                <div class="form-actions">
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="cancelGenerarGasto()">Cancelar</button>
+                  <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingGenerar()">
+                    {{ savingGenerar() ? 'Generando…' : 'Confirmar gasto' }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          }
+
+          <!-- Barra de acciones -->
+          @if (editingPresId() !== p._id && generandoGastoPresId() !== p._id) {
+            <div class="dp-actions">
+              <div class="dp-actions__primary">
+                @if (p.estado === 'pendiente') {
+                  <button class="btn btn--primary btn--sm" (click)="aprobar(p)">Aprobar</button>
+                  <button class="btn btn--ghost btn--sm" (click)="rechazar(p)">Rechazar</button>
+                }
+                @if (p.estado === 'rechazado') {
+                  <button class="btn btn--ghost btn--sm" (click)="reactivar(p)">Reactivar</button>
+                }
+                @if (p.estado === 'aprobado' && !tieneGasto(p._id)) {
+                  <button class="btn btn--primary btn--sm" (click)="startGenerarGasto(p)">Generar gasto</button>
+                }
+                @if (p.estado === 'aprobado' && tieneGasto(p._id)) {
+                  <span class="dp-linked">✓ Gasto generado</span>
+                }
+                @if (p.estado === 'aprobado') {
+                  <button class="btn btn--ghost btn--sm" (click)="rechazar(p)">Rechazar</button>
+                }
+              </div>
+              <div class="dp-actions__utility">
+                <button class="btn-icon" (click)="startEditPres(p)" title="Editar">✎</button>
+                <button class="btn-icon btn-icon--del" (click)="removePres(p)" title="Eliminar">×</button>
+              </div>
+            </div>
+          }
+        }
+
+        <!-- ── GASTO DETAIL ── -->
+        @if (selectedGasto(); as g) {
+
+          <!-- Header: estado + cerrar -->
+          <div class="dp-header">
+            <div class="dp-header__left">
+              <span class="detail-badge detail-badge--{{ estadoG(g) }}">
+                @if (estadoG(g) === 'sin_pago') { Sin pago }
+                @if (estadoG(g) === 'parcial')  { Parcial }
+                @if (estadoG(g) === 'pagado')   { Pagado }
+              </span>
+            </div>
+            <button class="detail-close" (click)="deselect()">×</button>
+          </div>
+
+          <!-- Identidad -->
+          <div class="dp-identity">
+            <div class="dp-identity__title">{{ g.subrubroId.nombre }}</div>
+            @if (g.proveedorId) {
+              <div class="dp-identity__sub">{{ g.proveedorId.nombre }}</div>
+            }
+          </div>
+
+          <!-- Bloque financiero -->
+          <div class="dp-financial">
+            <div class="dp-financial__row">
+              <span class="dp-financial__label">Total</span>
+              <span class="dp-financial__amount">{{ fmt(g.monto, g.moneda) }}</span>
+            </div>
+            @if (estadoG(g) !== 'sin_pago') {
+              <div class="dp-financial__row">
+                <span class="dp-financial__label">Pagado</span>
+                <span class="dp-financial__value">{{ fmt(totalPagadoG(g), g.moneda) }}</span>
+              </div>
+            }
+            @if (estadoG(g) !== 'pagado') {
+              <div class="dp-financial__row dp-financial__row--accent">
+                <span class="dp-financial__label">Restante</span>
+                <span class="dp-financial__value">{{ fmt(restante(g), g.moneda) }}</span>
+              </div>
+            }
+            <div class="dp-progress">
+              <div class="dp-progress__bar">
+                <div class="dp-progress__fill dp-progress__fill--{{ estadoG(g) }}" [style.width.%]="pctPagado(g)"></div>
+              </div>
+              <span class="dp-progress__pct">{{ pctPagado(g) }}%</span>
+            </div>
+          </div>
+
+          <!-- Meta strip -->
+          <div class="dp-meta">
+            <span class="dp-meta__item">{{ fmtFecha(g.fecha) }}</span>
+            @if (g.presupuestoId) {
+              <span class="dp-meta__sep">·</span>
+              <span class="dp-meta__item dp-meta__item--muted">Presup. {{ fmt(g.presupuestoId.monto, g.presupuestoId.moneda) }}</span>
+            }
+            @if (g.notas) {
+              <span class="dp-meta__sep">·</span>
+              <span class="dp-meta__item dp-meta__item--muted">{{ g.notas }}</span>
+            }
+          </div>
+
+          <!-- Comprobantes -->
+          <div class="dp-section">
+            <div class="dp-section__header">
+              <span class="dp-section__title">Comprobantes</span>
+              <label class="col-upload-btn" [class.col-upload-btn--loading]="uploadingComprobanteId() === g._id">
+                @if (uploadingComprobanteId() === g._id) { Subiendo... } @else { + Agregar }
+                <input type="file" hidden (change)="onAddComprobante(g, $event)"
+                       accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
+                       [disabled]="uploadingComprobanteId() === g._id" />
+              </label>
+            </div>
+            @if (g.comprobante || g.comprobantes?.length) {
+              <div class="file-list">
+                @if (g.comprobante) {
+                  <a class="file-card" [href]="fileUrl(g.comprobante.filename)" target="_blank">
+                    <span class="file-card__icon">{{ fileIcon(g.comprobante.mimetype) }}</span>
+                    <div class="file-card__body">
+                      <span class="file-card__name">{{ g.comprobante.originalName }}</span>
+                      <span class="file-card__size">{{ fmtSize(g.comprobante.size) }}</span>
+                    </div>
+                    <span class="file-card__arrow">↗</span>
+                  </a>
+                }
+                @for (c of g.comprobantes ?? []; track c.filename) {
+                  <div class="file-card file-card--deletable">
+                    <a [href]="fileUrl(c.filename)" target="_blank" class="file-card__link">
+                      <span class="file-card__icon">{{ fileIcon(c.mimetype) }}</span>
+                      <div class="file-card__body">
+                        <span class="file-card__name">{{ c.originalName }}</span>
+                        <span class="file-card__size">{{ fmtSize(c.size) }}</span>
+                      </div>
+                      <span class="file-card__arrow">↗</span>
+                    </a>
+                    <button class="file-card__del" (click)="removeComprobanteFile(g, c._id!)" title="Eliminar">×</button>
+                  </div>
+                }
+              </div>
+            } @else {
+              <span class="detail-empty-label">Sin comprobantes</span>
+            }
+          </div>
+
+          <!-- Historial de pagos -->
+          <div class="dp-section">
+            <div class="dp-section__title">
+              Pagos @if (g.pagos.length) { <span class="count-chip">{{ g.pagos.length }}</span> }
+            </div>
+            @if (g.pagos.length) {
+              <div class="pagos-list">
+                @for (pago of g.pagos; track pago._id) {
+                  <div class="pago-row">
+                    <span class="pago-metodo">{{ metodoLabels[pago.metodoPago] }}</span>
+                    <div class="pago-row__info">
+                      @if (pago.referencia) { <span class="pago-ref">{{ pago.referencia }}</span> }
+                      @if (pago.notas)      { <span class="pago-nota">{{ pago.notas }}</span> }
+                      @if (pago.reservaId)  { <span class="pago-reserva-tag">↳ {{ reservaNombre(pago.reservaId) }}</span> }
+                    </div>
+                    <span class="pago-fecha">{{ fmtFecha(pago.fecha) }}</span>
+                    <span class="pago-monto">{{ fmt(pago.monto, g.moneda) }}</span>
+                    <button class="btn-icon btn-icon--del" (click)="deletePago(g, pago._id)" title="Eliminar">×</button>
+                  </div>
+                }
+              </div>
+            } @else {
+              <span class="detail-empty-label">Sin pagos registrados</span>
+            }
+          </div>
+
+          <!-- Formulario: registrar pago -->
+          @if (activePagoGastoId() === g._id) {
+            <div class="dp-form">
+              <div class="dp-form__title">Registrar pago</div>
+              <form (ngSubmit)="savePago(g)">
+                <div class="fuente-pago">
+                  <div class="fuente-pago__options">
+                    <label class="fuente-option" [class.fuente-option--active]="pagoForm.fuente === ''">
+                      <input type="radio" [(ngModel)]="pagoForm.fuente" name="pf_fuente" value="" hidden (ngModelChange)="onPagoFuenteChange()" />
+                      <span class="fuente-option__title">Dejar para después</span>
+                      <span class="fuente-option__sub">Cerrar sin registrar</span>
+                    </label>
+                    @if (reservas().length) {
+                      <label class="fuente-option" [class.fuente-option--active]="pagoForm.fuente === 'reserva'">
+                        <input type="radio" [(ngModel)]="pagoForm.fuente" name="pf_fuente" value="reserva" hidden (ngModelChange)="onPagoFuenteChange()" />
+                        <span class="fuente-option__title">Reserva de obra</span>
+                        <span class="fuente-option__sub">Debitar de un fondo</span>
+                      </label>
+                    }
+                    <label class="fuente-option" [class.fuente-option--active]="pagoForm.fuente === 'cliente'">
+                      <input type="radio" [(ngModel)]="pagoForm.fuente" name="pf_fuente" value="cliente" hidden (ngModelChange)="onPagoFuenteChange()" />
+                      <span class="fuente-option__title">Pago del cliente</span>
+                      <span class="fuente-option__sub">El propietario paga</span>
+                    </label>
+                  </div>
+                </div>
+                @if (pagoForm.fuente !== '') {
+                  <div class="form-grid">
+                    <div class="field">
+                      <label>Fecha *</label>
+                      <input type="date" [(ngModel)]="pagoForm.fecha" name="pf_fecha" required />
+                    </div>
+                    <div class="field">
+                      <label>Monto *</label>
+                      <div class="input-group">
+                        <span class="input-prefix-static">{{ g.moneda }}</span>
+                        <input type="number" [(ngModel)]="pagoForm.monto" name="pf_monto" placeholder="0" min="0" required (ngModelChange)="pagoError.set(null)" />
+                      </div>
+                    </div>
+                    @if (pagoForm.fuente === 'reserva') {
+                      <div class="field field--full">
+                        <label>Reserva *</label>
+                        <select [(ngModel)]="pagoForm.reservaId" name="pf_reserva" (ngModelChange)="pagoError.set(null)">
+                          <option value="">Seleccioná reserva</option>
+                          @for (rv of reservas(); track rv._id) {
+                            <option [value]="rv._id">{{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option>
+                          }
+                        </select>
+                      </div>
+                    }
+                    <div class="field field--full">
+                      <label>Método de pago *</label>
+                      <div class="metodo-grid">
+                        @for (m of metodos; track m) {
+                          <label class="metodo-option" [class.metodo-option--active]="pagoForm.metodoPago === m">
+                            <input type="radio" [(ngModel)]="pagoForm.metodoPago" name="pf_metodo" [value]="m" hidden required />
+                            <span class="metodo-option__label">{{ metodoLabels[m] }}</span>
+                          </label>
+                        }
+                      </div>
+                    </div>
+                    @if (pagoForm.metodoPago && metodoHint[pagoForm.metodoPago]) {
+                      <div class="field">
+                        <label>{{ metodoHint[pagoForm.metodoPago] }}</label>
+                        <input [(ngModel)]="pagoForm.referencia" name="pf_ref" [placeholder]="metodoHint[pagoForm.metodoPago]" />
+                      </div>
+                    }
+                    <div class="field">
+                      <label>Notas</label>
+                      <input [(ngModel)]="pagoForm.notas" name="pf_notas" placeholder="Opcional" />
+                    </div>
+                  </div>
+                  @if (pagoError()) { <div class="pago-error"><span>⚠</span> {{ pagoError() }}</div> }
+                  <div class="form-actions">
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="cancelPago()">Cancelar</button>
+                    <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingPago() || !pagoForm.metodoPago">
+                      {{ savingPago() ? 'Guardando…' : 'Registrar pago' }}
+                    </button>
+                  </div>
+                } @else {
+                  <div class="form-actions">
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="cancelPago()">Cerrar</button>
+                  </div>
+                }
+              </form>
+            </div>
+          }
+
+          <!-- Barra de acciones -->
+          @if (activePagoGastoId() !== g._id) {
+            <div class="dp-actions">
+              <div class="dp-actions__primary">
+                @if (estadoG(g) !== 'pagado') {
+                  <button class="btn btn--primary btn--sm" (click)="openPagoForm(g)">+ Registrar pago</button>
+                }
+              </div>
+              <div class="dp-actions__utility">
+                <button class="btn-icon btn-icon--del" (click)="removeGasto(g)" title="Eliminar">×</button>
+              </div>
+            </div>
+          }
+        }
+
+        <!-- ── SOLICITUD DETAIL ── -->
+        @if (selectedSol(); as s) {
+          <div class="detail-header">
+            <div class="detail-header__left">
+              <span class="detail-badge detail-badge--sol-{{ s.estado }}">
+                {{ s.estado === 'abierta' ? 'Abierta' : 'Cerrada' }}
+              </span>
+            </div>
+            <button class="detail-close" (click)="deselect()">×</button>
+          </div>
+
+          <div class="detail-title">{{ s.subrubroId.nombre }}</div>
+
+          @if (s.descripcion) {
+            <div class="detail-kv">
+              <div class="detail-kv__row">
+                <span class="detail-kv__k">Descripción</span>
+                <span class="detail-kv__v">{{ s.descripcion }}</span>
+              </div>
+            </div>
+          }
+
+          <!-- Comparison cards -->
+          <div class="detail-section">
+            <div class="detail-section__header">
+              <span class="detail-section__label">Cotizaciones ({{ s.cotizaciones.length }})</span>
+              <div class="detail-section__actions">
+                @if (s.cotizaciones.length >= 2) {
+                  <button class="btn-ia" (click)="analizarConIA(s)" title="Prepara los datos para análisis IA">
+                    ✦ Analizar con IA
+                  </button>
+                }
+                @if (s.estado === 'abierta' && addingCotizacionId() !== s._id) {
+                  <button class="btn btn--ghost btn--sm" (click)="openAddCotizacion(s)">+ Agregar</button>
+                }
+              </div>
+            </div>
+
+            @if (s.cotizaciones.length) {
+              <div class="cot-cards-row">
+                @for (c of s.cotizaciones; track c._id) {
+                  <div class="cot-card" [class.cot-card--selected]="c.seleccionada">
+                    @if (c.seleccionada) { <div class="cot-card__winner">★ Seleccionada</div> }
+
+                    <div class="cot-card__prov">{{ c.proveedorId?.nombre ?? 'Sin proveedor' }}</div>
+                    <div class="cot-card__price">{{ c.monto != null ? fmt(c.monto, c.moneda) : '—' }}</div>
+
+                    <div class="cot-card__tags">
+                      @if (c.plazo) {
+                        <span class="cot-tag cot-tag--plazo">⏱ {{ c.plazo }}</span>
+                      }
+                      @if (c.condiciones) {
+                        <span class="cot-tag cot-tag--cond">💳 {{ c.condiciones }}</span>
+                      }
+                    </div>
+
+                    @if (c.archivos.length) {
+                      <div class="cot-card__files">
+                        @for (f of c.archivos; track f.filename) {
+                          <a [href]="fileUrl(f.filename)" target="_blank" class="cot-card__file">
+                            {{ fileIcon(f.mimetype) }} {{ f.originalName }}
+                          </a>
+                        }
+                      </div>
+                    }
+                    @if (c.notas) { <div class="cot-card__notas">{{ c.notas }}</div> }
+
+                    <div class="cot-card__actions">
+                      @if (s.estado === 'abierta' && !c.seleccionada) {
+                        <button class="btn btn--primary btn--sm" (click)="seleccionar(s, c._id)">Seleccionar</button>
+                        <button class="btn-icon btn-icon--del" (click)="removeCotizacion(s, c._id)" title="Eliminar">×</button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <span class="detail-empty-label">Sin cotizaciones. Agregá la primera.</span>
+            }
+
+            <!-- Add cotización form -->
+            @if (addingCotizacionId() === s._id) {
+              <form class="cot-add-form" (ngSubmit)="saveAddCotizacion(s)">
+                <div class="cot-add-form__title">Nueva cotización</div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label>Proveedor</label>
+                    <select [(ngModel)]="cotizacionForm.proveedorId" name="cq_prov">
+                      <option value="">Sin proveedor</option>
+                      @for (pv of cotizacionForm.provs; track pv._id) { <option [value]="pv._id">{{ pv.nombre }}</option> }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Monto</label>
+                    <div class="input-group">
+                      <select [(ngModel)]="cotizacionForm.moneda" name="cq_moneda" class="input-prefix">
+                        <option value="ARS">ARS</option><option value="USD">USD</option><option value="EUR">EUR</option>
+                      </select>
+                      <input type="number" [(ngModel)]="cotizacionForm.monto" name="cq_monto" placeholder="0" min="0" />
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Plazo de ejecución</label>
+                    <input [(ngModel)]="cotizacionForm.plazo" name="cq_plazo" placeholder="Ej: 45 días, 3 semanas" />
+                  </div>
+                  <div class="field">
+                    <label>Condiciones de pago</label>
+                    <input [(ngModel)]="cotizacionForm.condiciones" name="cq_cond" placeholder="Ej: 50% anticipo, saldo al finalizar" />
+                  </div>
+                  <div class="field">
+                    <label>Documentos</label>
+                    <label class="file-btn">
+                      ↑ {{ cotizacionForm.archivos.length ? cotizacionForm.archivos.length + ' archivo(s)' : 'Adjuntar PDF / imagen…' }}
+                      <input type="file" multiple hidden (change)="onCotizacionFiles($event)" accept=".pdf,.xlsx,.xls,.docx,.jpg,.png" />
+                    </label>
+                  </div>
+                  <div class="field">
+                    <label>Notas</label>
+                    <input [(ngModel)]="cotizacionForm.notas" name="cq_notas" placeholder="Observaciones adicionales…" />
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="cancelAddCotizacion()">Cancelar</button>
+                  <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingCotizacion()">
+                    {{ savingCotizacion() ? 'Guardando…' : 'Agregar' }}
+                  </button>
+                </div>
+              </form>
+            }
+          </div>
+        }
+
+      </div>
+    }
+
+  </div>
+
+</div>

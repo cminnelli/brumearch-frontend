@@ -1,0 +1,22 @@
+<div class="mp">
+  <div class="mp-row">
+    <span class="mp-pin">📍</span>
+    <input
+      #addrInput
+      class="mp-input"
+      type="text"
+      placeholder="Buscar barrio, ciudad o dirección..."
+      autocomplete="off"
+    />
+    @if (location()) {
+      <button type="button" class="mp-clear" (click)="clear()" title="Limpiar">✕</button>
+    }
+  </div>
+
+  @if (location()) {
+    <div class="mp-result">
+      <span class="mp-addr">{{ location()!.address }}</span>
+      <a class="mp-map-icon" [href]="mapsLink()" target="_blank" rel="noopener noreferrer" title="Abrir en Google Maps">↗</a>
+    </div>
+  }
+</div>

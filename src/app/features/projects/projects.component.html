@@ -1,0 +1,218 @@
+<div class="projects">
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <h1 class="page-header__title">Proyectos</h1>
+      <p class="page-header__desc">
+        {{ projects().length }} obra{{ projects().length !== 1 ? 's' : '' }} registrada{{ projects().length !== 1 ? 's' : '' }}
+      </p>
+    </div>
+    <button class="btn btn--primary" (click)="toggleForm()">
+      {{ showForm() ? 'Cancelar' : '+ Nuevo proyecto' }}
+    </button>
+  </header>
+
+  <!-- Form nuevo proyecto -->
+  @if (showForm()) {
+    <form class="proj-form" (ngSubmit)="create()">
+      <div class="proj-form__label">Nuevo proyecto</div>
+
+      <div class="proj-form__grid">
+        <!-- Datos básicos -->
+        <div class="proj-form__col">
+          <div class="section-label">Datos básicos</div>
+
+          <div class="field">
+            <label>Nombre *</label>
+            <input [(ngModel)]="form.name" name="name" placeholder="Ej: Proyecto Sofía" required />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Tipo</label>
+              <select [(ngModel)]="form.type" name="type">
+                @for (opt of typeOptions; track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label>Estado</label>
+              <select [(ngModel)]="form.status" name="status">
+                @for (opt of statusOptions; track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Cliente</label>
+            <input [(ngModel)]="form.client" name="client" placeholder="Nombre del comitente" />
+          </div>
+          <div class="field">
+            <label>Descripción</label>
+            <textarea [(ngModel)]="form.description" name="description" placeholder="Breve descripción" rows="2"></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Inicio</label>
+              <input type="date" [(ngModel)]="form.startDate" name="startDate" />
+            </div>
+            <div class="field">
+              <label>Fin estimado</label>
+              <input type="date" [(ngModel)]="form.endDate" name="endDate" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Ubicación + métricas -->
+        <div class="proj-form__col">
+          <div class="section-label">Ubicación</div>
+
+          <div class="addr-mode-toggle">
+            <button type="button" class="addr-mode-btn" [class.addr-mode-btn--active]="addressMode() === 'maps'" (click)="addressMode.set('maps')">Buscar en Google Maps</button>
+            <button type="button" class="addr-mode-btn" [class.addr-mode-btn--active]="addressMode() === 'manual'" (click)="addressMode.set('manual')">Manual</button>
+          </div>
+
+          @if (addressMode() === 'maps') {
+            <app-address-search (addressSelected)="onAddressSelected($event)" />
+            <p class="addr-hint">Los campos se completan automáticamente. Podés editar manualmente.</p>
+          }
+
+          <div class="field">
+            <label>Dirección</label>
+            <input [(ngModel)]="form.address" name="address" placeholder="Calle y número" />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Barrio</label>
+              <input [(ngModel)]="form.neighborhood" name="neighborhood" placeholder="Barrio Arenales" />
+            </div>
+            <div class="field">
+              <label>Ciudad</label>
+              <input [(ngModel)]="form.city" name="city" placeholder="Rosario" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Provincia</label>
+              <input [(ngModel)]="form.province" name="province" placeholder="Buenos Aires" />
+            </div>
+            <div class="field">
+              <label>País</label>
+              <input [(ngModel)]="form.country" name="country" placeholder="Argentina" />
+            </div>
+          </div>
+
+          <div class="section-label" style="margin-top: var(--sp-3)">Métricas</div>
+
+          <div class="field-row">
+            <div class="field">
+              <label>Pisos</label>
+              <input type="number" [(ngModel)]="form.floors" name="floors" placeholder="0" min="0" />
+            </div>
+            <div class="field">
+              <label>Subsuelos</label>
+              <input type="number" [(ngModel)]="form.basements" name="basements" placeholder="0" min="0" />
+            </div>
+            <div class="field">
+              <label>Unidades</label>
+              <input type="number" [(ngModel)]="form.units" name="units" placeholder="0" min="0" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Terreno (m²)</label>
+              <input type="number" [(ngModel)]="form.lotSurface" name="lotSurface" placeholder="0" min="0" />
+            </div>
+            <div class="field">
+              <label>Construido (m²)</label>
+              <input type="number" [(ngModel)]="form.builtSurface" name="builtSurface" placeholder="0" min="0" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Presupuesto</label>
+              <input type="number" [(ngModel)]="form.budgetEstimated" name="budgetEstimated" placeholder="0" min="0" />
+            </div>
+            <div class="field">
+              <label>Moneda</label>
+              <select [(ngModel)]="form.budgetCurrency" name="budgetCurrency">
+                <option value="USD">USD</option>
+                <option value="ARS">ARS</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proj-form__actions">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="toggleForm()">Cancelar</button>
+        <button type="submit" class="btn btn--primary">Guardar proyecto</button>
+      </div>
+    </form>
+  }
+
+  <!-- Grid de proyectos -->
+  @if (projects().length === 0 && !showForm()) {
+    <div class="empty-state">
+      <p class="empty-state__title">Sin proyectos</p>
+      <p class="empty-state__desc">Creá tu primer proyecto para comenzar a gestionar obras</p>
+      <button class="btn btn--primary" (click)="toggleForm()">+ Nuevo proyecto</button>
+    </div>
+  }
+
+  @if (projects().length > 0 || showForm()) {
+    <div class="project-list">
+      @for (project of projects(); track project._id) {
+        <div class="project-card" [routerLink]="['/projects', project._id]">
+          <div class="project-card__meta">
+            <span class="project-card__type">{{ typeLabel(project.type) }}</span>
+            <span class="project-card__badge project-card__badge--{{ project.status }}">{{ statusLabel(project.status) }}</span>
+          </div>
+
+          <h2 class="project-card__name">{{ project.name }}</h2>
+
+          @if (project.owner?.name) {
+            <p class="project-card__client">{{ project.owner!.name }}</p>
+          }
+
+          @if (project.location?.city || project.location?.neighborhood) {
+            <p class="project-card__location">{{ locationStr(project) }}</p>
+          }
+
+          @if (project.features?.levels || project.features?.surface) {
+            <div class="project-card__metrics">
+              @if (project.features?.levels) {
+                <span class="project-card__metric">{{ project.features!.levels }} niveles</span>
+              }
+              @if (project.features?.surface) {
+                <span class="project-card__metric">{{ project.features!.surface }} m²</span>
+              }
+              @if (project.features?.units) {
+                <span class="project-card__metric">{{ project.features!.units }} unid.</span>
+              }
+            </div>
+          }
+
+          <div class="project-card__footer">
+            @if ((docsMap()[project._id]?.length ?? 0) > 0) {
+              <span class="project-card__docs">{{ docsMap()[project._id]!.length }} doc{{ docsMap()[project._id]!.length !== 1 ? 's' : '' }}</span>
+            }
+            <span class="project-card__arrow">→</span>
+          </div>
+        </div>
+      }
+
+      <!-- Tarjeta "+" nuevo proyecto -->
+      @if (!showForm()) {
+        <div class="project-card project-card--new" (click)="toggleForm()">
+          <span class="project-card__new-icon">+</span>
+          <span class="project-card__new-label">Nuevo proyecto</span>
+        </div>
+      }
+    </div>
+  }
+
+</div>

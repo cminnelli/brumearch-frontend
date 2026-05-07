@@ -1,0 +1,267 @@
+<div class="plan">
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <div class="plan-header">
+    <div class="plan-header__left">
+      <p class="section-label">Planificación de costos</p>
+      @if (grandTotal() > 0) {
+        <span class="plan-total-badge">ARS {{ fmt(grandTotal()) }}</span>
+      }
+    </div>
+    <div class="plan-header__actions">
+      <button class="btn btn--ghost btn--sm" (click)="openAdd()">+ Agregar concepto</button>
+      @if (grandTotal() > 0) {
+        <button class="btn btn--ghost btn--sm" (click)="exportPdf()" title="Exportar PDF">↓ PDF</button>
+      }
+      @if (dirty()) {
+        <button class="btn btn--primary btn--sm" (click)="save()" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar' }}
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="skeleton" style="height:220px; border-radius: var(--radius-lg)"></div>
+
+  } @else if (etapas().length === 0) {
+    <div class="plan-empty">
+      <p>Sin etapas configuradas.</p>
+      <p class="plan-empty__hint">Agregá etapas en <strong>Configuración → Etapas</strong> para comenzar a planificar.</p>
+    </div>
+
+  } @else {
+
+    <!-- ── Grid ───────────────────────────────────────────── -->
+    <div class="plan-scroll">
+      <table class="plan-table">
+
+        <!-- Una columna por concepto/linea -->
+        <thead>
+          <tr>
+            <th class="plan-th plan-th--week-label plan-th--sticky">Semana</th>
+            @for (l of lineas(); track $index; let li = $index) {
+              <th class="plan-th plan-th--linea-col"
+                  [class.plan-th--active-col]="editIdx() === li && panelOpen()">
+                <div class="plan-th-linea">
+                  <div class="plan-th-linea__info">
+                    <span class="plan-th-linea__sub">{{ l.subrubroId.nombre }}</span>
+                    @if (l.concepto) {
+                      <span class="plan-th-linea__concepto">{{ l.concepto }}</span>
+                    }
+                    @if (l.subrubroId.rubroId) {
+                      <span class="plan-th-linea__rubro">{{ l.subrubroId.rubroId.nombre }}</span>
+                    }
+                  </div>
+                  <div class="plan-th-linea__btns">
+                    <button class="plan-th-linea__btn" title="Editar" (click)="openEdit(li)">✎</button>
+                    <button class="plan-th-linea__btn plan-th-linea__btn--del" title="Eliminar" (click)="removeLinea(li)">×</button>
+                  </div>
+                </div>
+              </th>
+            }
+            @if (lineas().length === 0) {
+              <th class="plan-th plan-th--linea-empty">
+                <span>Agregá un concepto →</span>
+              </th>
+            }
+            <th class="plan-th plan-th--total plan-th--sticky-right">Total</th>
+          </tr>
+        </thead>
+
+        <!-- Una fila por semana, con separadores de etapa -->
+        <tbody>
+          @for (row of tableRows(); track $index) {
+            @if (row.kind === 'etapa') {
+              <tr class="plan-row--etapa">
+                <td [attr.colspan]="lineas().length + 2" class="plan-td plan-td--etapa-sep">
+                  {{ row.nombre }}
+                  @if (row.undated) { <span class="plan-badge-nofecha">sin fechas</span> }
+                </td>
+              </tr>
+            } @else {
+              <tr class="plan-row">
+                <td class="plan-td plan-td--week plan-td--sticky"
+                    [class.plan-td--undated]="row.undated">
+                  @if (!row.undated) {
+                    <span class="plan-week-cell__sem">S{{ row.semana }}</span>
+                    <span class="plan-week-cell__date">{{ row.label }}</span>
+                  } @else {
+                    <span class="plan-week-cell__sem">—</span>
+                  }
+                </td>
+                @for (l of lineas(); track $index; let li = $index) {
+                  <td class="plan-td plan-td--cell"
+                      [class.plan-td--undated]="row.undated"
+                      [class.plan-td--filled]="getCell(li, row.semana) > 0"
+                      [class.plan-td--active-col]="editIdx() === li && panelOpen()">
+                    @if (!row.undated) {
+                      <input class="plan-cell-input" type="text" inputmode="decimal"
+                             [value]="getCell(li, row.semana) > 0 ? fmt(getCell(li, row.semana)) : ''"
+                             placeholder=""
+                             (focus)="$any($event.target).select()"
+                             (change)="setCell(li, row.semana, $any($event.target).value);
+                                       $any($event.target).value = getCell(li, row.semana) > 0 ? fmt(getCell(li, row.semana)) : ''"
+                             (click)="$event.stopPropagation()" />
+                    }
+                  </td>
+                }
+                <td class="plan-td plan-td--row-total plan-td--sticky-right">
+                  {{ fmt(colTotal(row.semana)) || '—' }}
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+
+        <tfoot>
+          <tr class="plan-tfoot">
+            <td class="plan-td plan-td--foot-label plan-td--sticky">TOTAL</td>
+            @for (l of lineas(); track $index; let li = $index) {
+              <td class="plan-td plan-td--foot-cell"
+                  [class.plan-td--filled]="rowTotal(li) > 0">
+                {{ fmt(rowTotal(li)) }}
+              </td>
+            }
+            @if (lineas().length === 0) {
+              <td class="plan-td plan-td--foot-cell"></td>
+            }
+            <td class="plan-td plan-td--foot-grand plan-td--sticky-right">
+              {{ fmt(grandTotal()) || '—' }}
+            </td>
+          </tr>
+        </tfoot>
+
+      </table>
+    </div>
+
+    @if (etapasConFechas().length < etapas().length) {
+      <p class="plan-hint">
+        Las etapas sin fechas aparecen en gris. Configurá inicio y duración en <strong>Configuración → Etapas</strong>.
+      </p>
+    }
+
+  }
+
+</div>
+
+<!-- ── Modal agregar / editar (fuera del flow) ──────────── -->
+@if (panelOpen()) {
+  <div class="plan-modal-backdrop" (click)="closePanel()">
+    <div class="plan-modal" (click)="$event.stopPropagation()">
+
+      <div class="plan-modal__header">
+        <span class="plan-modal__title">
+          {{ editIdx() === null ? 'Nueva fila de costo' : 'Editar · ' + (lineas()[editIdx()!]?.subrubroId?.nombre ?? '') }}
+        </span>
+        <button class="plan-modal__close" (click)="closePanel()">✕</button>
+      </div>
+
+      <div class="plan-modal__body">
+
+        <!-- Subrubro -->
+        <div class="plan-modal__row">
+          <div class="plan-field">
+            <label class="plan-field__label">Rubro</label>
+            <select class="plan-field__select"
+                    [ngModel]="fRubroId()" (ngModelChange)="fRubroId.set($event); fSubrubroId.set('')">
+              <option value="">Todos</option>
+              @for (r of rubros(); track r._id) {
+                <option [value]="r._id">{{ r.nombre }}</option>
+              }
+            </select>
+          </div>
+          <div class="plan-field plan-field--grow">
+            <label class="plan-field__label">Subrubro <span class="plan-field__req">*</span></label>
+            <select class="plan-field__select"
+                    [ngModel]="fSubrubroId()" (ngModelChange)="fSubrubroId.set($event)">
+              <option value="">Seleccioná...</option>
+              @for (s of filteredSubs(); track s._id) {
+                <option [value]="s._id">{{ s.nombre }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <!-- Concepto -->
+        <div class="plan-field">
+          <label class="plan-field__label">Concepto <span class="plan-field__opt">opcional</span></label>
+          <input class="plan-field__input-text" type="text" placeholder="Ej: Anticipo, Certificación 1, Materiales…"
+                 [ngModel]="fConcepto()" (ngModelChange)="fConcepto.set($event)" />
+        </div>
+
+        <!-- Monto -->
+        <div class="plan-field">
+          <label class="plan-field__label">
+            Monto total ARS
+            @if (fModo() !== 'manual') { <span class="plan-field__req">*</span> }
+          </label>
+          <div class="plan-field__input-wrap">
+            <span class="plan-field__prefix">ARS</span>
+            <input class="plan-field__input" type="number" min="0" placeholder="0"
+                   [ngModel]="fMonto()" (ngModelChange)="fMonto.set(+$event || null)" />
+          </div>
+        </div>
+
+        <!-- Modo -->
+        <div class="plan-field">
+          <label class="plan-field__label">¿Cómo asignar?</label>
+          <div class="plan-modo-list">
+            @for (m of modos; track m) {
+              <button class="plan-modo-btn" [class.plan-modo-btn--active]="fModo() === m"
+                      (click)="fModo.set(m)" type="button">
+                <span class="plan-modo-btn__label">{{ modoInfo[m].label }}</span>
+                <span class="plan-modo-btn__desc">{{ modoInfo[m].desc }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Semana específica -->
+        @if (fModo() === 'semana') {
+          <div class="plan-field">
+            <label class="plan-field__label">Semana <span class="plan-field__req">*</span></label>
+            <select class="plan-field__select"
+                    [ngModel]="fSemana()" (ngModelChange)="fSemana.set(+$event || null)">
+              <option [value]="null">Elegí una semana...</option>
+              @for (c of cols(); track c.semana) {
+                @if (!c.undated) {
+                  <option [value]="c.semana">S{{ c.semana }} — {{ c.label }} · {{ c.etapaNombre }}</option>
+                }
+              }
+            </select>
+          </div>
+        }
+
+        <!-- Alcance para modo parejo -->
+        @if (fModo() === 'parejo' && etapasConFechas().length > 0) {
+          <div class="plan-field">
+            <label class="plan-field__label">Distribuir en</label>
+            <select class="plan-field__select"
+                    [ngModel]="fEtapaRef()" (ngModelChange)="fEtapaRef.set($event)">
+              <option value="">Todo el proyecto</option>
+              @for (e of etapasConFechas(); track e._id) {
+                <option [value]="e._id">{{ e.nombre }} ({{ e.duracion }} sem)</option>
+              }
+            </select>
+          </div>
+        }
+
+        @if (fModo() === 'manual') {
+          <p class="plan-field__hint-block">
+            La fila se agrega vacía. Completás los montos directamente en cada celda del timeline.
+          </p>
+        }
+
+      </div>
+
+      <div class="plan-modal__footer">
+        <button class="btn btn--primary" (click)="savePanel()" [disabled]="!formValid()">
+          {{ editIdx() === null ? 'Agregar al timeline' : 'Guardar cambios' }}
+        </button>
+        <button class="btn btn--ghost" (click)="closePanel()">Cancelar</button>
+      </div>
+
+    </div>
+  </div>
+}

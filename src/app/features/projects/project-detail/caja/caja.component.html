@@ -1,0 +1,236 @@
+<div class="reservas">
+
+  <!-- Header -->
+  <div class="reservas-header">
+    <p class="section-label">Reservas de fondos</p>
+    @if (!showReservaForm()) {
+      <button class="btn btn--primary btn--sm" (click)="showReservaForm.set(true)">+ Nueva reserva</button>
+    }
+  </div>
+
+  <!-- Formulario nueva reserva -->
+  @if (showReservaForm()) {
+    <div class="caja-form">
+      <div class="caja-form__title">Nueva reserva</div>
+      <div class="form-row">
+        <div class="field field--lg">
+          <label>Nombre *</label>
+          <input [(ngModel)]="reservaForm.nombre" name="rn_nombre" placeholder="Ej: Pintura, Corralón, Caja general…" />
+        </div>
+        <div class="field field--xs">
+          <label>Moneda</label>
+          <select [(ngModel)]="reservaForm.moneda" name="rn_moneda">
+            @for (m of MONEDA_OPTS; track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+        </div>
+        <div class="field field--xl">
+          <label>Descripción</label>
+          <input [(ngModel)]="reservaForm.descripcion" name="rn_desc" placeholder="Descripción opcional…" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn--ghost btn--sm" (click)="cancelNewReserva()">Cancelar</button>
+        <button class="btn btn--primary btn--sm" (click)="saveReserva()" [disabled]="savingReserva() || !reservaForm.nombre.trim()">
+          {{ savingReserva() ? 'Guardando…' : 'Crear reserva' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="rv-grid">
+      <div class="skeleton rv-skeleton"></div>
+      <div class="skeleton rv-skeleton"></div>
+      <div class="skeleton rv-skeleton"></div>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @else if (reservas().length === 0) {
+    <div class="empty-state">
+      <p class="empty-state__title">Sin reservas</p>
+      <p class="empty-state__desc">Creá reservas para organizar los fondos de la obra. Por ejemplo: "Corralón", "Mano de obra", "Imprevistos".</p>
+      <button class="btn btn--primary" (click)="showReservaForm.set(true)">+ Crear primera reserva</button>
+    </div>
+  }
+
+  <!-- Grid de tarjetas -->
+  @else {
+    <div class="rv-grid">
+      @for (r of reservas(); track r._id) {
+        <div class="rv-card"
+             [class.rv-card--active]="selectedReservaId() === r._id"
+             [class.rv-card--neg]="saldo(r) < 0"
+             (click)="selectReserva(r._id)">
+
+          <div class="rv-card__top">
+            <span class="rv-card__vault">◉</span>
+            <span class="rv-card__nombre">{{ r.nombre }}</span>
+            <span class="rv-card__moneda">{{ r.moneda }}</span>
+          </div>
+
+          @if (r.descripcion) {
+            <p class="rv-card__desc">{{ r.descripcion }}</p>
+          }
+
+          <div class="rv-card__saldo">
+            <span class="rv-card__saldo-label">Saldo disponible</span>
+            <span class="rv-card__saldo-value" [class.rv-card__saldo-value--neg]="saldo(r) < 0">
+              {{ fmt(saldo(r), r.moneda) }}
+            </span>
+          </div>
+
+          <div class="rv-card__kpis">
+            <div class="rv-card__kpi">
+              <span class="rv-card__kpi-arrow rv-card__kpi-arrow--in">↑</span>
+              <div>
+                <span class="rv-card__kpi-label">Ingresado</span>
+                <span class="rv-card__kpi-value rv-card__kpi-value--in">{{ fmt(ingresado(r), r.moneda) }}</span>
+              </div>
+            </div>
+            <div class="rv-card__kpi">
+              <span class="rv-card__kpi-arrow rv-card__kpi-arrow--out">↓</span>
+              <div>
+                <span class="rv-card__kpi-label">Egresado</span>
+                <span class="rv-card__kpi-value rv-card__kpi-value--out">{{ fmt(egresado(r), r.moneda) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rv-card__footer">
+            <span class="rv-card__movs">
+              {{ r.movimientos.length }} mov{{ r.movimientos.length !== 1 ? 's' : '' }}
+            </span>
+            <span class="rv-card__chevron" [class.rv-card__chevron--open]="selectedReservaId() === r._id">▾</span>
+          </div>
+        </div>
+      }
+
+      <!-- Card "+" nueva reserva -->
+      @if (!showReservaForm()) {
+        <div class="rv-card rv-card--new" (click)="showReservaForm.set(true)">
+          <span class="rv-card__new-icon">+</span>
+          <span class="rv-card__new-label">Nueva reserva</span>
+        </div>
+      }
+    </div>
+
+    <!-- Panel de detalle (reserva seleccionada) -->
+    @if (activeReserva()) {
+      <div class="rv-detail">
+
+        <!-- Cabecera del panel -->
+        <div class="rv-detail__head">
+          @if (editingReservaId() === activeReserva()!._id) {
+            <div class="rv-edit-form">
+              <input class="rv-edit-input" [(ngModel)]="editReservaForm.nombre" name="re_nombre" placeholder="Nombre" />
+              <input class="rv-edit-input rv-edit-input--desc" [(ngModel)]="editReservaForm.descripcion" name="re_desc" placeholder="Descripción" />
+              <button class="btn btn--ghost btn--sm" (click)="editingReservaId.set(null)">Cancelar</button>
+              <button class="btn btn--primary btn--sm" (click)="saveEditReserva(activeReserva()!._id)">Guardar</button>
+            </div>
+          } @else {
+            <div class="rv-detail__title">
+              <span class="rv-detail__nombre">{{ activeReserva()!.nombre }}</span>
+              <span class="rv-detail__moneda">{{ activeReserva()!.moneda }}</span>
+              @if (activeReserva()!.descripcion) {
+                <span class="rv-detail__desc">{{ activeReserva()!.descripcion }}</span>
+              }
+            </div>
+            <div class="rv-detail__actions">
+              <button class="btn btn--ghost btn--sm" (click)="openMovForm(activeReserva()!._id, 'ingreso'); $event.stopPropagation()">+ Ingreso</button>
+              <button class="btn btn--ghost btn--sm" (click)="openMovForm(activeReserva()!._id, 'egreso'); $event.stopPropagation()">+ Egreso</button>
+              <button class="btn-icon" (click)="startEditReserva(activeReserva()!); $event.stopPropagation()" title="Editar">✎</button>
+              <button class="btn-icon btn-icon--del" (click)="removeReserva(activeReserva()!._id, activeReserva()!.nombre); $event.stopPropagation()" title="Eliminar">×</button>
+            </div>
+          }
+        </div>
+
+        <!-- Formulario de movimiento -->
+        @if (activeMovReservaId() === activeReserva()!._id) {
+          <div class="mov-form" [class.mov-form--egreso]="movForm.tipo === 'egreso'">
+            <div class="mov-form__label">
+              {{ movForm.tipo === 'ingreso' ? 'Registrar ingreso' : 'Registrar egreso' }}
+            </div>
+            <div class="form-row">
+              <div class="field field--sm">
+                <label>Fecha *</label>
+                <input type="date" [(ngModel)]="movForm.fecha" name="mf_fecha" />
+              </div>
+              <div class="field field--md">
+                <label>Monto *</label>
+                <input type="number" [(ngModel)]="movForm.monto" name="mf_monto" placeholder="0" min="0" />
+              </div>
+              <div class="field field--xs">
+                <label>Medio</label>
+                <select [(ngModel)]="movForm.metodo" name="mf_metodo">
+                  <option value="">—</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="bancario">Bancario</option>
+                </select>
+              </div>
+              <div class="field field--lg">
+                <label>Concepto</label>
+                <input [(ngModel)]="movForm.concepto" name="mf_concepto" placeholder="Cuota 1, Pago pintor…" />
+              </div>
+              @if (movForm.tipo === 'ingreso') {
+                <div class="field field--md">
+                  <label>Origen</label>
+                  <input [(ngModel)]="movForm.origen" name="mf_origen" placeholder="Propietario, Inversor…" />
+                </div>
+              }
+              @if (movForm.tipo === 'egreso') {
+                <div class="field field--md">
+                  <label>Destino</label>
+                  <input [(ngModel)]="movForm.destino" name="mf_destino" placeholder="Proveedor, concepto…" />
+                </div>
+              }
+              <div class="field field--lg">
+                <label>Notas</label>
+                <input [(ngModel)]="movForm.notas" name="mf_notas" placeholder="Observaciones…" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn--ghost btn--sm" (click)="closeMovForm()" [disabled]="savingMov()">Cancelar</button>
+              <button class="btn btn--primary btn--sm" (click)="saveMov()" [disabled]="savingMov() || !movForm.monto || !movForm.fecha">
+                {{ savingMov() ? 'Guardando…' : 'Registrar' }}
+              </button>
+            </div>
+          </div>
+        }
+
+        <!-- Historial de movimientos -->
+        @if (activeReserva()!.movimientos.length > 0) {
+          <div class="mov-list">
+            <div class="mov-list__title">Historial</div>
+            @for (m of movimientos(activeReserva()!); track m._id) {
+              <div class="mov-row" [class.mov-row--egreso]="m.tipo === 'egreso'">
+                <div class="mov-row__tipo" [class.mov-row__tipo--in]="m.tipo === 'ingreso'" [class.mov-row__tipo--out]="m.tipo === 'egreso'">
+                  {{ m.tipo === 'ingreso' ? '↑' : '↓' }}
+                </div>
+                <div class="mov-row__fecha">{{ fmtFecha(m.fecha) }}</div>
+                <div class="mov-row__monto" [class.mov-row__monto--in]="m.tipo === 'ingreso'" [class.mov-row__monto--out]="m.tipo === 'egreso'">
+                  {{ m.tipo === 'egreso' ? '−' : '+' }}{{ fmt(m.monto, activeReserva()!.moneda) }}
+                </div>
+                <div class="mov-row__info">
+                  @if (m.concepto) { <span class="mov-concepto">{{ m.concepto }}</span> }
+                  @if (m.metodo)   { <span class="mov-metodo-tag">{{ m.metodo === 'efectivo' ? 'Efectivo' : 'Bancario' }}</span> }
+                  @if (m.origen)   { <span class="mov-meta">de {{ m.origen }}</span> }
+                  @if (m.destino)  { <span class="mov-meta">a {{ m.destino }}</span> }
+                  @if (m.notas)    { <span class="mov-notas">{{ m.notas }}</span> }
+                </div>
+                <button class="btn-icon btn-icon--del mov-row__del" (click)="removeMov(activeReserva()!._id, m._id)" title="Eliminar">×</button>
+              </div>
+            }
+          </div>
+        } @else if (!activeMovReservaId()) {
+          <div class="mov-empty">Sin movimientos todavía · usá los botones de arriba para registrar</div>
+        }
+
+      </div>
+    }
+  }
+
+</div>

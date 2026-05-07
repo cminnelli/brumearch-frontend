@@ -1,0 +1,764 @@
+<div class="admin">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar__header">
+      <div class="sidebar__logo">B</div>
+      <div>
+        <div class="sidebar__title">Configuración</div>
+        <div class="sidebar__sub">Sistema</div>
+      </div>
+    </div>
+
+    <div class="sidebar__divider"></div>
+
+    <nav class="sidebar__nav">
+      <button class="nav-item" [class.nav-item--active]="activeTab() === 'etapas'" (click)="setTab('etapas')">
+        <span class="nav-index">01</span>
+        <div class="nav-body">
+          <span class="nav-label">Etapas</span>
+          <span class="nav-sub">Fases de obra</span>
+        </div>
+        @if (etapas().length) {
+          <span class="nav-badge">{{ etapas().length }}</span>
+        }
+      </button>
+
+      <button class="nav-item" [class.nav-item--active]="activeTab() === 'rubros'" (click)="setTab('rubros')">
+        <span class="nav-index">02</span>
+        <div class="nav-body">
+          <span class="nav-label">Rubros</span>
+          <span class="nav-sub">{{ rubros().length }} · {{ subrubros().length }} sub</span>
+        </div>
+      </button>
+
+      <button class="nav-item" [class.nav-item--active]="activeTab() === 'proveedores'" (click)="setTab('proveedores')">
+        <span class="nav-index">03</span>
+        <div class="nav-body">
+          <span class="nav-label">Proveedores</span>
+          <span class="nav-sub">Directorio</span>
+        </div>
+        @if (proveedores().length) {
+          <span class="nav-badge">{{ proveedores().length }}</span>
+        }
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Content -->
+  <main class="content">
+
+    <!-- ════ ETAPAS ════ -->
+    @if (activeTab() === 'etapas') {
+      <div class="panel-header">
+        <div>
+          <h2>Etapas de obra</h2>
+          <p class="panel-desc">Fases que estructuran el avance de un proyecto</p>
+        </div>
+        <button class="btn" (click)="toggleForm()">
+          {{ showForm() ? '✕ Cancelar' : '+ Nueva etapa' }}
+        </button>
+      </div>
+
+      @if (showForm()) {
+        <form class="form-card" (ngSubmit)="saveEtapa()">
+          <div class="form-row">
+            <div class="field field--lg">
+              <label>Nombre *</label>
+              <input [(ngModel)]="etapaForm.nombre" name="nombre" placeholder="Ej: Estructura" required />
+            </div>
+            <div class="field field--md">
+              <label>Código *</label>
+              <input [(ngModel)]="etapaForm.codigo" name="codigo" placeholder="estructura" required />
+            </div>
+            <div class="field field--sm">
+              <label>Orden</label>
+              <input type="number" [(ngModel)]="etapaForm.orden" name="orden" min="1" />
+            </div>
+            <div class="field field--lg">
+              <label>Descripción</label>
+              <input [(ngModel)]="etapaForm.descripcion" name="descripcion" placeholder="Opcional" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn">Guardar</button>
+          </div>
+        </form>
+      }
+
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th>Nombre</th>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of etapas(); track e._id) {
+              @if (editingId() === e._id) {
+                <tr class="row--editing">
+                  <td class="col-num"><span class="orden-badge">{{ e.orden }}</span></td>
+                  <td><input class="inline-input" [(ngModel)]="draft.nombre" name="en_nombre" /></td>
+                  <td><input class="inline-input inline-input--sm" [(ngModel)]="draft.codigo" name="en_codigo" /></td>
+                  <td><input class="inline-input" [(ngModel)]="draft.descripcion" name="en_desc" /></td>
+                  <td class="col-actions">
+                    <button class="btn-save" (click)="saveEditEtapa(e._id)" title="Guardar">✓</button>
+                    <button class="btn-cancel" (click)="cancelEdit()" title="Cancelar">✕</button>
+                  </td>
+                </tr>
+              } @else {
+                <tr>
+                  <td class="col-num"><span class="orden-badge">{{ e.orden }}</span></td>
+                  <td class="font-medium">{{ e.nombre }}</td>
+                  <td><code class="chip">{{ e.codigo }}</code></td>
+                  <td class="text-muted">{{ e.descripcion || '—' }}</td>
+                  <td class="col-actions">
+                    <button class="btn-icon" (click)="startEdit(e)" title="Editar">✎</button>
+                    <button class="btn-icon btn-icon--del" (click)="deleteEtapa(e._id, e.nombre)" title="Eliminar">×</button>
+                  </td>
+                </tr>
+              }
+            } @empty {
+              <tr><td colspan="5" class="empty">Sin etapas. Creá la primera.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- ════ RUBROS & SUBRUBROS (árbol visual) ════ -->
+    @if (activeTab() === 'rubros') {
+      <div class="panel-header">
+        <div>
+          <h2>Rubros y Subrubros</h2>
+          <p class="panel-desc">{{ rubros().length }} rubros · {{ subrubros().length }} subrubros</p>
+        </div>
+        <button class="btn" (click)="toggleForm()">
+          {{ showForm() ? '✕ Cancelar' : '+ Nuevo rubro' }}
+        </button>
+      </div>
+
+      @if (showForm()) {
+        <form class="form-card" (ngSubmit)="saveRubro()">
+          <div class="form-row">
+            <div class="field field--lg">
+              <label>Nombre *</label>
+              <input [(ngModel)]="rubroForm.nombre" name="nombre" placeholder="Ej: Pintura" required />
+            </div>
+            <div class="field field--md">
+              <label>Código *</label>
+              <input [(ngModel)]="rubroForm.codigo" name="codigo" placeholder="pintura" required />
+            </div>
+            <div class="field field--lg">
+              <label>Descripción</label>
+              <input [(ngModel)]="rubroForm.descripcion" name="descripcion" placeholder="Opcional" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn">Guardar rubro</button>
+          </div>
+        </form>
+      }
+
+      <!-- Árbol de rubros -->
+      <div class="tree">
+        @for (r of rubros(); track r._id) {
+          <div class="rubro-node" [class.rubro-node--expanded]="isExpanded(r._id)">
+
+            <!-- Cabecera del rubro -->
+            <div class="rubro-header" (click)="toggleRubro(r._id)">
+              <div class="rubro-header__left">
+                <span class="tree-arrow" [class.tree-arrow--open]="isExpanded(r._id)">▶</span>
+                @if (editingId() === r._id) {
+                  <input class="inline-input" [(ngModel)]="draft.nombre" name="rn_{{ r._id }}" (click)="$event.stopPropagation()" />
+                  <input class="inline-input inline-input--sm" [(ngModel)]="draft.codigo" name="rc_{{ r._id }}" (click)="$event.stopPropagation()" />
+                } @else {
+                  <span class="rubro-nombre">{{ r.nombre }}</span>
+                  <code class="chip">{{ r.codigo }}</code>
+                }
+              </div>
+              <div class="rubro-header__right" (click)="$event.stopPropagation()">
+                <span class="sub-pill">{{ countSubrubros(r._id) }} sub</span>
+                <span class="badge" [class.badge--on]="r.activo" [class.badge--off]="!r.activo">
+                  {{ r.activo ? 'Activo' : 'Inactivo' }}
+                </span>
+                @if (editingId() === r._id) {
+                  <button class="btn-save" (click)="saveEditRubro(r._id)">✓</button>
+                  <button class="btn-cancel" (click)="cancelEdit()">✕</button>
+                } @else {
+                  <button class="btn-icon" (click)="startEdit(r)" title="Editar rubro">✎</button>
+                  <button class="btn-icon btn-icon--del" (click)="deleteRubro(r._id, r.nombre)" title="Eliminar rubro">×</button>
+                }
+              </div>
+            </div>
+
+            <!-- Subrubros (expandible) -->
+            @if (isExpanded(r._id)) {
+              <div class="subrubros-panel">
+
+                <!-- Lista de subrubros -->
+                <div class="subrubros-list">
+                  @for (s of subrubrosDe(r._id); track s._id) {
+                    <div class="sub-item">
+                      <span class="sub-dot"></span>
+                      @if (editingId() === s._id) {
+                        <input class="inline-input" [(ngModel)]="draft.nombre" name="sn_{{ s._id }}" />
+                        <input class="inline-input inline-input--sm" [(ngModel)]="draft.codigo" name="sc_{{ s._id }}" />
+                        <button class="btn-save" (click)="saveEditSubrubro(s._id)">✓</button>
+                        <button class="btn-cancel" (click)="cancelEdit()">✕</button>
+                      } @else {
+                        <span class="sub-nombre">{{ s.nombre }}</span>
+                        <code class="chip chip--sub">{{ s.codigo }}</code>
+                        <div class="sub-actions">
+                          <button class="btn-icon btn-icon--sm" (click)="startEdit(s)" title="Editar">✎</button>
+                          <button class="btn-icon btn-icon--sm btn-icon--del" (click)="deleteSubrubro(s._id, s.nombre)" title="Eliminar">×</button>
+                        </div>
+                      }
+                    </div>
+                  } @empty {
+                    <p class="sub-empty">Sin subrubros aún</p>
+                  }
+                </div>
+
+                <!-- Quick-add subrubro -->
+                <div class="sub-add">
+                  <span class="sub-add__icon">+</span>
+                  <input
+                    class="sub-add__input"
+                    [(ngModel)]="getInlineForm(r._id).nombre"
+                    [name]="'sub_nombre_' + r._id"
+                    placeholder="Nuevo subrubro"
+                    (keyup.enter)="saveInlineSubrubro(r._id)"
+                  />
+                  <input
+                    class="sub-add__input sub-add__input--sm"
+                    [(ngModel)]="getInlineForm(r._id).codigo"
+                    [name]="'sub_codigo_' + r._id"
+                    placeholder="codigo"
+                    (keyup.enter)="saveInlineSubrubro(r._id)"
+                  />
+                  <button class="sub-add__btn" (click)="saveInlineSubrubro(r._id)">Agregar</button>
+                </div>
+
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="tree-empty">Sin rubros. Creá el primero.</div>
+        }
+      </div>
+    }
+
+    <!-- ════ PROVEEDORES ════ -->
+    @if (activeTab() === 'proveedores') {
+
+      <!-- ── VISTA LISTADO ── -->
+      @if (provView() === 'list') {
+
+        <div class="panel-header">
+          <div>
+            <h2>Directorio de proveedores</h2>
+            <p class="panel-desc">
+              {{ proveedores().length }} contratista{{ proveedores().length !== 1 ? 's' : '' }} registrado{{ proveedores().length !== 1 ? 's' : '' }}
+            </p>
+          </div>
+          <div class="panel-header__actions">
+            @if (proveedores().length > 0) {
+              <div class="view-toggle">
+                <button class="view-toggle__btn" [class.view-toggle__btn--on]="viewMode() === 'grid'"
+                        (click)="viewMode.set('grid')">Lista</button>
+                <button class="view-toggle__btn" [class.view-toggle__btn--on]="viewMode() === 'map'"
+                        (click)="viewMode.set('map')">Mapa</button>
+              </div>
+            }
+            <button class="btn btn--ghost" (click)="openFinder()">Descubrir</button>
+            <button class="btn" (click)="openNewProveedor()">+ Nuevo proveedor</button>
+          </div>
+        </div>
+
+        @if (proveedores().length > 0) {
+          <div class="prov-filterbar">
+            <div class="prov-search">
+              <span class="prov-search__icon">🔍</span>
+              <input class="prov-search__input"
+                     [ngModel]="busquedaProv()"
+                     (ngModelChange)="busquedaProv.set($event)"
+                     [ngModelOptions]="{standalone: true}"
+                     placeholder="Buscar por nombre, CUIT, zona o especialidad..." />
+              @if (busquedaProv()) {
+                <button class="prov-search__clear" (click)="busquedaProv.set('')">✕</button>
+              }
+            </div>
+            <div class="filter-rubros">
+              <button class="filter-pill" [class.filter-pill--on]="filtroRubro() === ''"
+                      (click)="filtroRubro.set('')">Todos</button>
+              @for (r of rubros(); track r._id) {
+                <button class="filter-pill" [class.filter-pill--on]="filtroRubro() === r._id"
+                        (click)="filtroRubro.set(r._id)">{{ r.nombre }}</button>
+              }
+            </div>
+            <div class="filter-right">
+              <div class="filter-group">
+                <button class="filter-pill filter-pill--sm" [class.filter-pill--on]="filtroRating() === 0"
+                        (click)="filtroRating.set(0)">Todos</button>
+                <button class="filter-pill filter-pill--sm" [class.filter-pill--on]="filtroRating() === 4"
+                        (click)="filtroRating.set(4)">★★★★+</button>
+                <button class="filter-pill filter-pill--sm" [class.filter-pill--on]="filtroRating() === 3"
+                        (click)="filtroRating.set(3)">★★★+</button>
+                <button class="filter-pill filter-pill--sm" [class.filter-pill--on]="filtroRating() === -1"
+                        (click)="filtroRating.set(-1)">Sin cal.</button>
+              </div>
+              <select class="filter-sort"
+                      [ngModel]="sortProv()"
+                      (ngModelChange)="sortProv.set($event)"
+                      [ngModelOptions]="{standalone:true}">
+                <option value="az">A — Z</option>
+                <option value="rating">Mejor puntuación</option>
+              </select>
+            </div>
+          </div>
+
+          @if (hayFiltrosActivos()) {
+            <div class="filter-active-bar">
+              <span>{{ proveedoresFiltrados().length }} resultado{{ proveedoresFiltrados().length !== 1 ? 's' : '' }}</span>
+              <button class="filter-clear-all" (click)="limpiarFiltros()">Limpiar filtros ✕</button>
+            </div>
+          }
+        }
+
+        @if (viewMode() === 'map') {
+          <app-providers-map [proveedores]="proveedoresFiltrados()"></app-providers-map>
+        }
+
+        @if (viewMode() === 'grid') {
+          <div class="pv-list">
+            @for (p of proveedoresFiltrados(); track p._id) {
+
+              <div class="pv-item" [class.pv-item--open]="expandedProvId() === p._id">
+
+                <!-- Compact row -->
+                <div class="pv-item__row" (click)="toggleProv(p._id)">
+                  <div class="pv-item__dot" [ngClass]="ratingDotClass(p.rating)"></div>
+                  <div class="pv-item__avatar" [style.background]="avatarColor(p.nombre)">{{ avatarInitials(p.nombre) }}</div>
+                  <div class="pv-item__label">
+                    <span class="pv-item__name">{{ p.nombre }}</span>
+                    <span class="pv-item__sub">{{ specsLine(p) }}</span>
+                  </div>
+                  @if (p.rating) {
+                    <span class="pv-rating"><span class="pv-rating__star">★</span>{{ p.rating }}</span>
+                  }
+                  <div class="pv-item__contacts">
+                    @if (p.telefono) {
+                      <a class="pv-item__contact-link pv-item__contact-link--wa"
+                         [href]="whatsappUrl(p.telefono)" target="_blank" rel="noopener"
+                         (click)="$event.stopPropagation()" title="{{ p.telefono }}">WA</a>
+                    }
+                    @if (p.email) {
+                      <a class="pv-item__contact-link" [href]="'mailto:' + p.email"
+                         (click)="$event.stopPropagation()" title="{{ p.email }}">&#64;</a>
+                    }
+                    @if (p.web) {
+                      <a class="pv-item__contact-link" [href]="p.web" target="_blank" rel="noopener"
+                         (click)="$event.stopPropagation()" title="{{ p.web }}">web</a>
+                    }
+                    @if (p.instagram) {
+                      <a class="pv-item__contact-link" [href]="instagramUrl(p.instagram)" target="_blank" rel="noopener"
+                         (click)="$event.stopPropagation()" title="{{ p.instagram }}">ig</a>
+                    }
+                  </div>
+                  <span class="pv-item__chevron">{{ expandedProvId() === p._id ? '▴' : '▾' }}</span>
+                </div>
+
+                <!-- Expandable detail -->
+                @if (expandedProvId() === p._id) {
+                  <div class="pv-item__expand">
+                    <div class="pv-item__expand-body">
+
+                      @if (p.razonSocial && p.razonSocial !== p.nombre) {
+                        <div class="pv-expand-rs">{{ p.razonSocial }}</div>
+                      }
+
+                      @if ((p.direcciones?.length || p.zona?.address)) {
+                        <div class="pv-expand-addrs">
+                          @if (p.direcciones?.length) {
+                            @for (d of p.direcciones!; track $index) {
+                              <a class="pv-addr-line" [href]="mapsLink(d)" target="_blank" rel="noopener">
+                                @if (d.label) { <span class="pv-addr-label">{{ d.label }}</span> }
+                                {{ d.address }}
+                              </a>
+                            }
+                          } @else {
+                            <a class="pv-addr-line" [href]="mapsLink(p.zona!)" target="_blank" rel="noopener">
+                              {{ p.zona!.address }}
+                            </a>
+                          }
+                        </div>
+                      }
+
+                      <div class="pv-expand-meta">
+                        @if (p.responsable) { <span>{{ p.responsable }}</span> }
+                        @if (p.cuit) { <span>CUIT {{ p.cuit }}</span> }
+                        @if (p.condicionIva) { <span>{{ CONDICION_IVA_LABELS[p.condicionIva] }}</span> }
+                      </div>
+
+                      @if (p.notas) {
+                        <p class="pv-expand-notes">{{ p.notas }}</p>
+                      }
+
+                    </div>
+                    <div class="pv-expand-acts">
+                      <button class="btn btn--ghost btn--sm" (click)="startEditProveedor(p)">Editar</button>
+                      <button class="btn btn--del btn--sm" (click)="deleteProveedor(p._id, p.nombre)">Eliminar</button>
+                    </div>
+                  </div>
+                }
+
+              </div>
+
+            } @empty {
+              <div class="pv-empty">
+                @if (hayFiltrosActivos()) {
+                  <p class="pv-empty__title">Sin resultados</p>
+                  <p class="pv-empty__desc">Ningún proveedor coincide con los filtros</p>
+                  <button class="btn btn--ghost" (click)="limpiarFiltros()">Limpiar filtros</button>
+                } @else {
+                  <p class="pv-empty__title">Sin proveedores aún</p>
+                  <p class="pv-empty__desc">Agregá tu primer contratista o usá Descubrir para buscar en Google Maps</p>
+                  <button class="btn" (click)="openNewProveedor()">+ Agregar proveedor</button>
+                }
+              </div>
+            }
+          </div>
+        }
+
+      } <!-- end list view -->
+
+
+      <!-- ── VISTA NUEVO PROVEEDOR ── -->
+      @if (provView() === 'form') {
+        <div class="pv-page">
+          <div class="pv-page__nav">
+            <button class="pv-back" type="button" (click)="backToList()">← Directorio</button>
+          </div>
+          <h2 class="pv-page__title">Nuevo proveedor</h2>
+
+          <form class="pv-pform" (ngSubmit)="saveProveedor()">
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Identidad</div>
+              <div class="form-row">
+                <div class="field field--lg">
+                  <label>Nombre comercial *</label>
+                  <input [(ngModel)]="proveedorForm.nombre" name="pf_nombre" placeholder="Ej: García Electricidad" required />
+                </div>
+                <div class="field field--lg">
+                  <label>Razón social</label>
+                  <input [(ngModel)]="proveedorForm.razonSocial" name="pf_rs" placeholder="Solo si difiere del comercial" />
+                </div>
+                <div class="field field--md">
+                  <label>
+                    CUIT
+                    @if (afipLoading()) { <span class="afip-badge afip-badge--loading">Consultando...</span> }
+                    @else if (afipOk()) { <span class="afip-badge afip-badge--ok">✓ OK</span> }
+                    @else if (afipError()) { <span class="afip-badge afip-badge--err">{{ afipError() }}</span> }
+                  </label>
+                  <input [(ngModel)]="proveedorForm.cuit" name="pf_cuit" placeholder="20-12345678-1" (blur)="onFormCuitBlur()" />
+                </div>
+                <div class="field field--md">
+                  <label>Condición IVA</label>
+                  <select [(ngModel)]="proveedorForm.condicionIva" name="pf_iva">
+                    @for (opt of CONDICION_IVA_OPTS; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Contacto</div>
+              <div class="form-row">
+                <div class="field field--md">
+                  <label>Responsable</label>
+                  <input [(ngModel)]="proveedorForm.responsable" name="pf_resp" placeholder="Nombre y apellido" />
+                </div>
+                <div class="field field--md">
+                  <label>Teléfono / WhatsApp</label>
+                  <input [(ngModel)]="proveedorForm.telefono" name="pf_tel" placeholder="+54 9 11 xxxx xxxx" />
+                </div>
+                <div class="field field--lg">
+                  <label>Email</label>
+                  <input type="email" [(ngModel)]="proveedorForm.email" name="pf_email" placeholder="mail@empresa.com" />
+                </div>
+                <div class="field field--md">
+                  <label>Sitio web</label>
+                  <input [(ngModel)]="proveedorForm.web" name="pf_web" placeholder="www.empresa.com" />
+                </div>
+                <div class="field field--md">
+                  <label>Instagram</label>
+                  <input [(ngModel)]="proveedorForm.instagram" name="pf_ig" placeholder="@usuario" />
+                </div>
+              </div>
+            </div>
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Direcciones de trabajo</div>
+              <div class="pv-dir-list">
+                @for (d of proveedorForm.direcciones; track $index; let i = $index) {
+                  <div class="pv-dir-item">
+                    <div class="pv-dir-item__head">
+                      <div class="field field--lg">
+                        <label>Etiqueta (opcional)</label>
+                        <input [(ngModel)]="proveedorForm.direcciones[i].label" [name]="'pf_dir_label_' + i" placeholder="Ej: Depósito, Oficina" />
+                      </div>
+                      <button type="button" class="pv-dir-remove" (click)="removeFormDireccion(i)">×</button>
+                    </div>
+                    <app-map-picker
+                      [value]="getFormDireccionLoc(i)"
+                      (valueChange)="onFormDireccionChange(i, $event)">
+                    </app-map-picker>
+                  </div>
+                }
+              </div>
+              <button type="button" class="pv-dir-add" (click)="addFormDireccion()">+ Agregar dirección</button>
+            </div>
+
+            @if (rubros().length) {
+              <div class="prov-form__section">
+                <div class="prov-form__section-label">Rubros y especialidades</div>
+                <div class="rubro-accordion-list">
+                  @for (r of rubros(); track r._id) {
+                    @if (subrubrosDe(r._id).length) {
+                      <div class="rubro-accordion">
+                        <button type="button" class="rubro-accordion__header" (click)="toggleFormRubro(r._id)">
+                          <span class="rubro-accordion__arrow" [class.open]="isFormRubroExpanded(r._id)">›</span>
+                          <span class="rubro-accordion__nombre">{{ r.nombre }}</span>
+                          @if (formSelCount(r._id) > 0) {
+                            <span class="rubro-sel-count">{{ formSelCount(r._id) }} selec.</span>
+                          }
+                        </button>
+                        @if (isFormRubroExpanded(r._id)) {
+                          <div class="rubro-accordion__subs">
+                            @for (s of subrubrosDe(r._id); track s._id) {
+                              <button type="button" class="sub-toggle"
+                                      [class.sub-toggle--on]="isFormSubrubroChecked(s._id)"
+                                      (click)="toggleFormSubrubro(s._id)">{{ s.nombre }}</button>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+                </div>
+              </div>
+            }
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Evaluación y notas</div>
+              <div class="form-row">
+                <div class="field field--md">
+                  <label>Puntuación</label>
+                  <div class="star-input">
+                    @for (n of STARS; track n) {
+                      <button type="button" class="star-btn"
+                              [class.star-btn--on]="proveedorForm.rating !== null && proveedorForm.rating >= n"
+                              (click)="setFormRating(n)">★</button>
+                    }
+                    @if (proveedorForm.rating) {
+                      <button type="button" class="star-clear" (click)="setFormRating(0)">✕</button>
+                    }
+                  </div>
+                </div>
+                <div class="field field--xl">
+                  <label>Notas internas</label>
+                  <input [(ngModel)]="proveedorForm.notas" name="pf_notas" placeholder="Pago 30 días, horarios, notas..." />
+                </div>
+              </div>
+            </div>
+
+            <div class="pv-pform__actions">
+              <button type="button" class="btn btn--ghost" (click)="backToList()">Cancelar</button>
+              <button type="submit" class="btn">Guardar proveedor</button>
+            </div>
+
+          </form>
+        </div>
+      } <!-- end form view -->
+
+
+      <!-- ── VISTA EDICIÓN PROVEEDOR ── -->
+      @if (provView() === 'edit' && editingProveedor()) {
+        <div class="pv-page">
+          <div class="pv-page__nav">
+            <button class="pv-back" type="button" (click)="backToList()">← Directorio</button>
+          </div>
+          <h2 class="pv-page__title">{{ editingProveedor()!.nombre }}</h2>
+
+          <div class="pv-pform">
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Identidad</div>
+              <div class="form-row">
+                <div class="field field--lg">
+                  <label>Nombre comercial</label>
+                  <input [(ngModel)]="draft.nombre" name="ep_nombre" />
+                </div>
+                <div class="field field--lg">
+                  <label>Razón social</label>
+                  <input [(ngModel)]="draft.razonSocial" name="ep_rs" />
+                </div>
+                <div class="field field--md">
+                  <label>
+                    CUIT
+                    @if (afipLoading()) { <span class="afip-badge afip-badge--loading">Consultando...</span> }
+                    @else if (afipOk()) { <span class="afip-badge afip-badge--ok">✓ OK</span> }
+                    @else if (afipError()) { <span class="afip-badge afip-badge--err">No encontrado</span> }
+                  </label>
+                  <input [(ngModel)]="draft.cuit" name="ep_cuit" (blur)="onDraftCuitBlur()" />
+                </div>
+                <div class="field field--md">
+                  <label>Condición IVA</label>
+                  <select [(ngModel)]="draft.condicionIva" name="ep_iva">
+                    @for (opt of CONDICION_IVA_OPTS; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Contacto</div>
+              <div class="form-row">
+                <div class="field field--md">
+                  <label>Responsable</label>
+                  <input [(ngModel)]="draft.responsable" name="ep_resp" />
+                </div>
+                <div class="field field--md">
+                  <label>Teléfono / WhatsApp</label>
+                  <input [(ngModel)]="draft.telefono" name="ep_tel" />
+                </div>
+                <div class="field field--lg">
+                  <label>Email</label>
+                  <input [(ngModel)]="draft.email" name="ep_email" />
+                </div>
+                <div class="field field--md">
+                  <label>Sitio web</label>
+                  <input [(ngModel)]="draft.web" name="ep_web" />
+                </div>
+                <div class="field field--md">
+                  <label>Instagram</label>
+                  <input [(ngModel)]="draft.instagram" name="ep_ig" placeholder="@usuario" />
+                </div>
+              </div>
+            </div>
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Direcciones de trabajo</div>
+              <div class="pv-dir-list">
+                @for (d of draft.direcciones; track $index; let i = $index) {
+                  <div class="pv-dir-item">
+                    <div class="pv-dir-item__head">
+                      <div class="field field--lg">
+                        <label>Etiqueta (opcional)</label>
+                        <input [(ngModel)]="draft.direcciones[i].label" [name]="'ep_dir_label_' + i" placeholder="Ej: Depósito, Oficina" />
+                      </div>
+                      <button type="button" class="pv-dir-remove" (click)="removeDraftDireccion(i)">×</button>
+                    </div>
+                    <app-map-picker
+                      [value]="getDraftDireccionLoc(i)"
+                      (valueChange)="onDraftDireccionChange(i, $event)">
+                    </app-map-picker>
+                  </div>
+                }
+              </div>
+              <button type="button" class="pv-dir-add" (click)="addDraftDireccion()">+ Agregar dirección</button>
+            </div>
+
+            @if (rubros().length) {
+              <div class="prov-form__section">
+                <div class="prov-form__section-label">Rubros y especialidades</div>
+                <div class="rubro-accordion-list">
+                  @for (r of rubros(); track r._id) {
+                    @if (subrubrosDe(r._id).length) {
+                      <div class="rubro-accordion">
+                        <button type="button" class="rubro-accordion__header" (click)="toggleEditRubro(r._id)">
+                          <span class="rubro-accordion__arrow" [class.open]="isEditRubroExpanded(r._id)">›</span>
+                          <span class="rubro-accordion__nombre">{{ r.nombre }}</span>
+                          @if (editSelCount(r._id) > 0) {
+                            <span class="rubro-sel-count">{{ editSelCount(r._id) }} selec.</span>
+                          }
+                        </button>
+                        @if (isEditRubroExpanded(r._id)) {
+                          <div class="rubro-accordion__subs">
+                            @for (s of subrubrosDe(r._id); track s._id) {
+                              <button type="button" class="sub-toggle"
+                                      [class.sub-toggle--on]="isProvSubrubroChecked(s._id)"
+                                      (click)="toggleProveedorSubrubro(s._id)">{{ s.nombre }}</button>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+                </div>
+              </div>
+            }
+
+            <div class="prov-form__section">
+              <div class="prov-form__section-label">Evaluación y notas</div>
+              <div class="form-row">
+                <div class="field field--md">
+                  <label>Puntuación</label>
+                  <div class="star-input">
+                    @for (n of STARS; track n) {
+                      <button type="button" class="star-btn"
+                              [class.star-btn--on]="draft.rating !== null && draft.rating >= n"
+                              (click)="setDraftRating(n)">★</button>
+                    }
+                    @if (draft.rating) {
+                      <button type="button" class="star-clear" (click)="setDraftRating(0)">✕</button>
+                    }
+                  </div>
+                </div>
+                <div class="field field--xl">
+                  <label>Notas internas</label>
+                  <input [(ngModel)]="draft.notas" name="ep_notas" />
+                </div>
+              </div>
+            </div>
+
+            <div class="pv-pform__actions">
+              <button type="button" class="btn btn--ghost" (click)="backToList()">Cancelar</button>
+              <button type="button" class="btn btn--del" (click)="deleteProveedor(editingProveedor()!._id, editingProveedor()!.nombre); backToList()">Eliminar</button>
+              <button type="button" class="btn" (click)="saveEditProveedor(editingProveedor()!._id)">Guardar cambios</button>
+            </div>
+
+          </div>
+        </div>
+      } <!-- end edit view -->
+
+
+      <!-- ── VISTA DESCUBRIR ── -->
+      @if (provView() === 'finder') {
+        <div class="pv-finder-page">
+          <div class="pv-page__nav">
+            <button class="pv-back" type="button" (click)="backToList()">← Directorio</button>
+          </div>
+          <app-provider-finder
+            [rubros]="rubros()"
+            [subrubros]="subrubros()"
+            (importar)="onImportar($event)"
+            (cerrar)="backToList()">
+          </app-provider-finder>
+        </div>
+      } <!-- end finder view -->
+
+    }
+
+  </main>
+</div>

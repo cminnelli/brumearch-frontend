@@ -1,0 +1,132 @@
+.pmap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.07);
+}
+
+/* Canvas del mapa */
+.pmap-canvas {
+  width: 100%;
+  height: calc(100vh - 280px);
+  min-height: 480px;
+  display: block;
+}
+
+/* Chip flotante (top-left) */
+.pmap-chip {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 20px;
+  padding: 6px 14px 6px 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.pmap-chip__n {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #111;
+}
+
+.pmap-chip__label {
+  font-size: 0.75rem;
+  color: #555;
+}
+
+.pmap-chip__sep {
+  color: #ddd;
+  font-size: 0.75rem;
+}
+
+.pmap-chip__warn {
+  font-size: 0.72rem;
+  color: #bbb;
+}
+
+/* Empty state */
+.pmap-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(242,241,237,0.88);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.pmap-empty__card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem 2.5rem;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pmap-empty__icon {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.pmap-empty__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.pmap-empty__hint {
+  font-size: 0.78rem;
+  color: #bbb;
+  margin: 0;
+}
+
+/* InfoWindow — override Google Maps */
+:global(.gm-style .gm-style-iw-c) {
+  border-radius: 14px !important;
+  padding: 16px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13) !important;
+  border: 1px solid #f0f0f0 !important;
+}
+
+:global(.gm-style .gm-style-iw-d) {
+  overflow: hidden !important;
+  max-height: none !important;
+}
+
+:global(.gm-style .gm-style-iw-tc) {
+  filter: none !important;
+}
+
+:global(.gm-style .gm-style-iw-tc::after) {
+  background: #fff !important;
+}
+
+:global(.gm-ui-hover-effect) {
+  top: 8px !important;
+  right: 8px !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  background: #f5f5f5 !important;
+  opacity: 1 !important;
+
+  span {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 5px !important;
+  }
+}

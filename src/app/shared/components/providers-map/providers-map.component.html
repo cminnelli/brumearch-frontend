@@ -1,0 +1,29 @@
+<div class="pmap">
+
+  <!-- Mapa -->
+  <div #mapEl class="pmap-canvas"></div>
+
+  <!-- Chip flotante — stats -->
+  @if (conZona.length > 0) {
+    <div class="pmap-chip">
+      <span class="pmap-chip__n">{{ conZona.length }}</span>
+      <span class="pmap-chip__label">proveedor{{ conZona.length !== 1 ? 'es' : '' }} en mapa</span>
+      @if (sinZona > 0) {
+        <span class="pmap-chip__sep">·</span>
+        <span class="pmap-chip__warn">{{ sinZona }} sin zona</span>
+      }
+    </div>
+  }
+
+  <!-- Empty overlay -->
+  @if (conZona.length === 0) {
+    <div class="pmap-empty">
+      <div class="pmap-empty__card">
+        <span class="pmap-empty__icon">📍</span>
+        <p class="pmap-empty__title">Sin ubicaciones asignadas</p>
+        <p class="pmap-empty__hint">Editá los proveedores y completá su zona de trabajo</p>
+      </div>
+    </div>
+  }
+
+</div>

@@ -1,0 +1,127 @@
+<div class="entorno">
+
+  <!-- ══ DÓLAR ══ -->
+  <section class="section">
+
+    <div class="section-head">
+      <div class="section-head__left">
+        <h2 class="section-title">Dólar hoy</h2>
+        <p class="section-meta">
+          Fuente: <a href="https://dolarapi.com" target="_blank" rel="noopener" class="source-link">dolarapi.com</a>
+          @if (dolarTs()) { · {{ dolarTs() }} }
+        </p>
+      </div>
+      <button class="icon-btn" title="Actualizar" (click)="loadDolar()" [disabled]="dolarLoading()">↻</button>
+    </div>
+
+    @if (dolarLoading()) {
+      <div class="dolar-grid">
+        @for (_ of [1,2,3,4,5]; track $index) { <div class="skeleton"></div> }
+      </div>
+    } @else if (dolarError()) {
+      <div class="msg-error">{{ dolarError() }}</div>
+    } @else {
+      <div class="dolar-grid">
+        @for (r of tasas(); track r.casa) {
+          <div class="dcard" [class.dcard--blue]="r.casa === 'blue'">
+            <span class="dcard-nombre">{{ r.nombre }}</span>
+            <span class="dcard-venta">${{ r.venta | number:'1.0-0' }}</span>
+            <div class="dcard-row">
+              <span class="dcard-compra">Compra ${{ r.compra | number:'1.0-0' }}</span>
+              @if (spread(r) !== null) {
+                <span class="dcard-spread">{{ spread(r) }}%</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ══ CLIMA ══ -->
+  <section class="section">
+
+    <div class="section-head">
+      <div class="section-head__left">
+        <h2 class="section-title">Clima y obra</h2>
+        <p class="section-meta">
+          Fuente: <a href="https://open-meteo.com" target="_blank" rel="noopener" class="source-link">open-meteo.com</a>
+          · sin API key · actualización horaria
+        </p>
+      </div>
+      <div class="wx-search">
+        <input class="wx-input"
+               [ngModel]="ciudadInput()" (ngModelChange)="ciudadInput.set($event)"
+               [ngModelOptions]="{standalone: true}"
+               placeholder="Ciudad…"
+               (keyup.enter)="buscarClima()" />
+        <button class="icon-btn" (click)="buscarClima()" [disabled]="wxLoading()">↻</button>
+      </div>
+    </div>
+
+    @if (wxLoading()) {
+      <div class="wx-skeleton">
+        <div class="skeleton skeleton--current"></div>
+        <div class="forecast-grid">
+          @for (_ of [1,2,3,4,5,6,7]; track $index) { <div class="skeleton skeleton--day"></div> }
+        </div>
+      </div>
+    } @else if (wxError()) {
+      <div class="msg-error">{{ wxError() }}</div>
+    } @else if (weather()) {
+
+      <!-- Actual -->
+      <div class="wx-now">
+        <div class="wx-now__emoji">{{ wmoEmoji(weather()!.current.code) }}</div>
+        <div class="wx-now__main">
+          <span class="wx-now__temp">{{ weather()!.current.temp | number:'1.0-0' }}°C</span>
+          <span class="wx-now__desc">{{ weather()!.current.description }}</span>
+        </div>
+        <div class="wx-now__detail">
+          <span>💨 {{ weather()!.current.windSpeed | number:'1.0-0' }} km/h</span>
+          @if (weather()!.current.precipitation > 0) {
+            <span>💧 {{ weather()!.current.precipitation | number:'1.1-1' }} mm</span>
+          }
+          <span class="wx-now__ciudad">{{ weather()!.ciudad }}</span>
+        </div>
+        <div class="wx-now__aptas">
+          <span class="aptas-num">{{ countAptas() }}</span>
+          <span class="aptas-label">días aptos<br>próximos 10</span>
+        </div>
+      </div>
+
+      <!-- Pronóstico -->
+      <div class="forecast-grid">
+        @for (day of weather()!.forecast; track day.date) {
+          <div class="fday fday--{{ day.aptaObra }}" [class.fday--today]="isToday(day.date)">
+            <span class="fday-label">{{ isToday(day.date) ? 'Hoy' : day.label }}</span>
+            <span class="fday-ico">{{ wmoEmoji(day.code) }}</span>
+            <div class="fday-temps">
+              <span class="fday-max">{{ day.tempMax | number:'1.0-0' }}°</span>
+              <span class="fday-min">{{ day.tempMin | number:'1.0-0' }}°</span>
+            </div>
+            @if (day.precipitation > 0) {
+              <span class="fday-rain">{{ day.precipitation | number:'1.0-0' }}mm</span>
+            }
+            <span class="fday-tag fday-tag--{{ day.aptaObra }}">{{ aptaLabel(day) }}</span>
+            @if (day.aptaObraRazon) {
+              <span class="fday-razon">{{ day.aptaObraRazon }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="wx-legend">
+        <span><i class="dot dot--si"></i> Apto</span>
+        <span><i class="dot dot--precaucion"></i> Precaución</span>
+        <span><i class="dot dot--no"></i> No apto</span>
+        <span class="wx-legend__hint">· Evaluado por lluvia, temperatura y viento</span>
+      </div>
+
+    }
+  </section>
+
+</div>

@@ -1,0 +1,175 @@
+<div class="finder">
+
+  <!-- Header -->
+  <div class="finder-header">
+    <div class="finder-header__left">
+      <span class="finder-header__icon">🔍</span>
+      <div>
+        <div class="finder-header__title">Descubrir proveedores</div>
+        <div class="finder-header__sub">Ordenados por confiabilidad · rating + reseñas + perfil completo</div>
+      </div>
+    </div>
+    <button class="finder-close" (click)="cerrar.emit()" type="button">✕</button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="finder-filters">
+    <div class="finder-filter-group">
+      <div class="finder-filter-label">Rubro</div>
+      <div class="finder-pills">
+        @for (r of rubros; track r._id) {
+          <button type="button" class="finder-pill"
+                  [class.finder-pill--on]="rubroId() === r._id"
+                  (click)="selectRubro(r._id)">{{ r.nombre }}</button>
+        }
+      </div>
+    </div>
+
+    @if (rubroId() && subrubrosDe().length) {
+      <div class="finder-filter-group">
+        <div class="finder-filter-label">Especialidad <span class="finder-filter-optional">(opcional)</span></div>
+        <div class="finder-pills">
+          @for (s of subrubrosDe(); track s._id) {
+            <button type="button" class="finder-pill"
+                    [class.finder-pill--on]="subrubroId() === s._id"
+                    (click)="selectSubrubro(s._id)">{{ s.nombre }}</button>
+          }
+        </div>
+      </div>
+    }
+
+    <div class="finder-search-row">
+      <div class="finder-location">
+        <span class="finder-location__icon">📍</span>
+        <input class="finder-location__input"
+               [ngModel]="location()" (ngModelChange)="location.set($event)"
+               [ngModelOptions]="{standalone: true}"
+               placeholder="Ciudad o provincia (ej: Rosario, Santa Fe)" />
+      </div>
+      <button type="button" class="finder-btn" [disabled]="!canSearch" (click)="buscar()">
+        @if (loading()) { <span class="finder-btn__spinner"></span> Buscando... }
+        @else { Buscar en Google Maps }
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="finder-loading">
+      <div class="finder-loading__dots"><span></span><span></span><span></span></div>
+      <p>Buscando "{{ queryLabel }}"{{ location() ? ' en ' + location() : '' }}...</p>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="finder-error"><span>⚠</span> {{ error() }}</div>
+  }
+
+  <!-- Resultados -->
+  @if (buscado() && !loading() && !error()) {
+    @if (resultados().length === 0) {
+      <div class="finder-empty">
+        <p>Sin resultados para "{{ queryLabel }}"{{ location() ? ' en ' + location() : '' }}</p>
+        <p class="finder-empty__hint">Probá con otro término o zona más amplia</p>
+      </div>
+    } @else {
+      <div class="finder-results-header">
+        <span class="finder-results-count">{{ resultados().length }} resultado{{ resultados().length !== 1 ? 's' : '' }}</span>
+        <span class="finder-results-hint">Ordenados por confiabilidad · hacé clic en "Agregar" para importar</span>
+      </div>
+
+      <div class="finder-grid">
+        @for (p of resultados(); track p.nombre; let i = $index) {
+          <div class="fcard" [class.fcard--top]="i === 0">
+
+            <!-- Barra de confiabilidad -->
+            <div class="fcard-top-row">
+              <span class="fcard-trust-label fcard-trust-label--{{ p.trust.grade | lowercase }}">
+                {{ trustLabel(p.trust.grade) }}
+              </span>
+              <div class="fcard-trust-bar">
+                <div class="fcard-trust-fill fcard-trust-fill--{{ p.trust.grade | lowercase }}"
+                     [style.width.%]="p.trust.total"></div>
+              </div>
+              <span class="fcard-trust-rank">#{{ i + 1 }}</span>
+            </div>
+
+            <!-- Rating -->
+            @if (p.rating) {
+              <div class="fcard-rating">
+                <div class="fcard-stars">
+                  @for (s of renderStars(p.rating); track $index) {
+                    <span class="fcard-star" [class.fcard-star--on]="s.filled">★</span>
+                  }
+                </div>
+                <span class="fcard-rating-n">{{ p.rating }}</span>
+                <span class="fcard-rating-count">({{ p.ratingCount }} reseña{{ p.ratingCount !== 1 ? 's' : '' }})</span>
+              </div>
+            } @else {
+              <div class="fcard-no-rating">Sin calificación</div>
+            }
+
+            <!-- Nombre -->
+            <div class="fcard-nombre">{{ p.nombre }}</div>
+
+            <!-- Trust breakdown chips -->
+            <div class="fcard-chips">
+              @if (p.telefono) { <span class="chip chip--ok">📞 Teléfono</span> }
+              @if (p.web)      { <span class="chip chip--ok">🌐 Web</span> }
+              @if (p.tieneHorario) { <span class="chip chip--ok">🕐 Horario</span> }
+              @if (!p.telefono) { <span class="chip chip--miss">Sin tel</span> }
+              @if (!p.web)      { <span class="chip chip--miss">Sin web</span> }
+            </div>
+
+            <!-- Info -->
+            <div class="fcard-info">
+              @if (p.direccion) {
+                <div class="fcard-info-row">
+                  <span class="fcard-info-icon">📍</span><span>{{ p.direccion }}</span>
+                </div>
+              }
+              @if (p.web) {
+                <div class="fcard-info-row">
+                  <span class="fcard-info-icon">🌐</span>
+                  <a [href]="p.web" target="_blank" rel="noopener" class="fcard-link">
+                    {{ p.web | slice:0:36 }}{{ p.web.length > 36 ? '…' : '' }}
+                  </a>
+                </div>
+              }
+            </div>
+
+            <!-- Acciones -->
+            <div class="fcard-actions">
+              @if (p.whatsapp) {
+                <a [href]="p.whatsapp" target="_blank" rel="noopener" class="fcard-action fcard-action--wa">
+                  💬 WhatsApp
+                </a>
+              } @else if (p.telefono) {
+                <a [href]="'tel:' + p.telefono" class="fcard-action fcard-action--tel">
+                  📞 Llamar
+                </a>
+              }
+              <button type="button" class="fcard-action fcard-action--add" (click)="agregar(p)">
+                ➕ Agregar
+              </button>
+            </div>
+
+          </div>
+        }
+      </div>
+
+      <!-- Leyenda del score -->
+      <div class="finder-legend">
+        <span class="finder-legend__title">Puntaje de confiabilidad</span>
+        <div class="finder-legend__items">
+          <span><span class="fcard-trust-label fcard-trust-label--a">Muy confiable</span></span>
+          <span><span class="fcard-trust-label fcard-trust-label--b">Confiable</span></span>
+          <span><span class="fcard-trust-label fcard-trust-label--c">Regular</span></span>
+          <span><span class="fcard-trust-label fcard-trust-label--d">Pocos datos</span></span>
+        </div>
+        <p class="finder-legend__desc">Basado en: rating bayesiano (35 pts) + volumen de reseñas (35 pts) + perfil completo: teléfono, web, horario (20 pts) + estado operativo (10 pts)</p>
+      </div>
+    }
+  }
+
+</div>

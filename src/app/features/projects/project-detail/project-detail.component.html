@@ -1,0 +1,511 @@
+@if (loading()) {
+  <div class="loader">Cargando...</div>
+} @else if (project()) {
+  <div class="detail">
+
+    <!-- ═══════════════════════════════════════════════════
+         COVER (opcional, banner separado)
+    ════════════════════════════════════════════════════ -->
+    @if (project()!.coverImage) {
+      <div class="proj-cover" [style.background-image]="'url(' + coverUrl(project()!.coverImage!) + ')'">
+        <label class="proj-cover__btn" [class.proj-cover__btn--loading]="coverUploading()" title="Cambiar foto">
+          @if (coverUploading()) { Subiendo... } @else { Cambiar foto }
+          <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
+        </label>
+      </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════
+         HEADER
+    ════════════════════════════════════════════════════ -->
+    <div class="proj-header">
+      <div class="proj-header__top">
+        <a routerLink="/projects" class="back-link">← Proyectos</a>
+        <div class="proj-header__actions">
+          @if (!project()!.coverImage) {
+            <label class="btn btn--ghost btn--sm" title="Agregar foto de portada" style="cursor:pointer">
+              @if (coverUploading()) { Subiendo... } @else { + Foto }
+              <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
+            </label>
+          }
+          @if (!editing()) {
+            <button class="btn btn--ghost btn--sm" (click)="startEdit(project()!)">Editar</button>
+            <button class="btn btn--ghost btn--sm btn--del" (click)="deleteProject()">Eliminar</button>
+          } @else {
+            <button class="btn btn--primary btn--sm" (click)="save()">Guardar cambios</button>
+            <button class="btn btn--ghost btn--sm" (click)="cancelEdit()">Cancelar</button>
+          }
+        </div>
+      </div>
+
+      <div class="proj-header__body">
+        <div class="proj-header__title-row">
+          <h1 class="proj-header__name">{{ project()!.name }}</h1>
+          <span class="status-badge status-badge--{{ project()!.status }}">{{ statusLabel(project()!.status) }}</span>
+        </div>
+        <div class="proj-header__meta">
+          <span class="proj-meta">{{ typeLabel(project()!.type) }}</span>
+          @if (project()!.location?.city) {
+            <span class="proj-meta-sep">·</span>
+            <span class="proj-meta">{{ project()!.location!.city }}</span>
+          }
+          @if (project()!.startDate) {
+            <span class="proj-meta-sep">·</span>
+            <span class="proj-meta">Inicio {{ project()!.startDate | date:'MMM yyyy' }}</span>
+          }
+          @if (project()!.budget?.estimated) {
+            <span class="proj-meta-sep">·</span>
+            <span class="proj-meta proj-meta--budget">{{ project()!.budget!.currency }} {{ project()!.budget!.estimated | arsNum }}</span>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         TABS
+    ════════════════════════════════════════════════════ -->
+    <nav class="proj-tabs">
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'info'" (click)="setTab('info')">Información</button>
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'obra'" (click)="setTab('obra')">Obra</button>
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'resumen'" (click)="setTab('resumen')">Finanzas</button>
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'caja'" (click)="setTab('caja')">Reservas</button>
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'documentos'" (click)="setTab('documentos')">
+        Documentos
+        @if (docs().length) { <span class="proj-tab__badge">{{ docs().length }}</span> }
+      </button>
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'planificacion'" (click)="setTab('planificacion')">Planificación</button>
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'config'" (click)="setTab('config')">Configuración</button>
+    </nav>
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: CAJA
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'caja') {
+      <div class="tab-content">
+        <app-caja [projectId]="project()!._id" />
+      </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: CONFIGURACIÓN
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'config') {
+      <div class="tab-content">
+        <div class="config-layout">
+          <nav class="config-nav">
+            <button class="config-nav__item" [class.config-nav__item--active]="configSection() === 'etapas'" (click)="configSection.set('etapas')">
+              Etapas de obra
+            </button>
+          </nav>
+          <div class="config-body">
+            @if (configSection() === 'etapas') {
+              <app-etapas [projectId]="project()!._id" />
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: DOCUMENTOS
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'documentos') {
+  <div class="tab-content docs-page">
+
+    <div class="docs-topbar">
+      <div class="docs-topbar__left">
+        <h2 class="docs-topbar__title">Documentos</h2>
+        <span class="docs-topbar__count">{{ docs().length }} archivo{{ docs().length !== 1 ? 's' : '' }}</span>
+      </div>
+      <button class="btn btn--primary btn--sm docs-upload-btn"
+              [class.btn--loading]="uploading()"
+              (click)="showUploadPanel.set(!showUploadPanel())">
+        {{ uploading() ? 'Subiendo...' : showUploadPanel() ? '✕ Cancelar' : '+ Subir archivo' }}
+      </button>
+    </div>
+
+    <!-- Upload panel -->
+    @if (showUploadPanel() && !uploading()) {
+      <div class="docs-upload-panel">
+        <div class="docs-upload-panel__label">Tipo de documento</div>
+        <div class="tipo-pills">
+          @for (t of DOC_TIPOS; track t) {
+            <button class="tipo-pill" [class.tipo-pill--active]="uploadTipo() === t"
+                    (click)="uploadTipo.set(t)">
+              {{ DOC_TIPO_ICONS[t] }} {{ DOC_TIPO_LABELS[t] }}
+            </button>
+          }
+        </div>
+        <label class="docs-drop-zone">
+          <div class="docs-drop-zone__icon">📁</div>
+          <div class="docs-drop-zone__text">Arrastrá o hacé clic para elegir un archivo</div>
+          <div class="docs-drop-zone__hint">.pdf, .xlsx, .docx, .csv, .jpg, .png</div>
+          <input type="file" hidden (change)="onFile($event)"
+                 accept=".pdf,.xlsx,.xls,.docx,.csv,.jpg,.png,.jpeg" />
+        </label>
+      </div>
+    }
+
+    <div class="docs-body">
+
+      <!-- Sidebar: categorías -->
+      <aside class="docs-sidebar">
+        <button class="docs-cat" [class.docs-cat--active]="docFiltroTipo() === 'todos'"
+                (click)="docFiltroTipo.set('todos')">
+          <span class="docs-cat__icon">📂</span>
+          <span class="docs-cat__label">Todos</span>
+          <span class="docs-cat__count">{{ docs().length }}</span>
+        </button>
+        @for (group of docsPorTipo(); track group.tipo) {
+          <button class="docs-cat" [class.docs-cat--active]="docFiltroTipo() === group.tipo"
+                  (click)="docFiltroTipo.set(group.tipo)">
+            <span class="docs-cat__icon">{{ group.icon }}</span>
+            <span class="docs-cat__label">{{ group.label }}</span>
+            <span class="docs-cat__count">{{ group.docs.length }}</span>
+          </button>
+        }
+      </aside>
+
+      <!-- Main: file list -->
+      <div class="docs-list">
+        @if (docsFiltered().length === 0) {
+          <div class="docs-empty">
+            <span class="docs-empty__icon">📄</span>
+            <p class="docs-empty__title">Sin documentos</p>
+            <p class="docs-empty__desc">Subí el primer archivo usando el botón de arriba.</p>
+          </div>
+        } @else {
+          @for (doc of docsFiltered(); track doc._id) {
+            <div class="docs-row" (click)="openPreview(doc)">
+              <span class="docs-row__icon">{{ fileIcon(doc.mimetype) }}</span>
+              <div class="docs-row__info">
+                <span class="docs-row__name" [title]="doc.originalName">{{ doc.originalName }}</span>
+                <span class="docs-row__meta">{{ formatSize(doc.size) }}</span>
+              </div>
+              <span class="docs-row__tipo">{{ DOC_TIPO_ICONS[doc.tipo || 'otros'] }} {{ DOC_TIPO_LABELS[doc.tipo || 'otros'] }}</span>
+              <a class="docs-row__dl" [href]="fileUrl(doc)" [download]="doc.originalName"
+                 (click)="$event.stopPropagation()" title="Descargar">⬇</a>
+              <button class="docs-row__del" (click)="$event.stopPropagation(); deleteDoc(doc._id)" title="Eliminar">✕</button>
+            </div>
+          }
+        }
+      </div>
+
+    </div>
+
+  </div>
+}
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: OBRA
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'obra') {
+      <div class="tab-content">
+        <app-obra [projectId]="project()!._id" />
+      </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: PLANIFICACIÓN
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'planificacion') {
+      <div class="tab-content">
+        <app-planificacion [projectId]="project()!._id" [projectName]="project()!.name" />
+      </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: FINANZAS / RESUMEN
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'resumen') {
+      <div class="tab-content">
+
+        <!-- KPIs -->
+        <div class="fin-kpis">
+          <div class="fin-kpi">
+            <span class="fin-kpi__label">Presupuestado</span>
+            <span class="fin-kpi__value">{{ fmt(totalPresupuestado()) }}</span>
+            <span class="fin-kpi__sub">presupuestos aprobados</span>
+          </div>
+          <div class="fin-kpi fin-kpi--ejecucion">
+            <span class="fin-kpi__label">En ejecución</span>
+            <span class="fin-kpi__value">{{ fmt(totalGastado()) }}</span>
+            <span class="fin-kpi__sub">gastos generados</span>
+          </div>
+          <div class="fin-kpi fin-kpi--porpagar">
+            <span class="fin-kpi__label">Por pagar</span>
+            <span class="fin-kpi__value">{{ fmt(totalPorPagar()) }}</span>
+            <span class="fin-kpi__sub">saldo pendiente</span>
+          </div>
+          <div class="fin-kpi fin-kpi--accent fin-kpi--pagado">
+            <span class="fin-kpi__label">Pagado</span>
+            <span class="fin-kpi__value">{{ fmt(totalPagado()) }}</span>
+            <span class="fin-kpi__sub">efectivizado</span>
+          </div>
+        </div>
+
+        <!-- Saldo en reservas -->
+        @if (saldoReservasPorMoneda().length) {
+          <div class="fin-caja-card">
+            <div class="fin-caja-header">
+              <span class="fin-caja-title">Saldo en reservas</span>
+              <span class="fin-caja-hint">ingresos − egresos por moneda</span>
+            </div>
+            <div class="fin-caja-grid">
+              @for (item of saldoReservasPorMoneda(); track item.moneda) {
+                <div class="fin-caja-item">
+                  <span class="fin-caja-label">{{ item.moneda }}</span>
+                  <span class="fin-caja-val" [class.fin-caja-val--neg]="item.saldo < 0">
+                    {{ item.saldo < 0 ? '−' : '' }}{{ fmtM(item.saldo, item.moneda) }}
+                  </span>
+                  <span class="fin-caja-sub">↑ {{ fmtM(item.ingresado, item.moneda) }} · ↓ {{ fmtM(item.egresado, item.moneda) }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Tabla por rubro -->
+        @if (resumenPorRubro().length) {
+          <div class="fin-table-card">
+            <div class="fin-table-title">Por rubro</div>
+            <table class="fin-table">
+              <thead>
+                <tr>
+                  <th class="fin-th--name">Rubro / Subrubro</th>
+                  <th class="fin-th--num">Presupuestado</th>
+                  <th class="fin-th--num">Ejecutado</th>
+                  <th class="fin-th--num">Pagado</th>
+                  <th class="fin-th--bar">Avance pago</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (rubro of resumenPorRubro(); track rubro.rubroId) {
+                  <!-- Rubro row -->
+                  <tr class="fin-tr--rubro">
+                    <td class="fin-td--name">{{ rubro.rubroNombre }}</td>
+                    <td class="fin-td--num">{{ rubro.presupuestado ? fmt(rubro.presupuestado) : '—' }}</td>
+                    <td class="fin-td--num">{{ fmt(rubro.gastado) }}</td>
+                    <td class="fin-td--num fin-td--pagado">{{ fmt(rubro.pagado) }}</td>
+                    <td class="fin-td--bar">
+                      <div class="fin-mini-track">
+                        <div class="fin-mini-fill"
+                             [style.width.%]="pctBar(rubro.pagado, rubro.presupuestado || rubro.gastado)"></div>
+                      </div>
+                      <span class="fin-mini-pct">{{ pctBar(rubro.pagado, rubro.presupuestado || rubro.gastado) }}%</span>
+                    </td>
+                  </tr>
+                  <!-- Subrubros -->
+                  @for (sub of rubro.subrubros; track sub.subrubroId) {
+                    <tr class="fin-tr--sub">
+                      <td class="fin-td--name fin-td--sub-name">↳ {{ sub.subrubroNombre }}</td>
+                      <td class="fin-td--num fin-td--muted">{{ sub.presupuestado ? fmt(sub.presupuestado) : '—' }}</td>
+                      <td class="fin-td--num fin-td--muted">{{ fmt(sub.gastado) }}</td>
+                      <td class="fin-td--num fin-td--pagado fin-td--muted">{{ fmt(sub.pagado) }}</td>
+                      <td class="fin-td--bar">
+                        <div class="fin-mini-track">
+                          <div class="fin-mini-fill"
+                               [style.width.%]="pctBar(sub.pagado, sub.presupuestado || sub.gastado)"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="fin-empty">
+            <p class="fin-empty__title">Sin datos financieros</p>
+            <p class="fin-empty__desc">Aprobá presupuestos y generá gastos para ver el resumen.</p>
+          </div>
+        }
+
+      </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: INFO + DOCUMENTOS
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'info') {
+      <div class="tab-content">
+        <div class="info-layout">
+
+          <!-- COL PRINCIPAL -->
+          <div class="col-main">
+
+            @if (activeTab() === 'info') {
+
+              @if (project()!.description || editing()) {
+                <div class="icard">
+                  <div class="icard__label">Descripción</div>
+                  @if (editing()) {
+                    <textarea [(ngModel)]="form.description" name="description" rows="3" placeholder="Descripción del proyecto"></textarea>
+                  } @else {
+                    <p class="icard__text">{{ project()!.description }}</p>
+                  }
+                </div>
+              }
+
+              <div class="icard">
+                <div class="icard__label">Propietario</div>
+                @if (editing()) {
+                  <div class="field-row">
+                    <div class="ifield"><label>Nombre</label><input [(ngModel)]="form.ownerName" name="ownerName" placeholder="Nombre completo" /></div>
+                    <div class="ifield"><label>Email</label><input type="email" [(ngModel)]="form.ownerEmail" name="ownerEmail" /></div>
+                    <div class="ifield"><label>Celular</label><input [(ngModel)]="form.ownerPhone" name="ownerPhone" /></div>
+                  </div>
+                } @else {
+                  <div class="kv-grid">
+                    @if (project()!.owner?.name)  { <div class="kv"><span class="kv__k">Nombre</span><span class="kv__v">{{ project()!.owner!.name }}</span></div> }
+                    @if (project()!.owner?.email) { <div class="kv"><span class="kv__k">Email</span><a class="kv__v kv__v--link" [href]="'mailto:'+project()!.owner!.email">{{ project()!.owner!.email }}</a></div> }
+                    @if (project()!.owner?.phone) { <div class="kv"><span class="kv__k">Celular</span><a class="kv__v kv__v--link" [href]="'tel:'+project()!.owner!.phone">{{ project()!.owner!.phone }}</a></div> }
+                    @if (!project()!.owner?.name && !project()!.owner?.email && !project()!.owner?.phone) {
+                      <span class="empty-text">Sin datos del propietario</span>
+                    }
+                  </div>
+                }
+              </div>
+
+              <div class="icard">
+                <div class="icard__label">Servicios contratados</div>
+                @if (editing()) {
+                  <div class="check-grid">
+                    @for (s of allServices; track s[0]) {
+                      <label class="check-item">
+                        <input type="checkbox" [checked]="form.services.includes(s[0])" (change)="toggleService(s[0])" />
+                        {{ s[1] }}
+                      </label>
+                    }
+                  </div>
+                } @else {
+                  @if (project()!.services?.length) {
+                    <div class="chip-list">
+                      @for (s of project()!.services!; track s) { <span class="chip">{{ serviceLabel(s) }}</span> }
+                    </div>
+                  } @else {
+                    <span class="empty-text">Sin servicios asignados</span>
+                  }
+                }
+              </div>
+
+            }
+
+          </div>
+
+          <!-- COL LATERAL -->
+          <div class="col-side">
+
+            <div class="icard">
+              <div class="icard__label">Estado y fechas</div>
+              @if (editing()) {
+                <div class="ifield"><label>Estado</label>
+                  <select [(ngModel)]="form.status" name="status">
+                    @for (o of statusOptions; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+                  </select>
+                </div>
+                <div class="ifield"><label>Inicio</label><input type="date" [(ngModel)]="form.startDate" name="startDate" /></div>
+                <div class="ifield"><label>Fin estimado</label><input type="date" [(ngModel)]="form.endDate" name="endDate" /></div>
+              } @else {
+                <div class="kv-grid">
+                  @if (project()!.startDate) { <div class="kv"><span class="kv__k">Inicio</span><span class="kv__v">{{ project()!.startDate | date:'dd/MM/yyyy' }}</span></div> }
+                  @if (project()!.endDate)   { <div class="kv"><span class="kv__k">Fin est.</span><span class="kv__v">{{ project()!.endDate | date:'dd/MM/yyyy' }}</span></div> }
+                  @if (!project()!.startDate && !project()!.endDate) { <span class="empty-text">Sin fechas cargadas</span> }
+                </div>
+              }
+            </div>
+
+            <div class="icard">
+              <div class="icard__label">Características</div>
+              @if (editing()) {
+                <div class="ifield"><label>Niveles</label><input type="number" [(ngModel)]="form.levels" name="levels" min="0" /></div>
+                <div class="ifield"><label>m² construidos</label><input type="number" [(ngModel)]="form.surface" name="surface" min="0" /></div>
+                <div class="ifield"><label>m² terreno</label><input type="number" [(ngModel)]="form.lotSurface" name="lotSurface" min="0" /></div>
+                <div class="ifield"><label>Dormitorios</label><input type="number" [(ngModel)]="form.bedrooms" name="bedrooms" min="0" /></div>
+                <div class="ifield"><label>Baños</label><input type="number" [(ngModel)]="form.bathrooms" name="bathrooms" min="0" /></div>
+                <label class="check-item"><input type="checkbox" [(ngModel)]="form.hasLaundry" name="hasLaundry" /> Lavadero</label>
+                <label class="check-item"><input type="checkbox" [(ngModel)]="form.isGatedCommunity" name="isGatedCommunity" /> Barrio cerrado</label>
+              } @else {
+                <div class="specs-grid">
+                  @if (project()!.features?.levels)     { <div class="spec"><span class="spec__v">{{ project()!.features!.levels }}</span><span class="spec__k">Niveles</span></div> }
+                  @if (project()!.features?.surface)    { <div class="spec"><span class="spec__v">{{ project()!.features!.surface }}</span><span class="spec__k">m² const.</span></div> }
+                  @if (project()!.features?.lotSurface) { <div class="spec"><span class="spec__v">{{ project()!.features!.lotSurface }}</span><span class="spec__k">m² terreno</span></div> }
+                  @if (project()!.features?.bedrooms)   { <div class="spec"><span class="spec__v">{{ project()!.features!.bedrooms }}</span><span class="spec__k">Dorm.</span></div> }
+                  @if (project()!.features?.bathrooms)  { <div class="spec"><span class="spec__v">{{ project()!.features!.bathrooms }}</span><span class="spec__k">Baños</span></div> }
+                  @if (project()!.features?.hasLaundry) { <div class="spec"><span class="spec__v">✓</span><span class="spec__k">Lavadero</span></div> }
+                  @if (project()!.location?.isGatedCommunity) { <div class="spec"><span class="spec__v">✓</span><span class="spec__k">B. Cerrado</span></div> }
+                </div>
+              }
+            </div>
+
+            <div class="icard">
+              <div class="icard__label">Ubicación</div>
+              @if (editing()) {
+                <div class="ifield"><label>Dirección</label><input [(ngModel)]="form.address" name="address" /></div>
+                <div class="ifield"><label>Barrio</label><input [(ngModel)]="form.neighborhood" name="neighborhood" /></div>
+                <div class="ifield"><label>Ciudad</label><input [(ngModel)]="form.city" name="city" /></div>
+                <div class="ifield"><label>Provincia</label><input [(ngModel)]="form.province" name="province" /></div>
+              } @else {
+                @if (project()!.location?.address || project()!.location?.city) {
+                  <p class="location-text">{{ locationStr(project()!) }}</p>
+                } @else {
+                  <span class="empty-text">Sin ubicación</span>
+                }
+              }
+            </div>
+
+            <div class="icard">
+              <div class="icard__label">Presupuesto estimado</div>
+              @if (editing()) {
+                <div class="field-row">
+                  <div class="ifield"><label>Monto</label><input type="number" [(ngModel)]="form.budgetEstimated" name="budgetEstimated" min="0" /></div>
+                  <div class="ifield"><label>Moneda</label>
+                    <select [(ngModel)]="form.budgetCurrency" name="budgetCurrency">
+                      <option value="USD">USD</option><option value="ARS">ARS</option><option value="EUR">EUR</option>
+                    </select>
+                  </div>
+                </div>
+              } @else {
+                @if (project()!.budget?.estimated) {
+                  <span class="budget-big">{{ project()!.budget!.currency }} {{ project()!.budget!.estimated | arsNum }}</span>
+                } @else {
+                  <span class="empty-text">Sin presupuesto cargado</span>
+                }
+              }
+            </div>
+
+          </div>
+        </div>
+      </div>
+    }
+
+  </div>
+}
+
+<!-- ── Preview Modal ───────────────────────────────────── -->
+@if (previewDoc()) {
+  <div class="preview-overlay" (click)="closePreview()">
+    <div class="preview-modal" (click)="$event.stopPropagation()">
+      <div class="preview-modal__header">
+        <span class="preview-modal__name">{{ previewDoc()!.originalName }}</span>
+        <div class="preview-modal__actions">
+          <a class="preview-download" [href]="fileUrl(previewDoc()!)" [download]="previewDoc()!.originalName">⬇ Descargar</a>
+          <button class="preview-close" (click)="closePreview()">✕</button>
+        </div>
+      </div>
+      <div class="preview-modal__body">
+        @if (isImage(previewDoc()!.mimetype)) {
+          <img [src]="fileUrl(previewDoc()!)" [alt]="previewDoc()!.originalName" class="preview-img" />
+        } @else if (isPdf(previewDoc()!.mimetype)) {
+          <iframe [src]="fileUrl(previewDoc()!) | safe" class="preview-iframe" title="PDF viewer"></iframe>
+        } @else {
+          <div class="preview-unsupported">
+            <span class="preview-unsupported__icon">{{ fileIcon(previewDoc()!.mimetype) }}</span>
+            <p>Vista previa no disponible.</p>
+            <a class="btn-ghost" [href]="fileUrl(previewDoc()!)" [download]="previewDoc()!.originalName">⬇ Descargar</a>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

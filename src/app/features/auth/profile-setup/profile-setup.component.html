@@ -1,0 +1,77 @@
+<div class="setup-page">
+  <div class="setup-card">
+    <div class="setup-card__brand">
+      <div class="brand-mark"></div>
+      <span>Plataforma Brumelab Arch</span>
+    </div>
+
+    <div class="setup-header">
+      <h1>Completá tu perfil</h1>
+      <p class="subtitle">Solo necesitamos algunos datos para personalizar tu experiencia</p>
+    </div>
+
+    @if (error()) {
+      <div class="alert">{{ error() }}</div>
+    }
+
+    <form (ngSubmit)="submit()">
+      <div class="form-section">
+        <h3>Datos personales</h3>
+        <div class="field">
+          <label>Nombre completo <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="name" name="name" placeholder="Juan Pérez" required />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Teléfono</label>
+            <input type="tel" [(ngModel)]="telefono" name="telefono" placeholder="+54 11 0000-0000" />
+          </div>
+          <div class="field">
+            <label>Matrícula profesional</label>
+            <input type="text" [(ngModel)]="matricula" name="matricula" placeholder="CAP / CPAU / CAD..." />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Actividad profesional</h3>
+        <div class="field">
+          <label>Especialidad <span class="req">*</span></label>
+          <select [(ngModel)]="especialidad" name="especialidad" required>
+            <option value="" disabled>Seleccioná una especialidad</option>
+            @for (esp of especialidades; track esp) {
+              <option [value]="esp">{{ esp }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label>Estudio / Empresa</label>
+          <input type="text" [(ngModel)]="estudio" name="estudio" placeholder="Nombre del estudio o empresa" />
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Ubicación</h3>
+        <div class="field-row">
+          <div class="field">
+            <label>Provincia</label>
+            <select [(ngModel)]="provincia" name="provincia">
+              <option value="">Seleccioná una provincia</option>
+              @for (prov of provincias; track prov) {
+                <option [value]="prov">{{ prov }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label>Ciudad / Localidad</label>
+            <input type="text" [(ngModel)]="ciudad" name="ciudad" placeholder="Ciudad" />
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary" [disabled]="loading()">
+        @if (loading()) { Guardando... } @else { Guardar y continuar }
+      </button>
+    </form>
+  </div>
+</div>

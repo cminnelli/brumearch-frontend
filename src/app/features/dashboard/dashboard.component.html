@@ -1,0 +1,74 @@
+<div class="dash">
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <h1 class="page-header__title">Dashboard</h1>
+      <p class="page-header__desc">Resumen de tu actividad en Brum Arch</p>
+    </div>
+    <a routerLink="/projects" class="btn btn--primary">Ver proyectos</a>
+  </header>
+
+  <!-- Stats -->
+  <div class="dash-stats">
+    <div class="stat-card">
+      <span class="stat-card__label">Total</span>
+      @if (total() === 0 && active() === 0 && completed() === 0) {
+        <span class="stat-card__value skeleton" style="width:60px;height:3rem;display:block"></span>
+      } @else {
+        <span class="stat-card__value">{{ total() }}</span>
+        <span class="stat-card__sub">proyectos registrados</span>
+      }
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-card__label">En curso</span>
+      @if (total() === 0 && active() === 0 && completed() === 0) {
+        <span class="stat-card__value skeleton" style="width:60px;height:3rem;display:block"></span>
+      } @else {
+        <span class="stat-card__value">{{ active() }}</span>
+        <span class="stat-card__sub">proyectos activos</span>
+      }
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-card__label">Completados</span>
+      @if (total() === 0 && active() === 0 && completed() === 0) {
+        <span class="stat-card__value skeleton" style="width:60px;height:3rem;display:block"></span>
+      } @else {
+        <span class="stat-card__value">{{ completed() }}</span>
+        <span class="stat-card__sub">obras finalizadas</span>
+      }
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  @if (total() > 0) {
+    <div class="dash-actions">
+      <p class="section-label">Accesos rápidos</p>
+      <div class="dash-actions__grid">
+        <a routerLink="/projects" class="action-card">
+          <span class="action-card__title">Proyectos</span>
+          <span class="action-card__desc">Ver y gestionar todas las obras</span>
+          <span class="action-card__arrow">→</span>
+        </a>
+        <a routerLink="/config" class="action-card">
+          <span class="action-card__title">Configuración</span>
+          <span class="action-card__desc">Rubros, etapas y proveedores</span>
+          <span class="action-card__arrow">→</span>
+        </a>
+        <a routerLink="/entorno" class="action-card">
+          <span class="action-card__title">Entorno</span>
+          <span class="action-card__desc">Dólar, clima y aptitud de obra</span>
+          <span class="action-card__arrow">→</span>
+        </a>
+      </div>
+    </div>
+  }
+
+  <!-- Empty state -->
+  @if (total() === 0 && active() === 0 && completed() === 0) {
+    <!-- skip — loading state handled in stat cards -->
+  }
+
+</div>

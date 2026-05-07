@@ -1,0 +1,171 @@
+<div class="etapas">
+
+  <div class="etapas-header">
+    <p class="section-label">Etapas de obra</p>
+    <div class="etapas-header__actions">
+      @if (dirty()) {
+        <button class="btn btn--primary btn--sm" (click)="save()" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      }
+      @if (!loading()) {
+        <button class="btn btn--ghost btn--sm" (click)="catalogOpen.set(!catalogOpen())">
+          {{ catalogOpen() ? '✕ Cerrar' : 'Editar etapas' }}
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="etapas-loading">
+      <div class="skeleton" style="height:200px; border-radius: var(--radius-lg)"></div>
+    </div>
+  } @else if (catalogOpen()) {
+
+    <!-- ── MODO EDICIÓN: dos paneles ── -->
+    <div class="etapas-layout">
+
+      <!-- Panel catálogo -->
+      <div class="etapas-panel">
+        <div class="etapas-panel__head">
+          <span class="etapas-panel__title">Catálogo</span>
+          <span class="etapas-panel__count">{{ plantillas().length }} etapa{{ plantillas().length !== 1 ? 's' : '' }}</span>
+        </div>
+        <div class="etapas-catalog">
+          @if (plantillas().length === 0) {
+            <div class="etapas-catalog__empty">Sin etapas configuradas</div>
+          }
+          @for (p of plantillas(); track p._id) {
+            <div class="catalog-item" (click)="add(p)">
+              <div class="catalog-item__body">
+                <span class="catalog-item__nombre">{{ p.nombre }}</span>
+                @if (p.descripcion) {
+                  <span class="catalog-item__desc">{{ p.descripcion }}</span>
+                }
+              </div>
+              @if (usageCount(p._id) > 0) {
+                <span class="catalog-item__badge">{{ usageCount(p._id) }}×</span>
+              }
+              <button class="catalog-item__btn" tabindex="-1">+</button>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Panel asignadas -->
+      <div class="etapas-panel">
+        <div class="etapas-panel__head">
+          <span class="etapas-panel__title">Asignadas al proyecto</span>
+          <span class="etapas-panel__count">{{ assigned().length }} etapa{{ assigned().length !== 1 ? 's' : '' }}</span>
+        </div>
+        <div class="etapas-assigned"
+             (dragover)="$event.preventDefault()"
+             (drop)="onDrop($event, assigned().length)">
+          @if (assigned().length === 0) {
+            <div class="etapas-assigned__empty">Seleccioná etapas del catálogo</div>
+          }
+          @for (a of assigned(); track a._id; let i = $index) {
+            <div class="assigned-row"
+                 [class.assigned-row--dragging]="dragIndex() === i"
+                 [class.assigned-row--over]="dragOverIndex() === i && dragIndex() !== i"
+                 draggable="true"
+                 (dragstart)="onDragStart(i)"
+                 (dragover)="onDragOver($event, i)"
+                 (drop)="onDrop($event, i)"
+                 (dragend)="onDragEnd()">
+
+              <!-- Main row: handle · orden · nombre · delete -->
+              <div class="assigned-row__main">
+                <span class="assigned-row__handle">≡</span>
+                <span class="assigned-row__orden">{{ a.orden }}</span>
+                <div class="assigned-row__body">
+                  @if (editingId() === a._id) {
+                    <input class="assigned-row__edit-input"
+                           [value]="editingNombre()"
+                           (input)="editingNombre.set($any($event.target).value)"
+                           (keydown.enter)="commitEditNombre(a)"
+                           (keydown.escape)="cancelEditNombre()"
+                           (blur)="commitEditNombre(a)"
+                           (click)="$event.stopPropagation()"
+                           autofocus />
+                  } @else {
+                    <span class="assigned-row__nombre" title="Clic para renombrar" (click)="startEditNombre(a)">{{ a.nombre }}</span>
+                    @if (a.etapaId.descripcion && a.nombre === a.etapaId.nombre) {
+                      <span class="assigned-row__desc">{{ a.etapaId.descripcion }}</span>
+                    }
+                  }
+                </div>
+                <button class="assigned-row__del" (click)="remove(a._id!)">×</button>
+              </div>
+
+              <!-- Schedule row: inicio · duración en semanas · → hasta -->
+              <div class="assigned-row__sched">
+                <span class="assigned-row__sched-label">Inicio</span>
+                <input class="assigned-row__date-input" type="date"
+                       [value]="a.fechaInicio || ''"
+                       (change)="updateEtapaField(a._id!, 'fechaInicio', $any($event.target).value)"
+                       (click)="$event.stopPropagation()"
+                       title="Fecha de inicio" />
+                <span class="assigned-row__sched-sep">·</span>
+                <span class="assigned-row__sched-label">Duración</span>
+                <input class="assigned-row__dur-input" type="number"
+                       [value]="a.duracion ?? ''"
+                       (input)="updateEtapaField(a._id!, 'duracion', +$any($event.target).value || null)"
+                       (click)="$event.stopPropagation()"
+                       placeholder="0" title="Duración en semanas" min="1" />
+                <span class="assigned-row__sched-unit">sem</span>
+                @if (fechaFin(a)) {
+                  <span class="assigned-row__hasta">→ {{ fechaFin(a) | date:'dd MMM yyyy' }}</span>
+                }
+              </div>
+
+            </div>
+          }
+        </div>
+      </div>
+
+    </div>
+
+  } @else {
+
+    <!-- ── MODO VISTA ── -->
+    <div class="etapas-panel etapas-panel--full">
+      @if (assigned().length === 0) {
+        <div class="etapas-panel__empty-cta">
+          Sin etapas asignadas. Usá "Editar etapas" para comenzar.
+        </div>
+      } @else {
+        <div class="etapas-assigned">
+          @for (a of assigned(); track a._id) {
+            <div class="assigned-row assigned-row--view">
+              <div class="assigned-row__main">
+                <span class="assigned-row__orden">{{ a.orden }}</span>
+                <div class="assigned-row__body">
+                  <span class="assigned-row__nombre">{{ a.nombre }}</span>
+                  @if (a.etapaId.descripcion && a.nombre === a.etapaId.nombre) {
+                    <span class="assigned-row__desc">{{ a.etapaId.descripcion }}</span>
+                  }
+                </div>
+              </div>
+              @if (a.fechaInicio || a.duracion) {
+                <div class="assigned-row__sched assigned-row__sched--view">
+                  @if (a.fechaInicio) {
+                    <span class="assigned-row__date-chip">{{ a.fechaInicio | date:'dd/MM/yy' }}</span>
+                  }
+                  @if (a.duracion) {
+                    <span class="assigned-row__date-chip">{{ a.duracion }} sem</span>
+                  }
+                  @if (fechaFin(a)) {
+                    <span class="assigned-row__date-chip assigned-row__date-chip--end">→ {{ fechaFin(a) | date:'dd/MM/yy' }}</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+  }
+
+</div>
