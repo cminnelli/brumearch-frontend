@@ -11,7 +11,13 @@
     </ul>
     <div class="navbar__user">
       @if (auth.currentUser()) {
-        <span class="user-name">{{ auth.currentUser()!.name }}</span>
+        <a routerLink="/profile" class="nav-avatar" [title]="auth.currentUser()!.name">
+          @if (auth.currentUser()!.avatar) {
+            <img [src]="auth.currentUser()!.avatar" [alt]="auth.currentUser()!.name" />
+          } @else {
+            {{ auth.currentUser()!.name[0].toUpperCase() }}
+          }
+        </a>
       }
       <button class="btn-logout" (click)="auth.logout()">Salir</button>
     </div>

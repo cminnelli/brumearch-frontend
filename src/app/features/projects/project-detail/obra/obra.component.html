@@ -647,6 +647,7 @@
                 @if (estadoG(g) !== 'pagado') {
                   <button class="btn btn--primary btn--sm" (click)="openPagoForm(g)">+ Registrar pago</button>
                 }
+                <button class="btn btn--ghost btn--sm" (click)="imprimirComprobante(g)">Imprimir comprobante</button>
               </div>
               <div class="dp-actions__utility">
                 <button class="btn-icon btn-icon--del" (click)="removeGasto(g)" title="Eliminar">×</button>

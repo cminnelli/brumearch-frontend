@@ -51,9 +51,25 @@
   gap: 0.75rem;
 }
 
-.user-name {
-  font-size: var(--text-sm);
-  color: var(--c-text-sub);
+.nav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--c-surface);
+  border: 1.5px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--c-text);
+  text-decoration: none;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color var(--t-fast);
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  &:hover { border-color: var(--c-text); }
 }
 
 .btn-logout {

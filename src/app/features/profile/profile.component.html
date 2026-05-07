@@ -1,0 +1,39 @@
+<div class="profile-page">
+  <div class="profile-card">
+    <a routerLink="/dashboard" class="back-link">← Volver</a>
+
+    <div class="avatar-section">
+      <div class="avatar-wrap">
+        @if (avatarUrl) {
+          <img class="avatar-img" [src]="avatarUrl" [alt]="auth.currentUser()?.name" />
+        } @else {
+          <div class="avatar-initials">{{ initials }}</div>
+        }
+        <label class="avatar-edit" [class.avatar-edit--loading]="uploading()" title="Cambiar foto">
+          @if (uploading()) { ... } @else { ✎ }
+          <input type="file" hidden accept="image/*" (change)="onAvatarFile($event)" />
+        </label>
+      </div>
+      <div class="avatar-name">{{ auth.currentUser()?.name }}</div>
+      <div class="avatar-email">{{ auth.currentUser()?.email }}</div>
+    </div>
+
+    @if (error()) {
+      <div class="alert">{{ error() }}</div>
+    }
+
+    <form (ngSubmit)="save()">
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" [(ngModel)]="name" name="name" placeholder="Tu nombre" />
+      </div>
+      <div class="field">
+        <label>Teléfono</label>
+        <input type="tel" [(ngModel)]="telefono" name="telefono" placeholder="+54 11 0000-0000" />
+      </div>
+      <button type="submit" class="btn-primary" [disabled]="saving()">
+        @if (saving()) { Guardando... } @else if (saved()) { ✓ Guardado } @else { Guardar cambios }
+      </button>
+    </form>
+  </div>
+</div>

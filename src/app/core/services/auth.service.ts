@@ -101,6 +101,14 @@ export class AuthService {
     );
   }
 
+  uploadAvatar(file: File): Observable<{ user: User }> {
+    const form = new FormData();
+    form.append('avatar', file);
+    return this.http.post<{ user: User }>(`${this.baseUrl}/avatar`, form).pipe(
+      tap((res) => this.currentUser.set(res.user))
+    );
+  }
+
   logout(): void {
     signOut(fbAuth).catch(() => {});
     this.clearToken();

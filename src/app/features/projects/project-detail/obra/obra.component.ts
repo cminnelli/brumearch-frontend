@@ -24,6 +24,7 @@ import { Proveedor } from '../../../../shared/models/proveedor.model';
 })
 export class ObraComponent implements OnInit {
   @Input() projectId!: string;
+  @Input() projectName = '';
 
   private presSvc      = inject(PresupuestoService);
   private gastoSvc     = inject(GastoService);
@@ -499,6 +500,228 @@ export class ObraComponent implements OnInit {
   }
 
   todayISO() { return new Date().toISOString().substring(0, 10); }
+
+  imprimirComprobante(g: Gasto) {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(this.buildComprobanteHtml(g));
+    w.document.close();
+  }
+
+  private buildComprobanteHtml(g: Gasto): string {
+    const num       = g._id.slice(-6).toUpperCase();
+    const fecha     = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const fmtM      = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    const totalPag  = totalPagadoGasto(g);
+    const restante  = Math.max(0, g.monto - totalPag);
+    const estado    = estadoGasto(g);
+    const estadoTxt = estado === 'pagado' ? 'PAGADO' : estado === 'parcial' ? 'PAGO PARCIAL' : 'PENDIENTE';
+
+    const pagosRows = g.pagos.map(p => `
+      <tr>
+        <td>${new Date(p.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+        <td>${METODO_LABELS[p.metodoPago] ?? p.metodoPago}</td>
+        <td>${p.referencia ?? '—'}</td>
+        <td class="tr">${g.moneda} ${fmtM(p.monto)}</td>
+      </tr>`).join('');
+
+    const pagosSection = g.pagos.length ? `
+      <div class="sep"></div>
+      <div class="section-lbl">Historial de pagos</div>
+      <table class="tbl">
+        <thead><tr><th>Fecha</th><th>Método</th><th>Referencia</th><th class="tr">Monto</th></tr></thead>
+        <tbody>${pagosRows}</tbody>
+      </table>` : '';
+
+    const estadoColor = estado === 'pagado' ? '#166534' : estado === 'parcial' ? '#92400e' : '#999';
+
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Comprobante Orden de Pago N° ${num} — Brumelab Arch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:#f4f4f2;color:#111;-webkit-font-smoothing:antialiased}
+
+  /* ── Toolbar ── */
+  .bar{position:fixed;top:0;left:0;right:0;height:52px;background:#111;display:flex;align-items:center;
+    justify-content:space-between;padding:0 2rem;z-index:10;gap:1rem}
+  .bar-brand{color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;white-space:nowrap}
+  .bar-actions{display:flex;gap:0.5rem;flex-shrink:0}
+  .btn{padding:0.38rem 1rem;border-radius:6px;font-size:0.78rem;font-weight:600;font-family:inherit;cursor:pointer;border:none}
+  .btn-sec{background:transparent;color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.22)}
+  .btn-sec:hover{color:#fff;border-color:rgba(255,255,255,0.5)}
+  .btn-pri{background:#fff;color:#111}
+  .btn-pri:hover{background:#f0f0f0}
+
+  /* ── Page ── */
+  .page{padding:70px 1.5rem 3rem;display:flex;justify-content:center;min-height:100vh}
+
+  /* ── Document ── */
+  .doc{background:#fff;width:100%;max-width:700px;border-radius:16px;padding:3rem 3.5rem 2.5rem;
+    box-shadow:0 2px 16px rgba(0,0,0,0.07);border:1px solid #e8e8e8;height:fit-content}
+
+  /* ── Header ── */
+  .doc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.75rem}
+  .brand-name{font-size:1rem;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#111;line-height:1}
+  .brand-sub{font-size:0.68rem;color:#aaa;margin-top:0.22rem;font-weight:400}
+  .doc-right{text-align:right}
+  .doc-type{font-size:0.63rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#aaa}
+  .doc-num{font-size:1.8rem;font-weight:900;color:#111;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;line-height:1.05;margin-top:0.1rem}
+
+  /* ── Dividers ── */
+  .line{height:2px;background:#111;margin-bottom:1.5rem;border-radius:1px;border:none}
+  .sep{height:1px;background:#e8e8e8;margin:1.5rem 0;border:none}
+
+  /* ── Meta row ── */
+  .meta{display:flex;gap:2.5rem;margin-bottom:1.75rem;flex-wrap:wrap}
+  .meta-item{display:flex;flex-direction:column;gap:0.18rem}
+  .lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#aaa}
+  .val{font-size:0.84rem;font-weight:600;color:#111}
+
+  /* ── Concept ── */
+  .concept{background:#fafafa;border:1px solid #ebebeb;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem}
+  .concept-name{font-size:0.95rem;font-weight:700;color:#111}
+  .concept-code{font-size:0.75rem;font-weight:400;color:#bbb;margin-left:0.35rem}
+  .concept-desc{font-size:0.8rem;color:#555;margin-top:0.3rem;line-height:1.4}
+  .concept-notes{font-size:0.74rem;color:#aaa;margin-top:0.2rem;font-style:italic}
+
+  /* ── Proveedor ── */
+  .prov-row{display:flex;align-items:baseline;gap:1rem;margin-bottom:1.35rem}
+
+  /* ── Amount ── */
+  .amount-wrap{display:flex;align-items:flex-start;gap:1.5rem;margin-bottom:0.25rem;flex-wrap:wrap}
+  .amount-box{border:2px solid #111;border-radius:12px;padding:1rem 1.5rem;min-width:175px}
+  .amount-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:0.3rem}
+  .amount-val{font-size:1.55rem;font-weight:900;color:#111;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1}
+  .amount-detail{display:flex;flex-direction:column;gap:0.35rem;padding-bottom:0.1rem}
+  .amount-row{display:flex;justify-content:space-between;gap:1.25rem;font-size:0.78rem;color:#666}
+  .amount-row span:last-child{font-weight:700;font-variant-numeric:tabular-nums}
+  .amount-row.pending span{color:#111;font-weight:700}
+
+  /* ── Pagos table ── */
+  .section-lbl{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:0.6rem}
+  .tbl{width:100%;border-collapse:collapse;font-size:0.78rem}
+  .tbl th{text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;font-size:0.6rem;color:#aaa;
+    padding:0.3rem 0.5rem;border-bottom:2px solid #111}
+  .tbl td{padding:0.42rem 0.5rem;color:#111;border-bottom:1px solid #f0f0f0;font-variant-numeric:tabular-nums}
+  .tbl tr:last-child td{border-bottom:none}
+  .tr{text-align:right;font-weight:700}
+
+  /* ── Signatures ── */
+  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:3rem;margin:2rem 0 1rem}
+  .sig-space{height:3rem}
+  .sig-line{height:1px;background:#111;margin-bottom:0.5rem}
+  .sig-name{font-size:0.82rem;font-weight:700;color:#111}
+  .sig-role{font-size:0.68rem;color:#aaa;margin-top:0.1rem}
+
+  /* ── Footer ── */
+  .doc-foot{font-size:0.6rem;color:#ccc;text-align:center;padding-top:1rem;border-top:1px solid #f0f0f0;letter-spacing:0.03em}
+
+  /* ── Print ── */
+  @media print{
+    .bar{display:none!important}
+    body{background:#fff}
+    .page{padding:0}
+    .doc{box-shadow:none;border:none;border-radius:0;padding:2cm 2.2cm;max-width:100%}
+    @page{margin:0;size:A4}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="bar-brand">Brumelab Arch</span>
+  <div class="bar-actions">
+    <button class="btn btn-sec" onclick="window.close()">Cerrar</button>
+    <button class="btn btn-pri" onclick="window.print()">Imprimir / Guardar PDF</button>
+  </div>
+</div>
+
+<div class="page">
+<div class="doc">
+
+  <div class="doc-head">
+    <div>
+      <div class="brand-name">Brumelab Arch</div>
+      <div class="brand-sub">Arquitectura · Diseño · Construcción</div>
+    </div>
+    <div class="doc-right">
+      <div class="doc-type">Orden de Pago</div>
+      <div class="doc-num">N° ${num}</div>
+    </div>
+  </div>
+
+  <hr class="line">
+
+  <div class="meta">
+    <div class="meta-item">
+      <span class="lbl">Fecha de emisión</span>
+      <span class="val">${fecha}</span>
+    </div>
+    ${this.projectName ? `<div class="meta-item"><span class="lbl">Proyecto</span><span class="val">${this.projectName}</span></div>` : ''}
+    <div class="meta-item">
+      <span class="lbl">Estado</span>
+      <span class="val" style="color:${estadoColor}">${estadoTxt}</span>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="lbl">Concepto</div>
+    <div class="concept-name">${g.subrubroId.nombre}<span class="concept-code">${g.subrubroId.codigo}</span></div>
+    ${g.descripcion ? `<div class="concept-desc">${g.descripcion}</div>` : ''}
+    ${g.notas ? `<div class="concept-notes">${g.notas}</div>` : ''}
+  </div>
+
+  ${g.proveedorId ? `
+  <div class="prov-row">
+    <span class="lbl">Proveedor</span>
+    <span class="val">${g.proveedorId.nombre}</span>
+  </div>` : ''}
+
+  <div class="amount-wrap">
+    <div class="amount-box">
+      <div class="amount-lbl">Monto total</div>
+      <div class="amount-val">${g.moneda} ${fmtM(g.monto)}</div>
+    </div>
+    ${estado !== 'sin_pago' ? `
+    <div class="amount-detail">
+      <div class="amount-row"><span>Pagado</span><span>${g.moneda} ${fmtM(totalPag)}</span></div>
+      ${estado !== 'pagado' ? `<div class="amount-row pending"><span>Saldo pendiente</span><span>${g.moneda} ${fmtM(restante)}</span></div>` : ''}
+    </div>` : ''}
+  </div>
+
+  ${pagosSection}
+
+  <hr class="sep">
+
+  <div class="sigs">
+    <div>
+      <div class="sig-space"></div>
+      <div class="sig-line"></div>
+      <div class="sig-name">Brumelab Arch</div>
+      <div class="sig-role">Firma del Emisor</div>
+    </div>
+    <div>
+      <div class="sig-space"></div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${g.proveedorId?.nombre ?? 'Proveedor'}</div>
+      <div class="sig-role">Firma del Receptor</div>
+    </div>
+  </div>
+
+  <div class="doc-foot">
+    Emitido el ${fecha} &middot; Brumelab Arch &middot; Conservar original firmado por ambas partes
+  </div>
+
+</div>
+</div>
+</body>
+</html>`;
+  }
 
   private emptyPresForm() {
     return { rubroId: '', subrubroId: '', proveedorId: '', descripcion: '', monto: null as any, moneda: 'ARS' as Moneda, notas: '', archivos: [] as File[] };
