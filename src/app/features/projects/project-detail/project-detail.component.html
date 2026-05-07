@@ -13,6 +13,13 @@
           <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
         </label>
       </div>
+    } @else {
+      <div class="proj-cover proj-cover--placeholder">
+        <label class="proj-cover__add" title="Agregar foto de portada">
+          @if (coverUploading()) { Subiendo... } @else { + Agregar foto de portada }
+          <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
+        </label>
+      </div>
     }
 
     <!-- ═══════════════════════════════════════════════════
@@ -22,12 +29,6 @@
       <div class="proj-header__top">
         <a routerLink="/projects" class="back-link">← Proyectos</a>
         <div class="proj-header__actions">
-          @if (!project()!.coverImage) {
-            <label class="btn btn--ghost btn--sm" title="Agregar foto de portada" style="cursor:pointer">
-              @if (coverUploading()) { Subiendo... } @else { + Foto }
-              <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
-            </label>
-          }
           @if (!editing()) {
             <button class="btn btn--ghost btn--sm" (click)="startEdit(project()!)">Editar</button>
             <button class="btn btn--ghost btn--sm btn--del" (click)="deleteProject()">Eliminar</button>
@@ -201,7 +202,7 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'obra') {
       <div class="tab-content">
-        <app-obra [projectId]="project()!._id" />
+        <app-obra [projectId]="project()!._id" [projectName]="project()!.name" />
       </div>
     }
 

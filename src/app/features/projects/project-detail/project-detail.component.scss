@@ -18,6 +18,36 @@
   position: relative;
   overflow: hidden;
 
+  &--placeholder {
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.03) 39px, rgba(255,255,255,0.03) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.03) 39px, rgba(255,255,255,0.03) 40px),
+      linear-gradient(135deg, #1c1c2e 0%, #16213e 60%, #0f3460 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__add {
+    padding: 0.45rem 1.1rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    font-family: var(--font);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.45);
+    border: 1px dashed rgba(255,255,255,0.18);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+
+    &:hover {
+      background: rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.85);
+      border-color: rgba(255,255,255,0.35);
+    }
+  }
+
   &__btn {
     position: absolute;
     bottom: var(--sp-2);
