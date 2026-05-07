@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://brumelab-arch.onrender.com/api/:path*"
+      "destination": "https://brumearch.onrender.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://brumelab-arch.onrender.com/uploads/:path*"
+      "destination": "https://brumearch.onrender.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
