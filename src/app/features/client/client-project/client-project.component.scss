@@ -1,305 +1,308 @@
+:host { display: block; }
+
 .cp {
-  min-height: 100vh;
-  background: #f5f4f0;
+  min-height: 100dvh;
+  background: #F5F4F0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding-bottom: 64px;
 }
 
-// ── Header ───────────────────────────────────────────────────
-.cp-header {
+// ── Loader ───────────────────────────────────────────────────
+.cp-loader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 1.5rem;
-  height: 56px;
-  background: #fff;
-  border-bottom: 1px solid #e8e6e0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-
-  &__logo { height: 26px; }
-}
-
-.cp-back {
-  font-size: .82rem;
-  color: #666;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 0;
-
-  &:hover { color: #1a1a1a; }
-}
-
-// ── States ───────────────────────────────────────────────────
-.cp-loading {
-  display: flex;
   justify-content: center;
-  padding: 5rem 0;
+  min-height: 100dvh;
 }
 
 .cp-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e8e6e0;
-  border-top-color: #1a1a1a;
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid #E8E4DC;
+  border-top-color: #1A1A1A;
   border-radius: 50%;
   animation: spin .7s linear infinite;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.cp-error { color: #dc2626; padding: 2rem; font-size: .9rem; }
+.cp-error { color: #DC2626; padding: 2rem 1.25rem; font-size: .9rem; }
 
-// ── Cover ────────────────────────────────────────────────────
-.cp-cover {
-  height: 220px;
+// ── Hero ──────────────────────────────────────────────────────
+.cp-hero {
+  position: relative;
+  height: 260px;
+  background: #1A1A1A;
   background-size: cover;
   background-position: center;
 
-  &--empty {
-    background: linear-gradient(135deg, #2d2d2d 0%, #555 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3.5rem;
+  &__bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #2A2A2A 0%, #1A1A1A 100%);
   }
-}
 
-// ── Body ─────────────────────────────────────────────────────
-.cp-body {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 1.75rem 1.5rem 3rem;
-}
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,.25) 0%, rgba(0,0,0,.75) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: env(safe-area-inset-top, 1rem) 1.25rem 1.25rem;
+  }
 
-// ── Title row ────────────────────────────────────────────────
-.cp-title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: .5rem;
-}
+  &__info { display: flex; flex-direction: column; gap: .35rem; }
 
-.cp-name {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 4px;
-}
+  &__status {
+    align-self: flex-start;
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 20px;
 
-.cp-loc {
-  font-size: .8rem;
-  color: #999;
-  margin: 0;
-}
+    &--active    { background: rgba(22,163,74,.25); color: #86EFAC; }
+    &--draft     { background: rgba(255,255,255,.15); color: rgba(255,255,255,.7); }
+    &--completed { background: rgba(59,130,246,.25); color: #93C5FD; }
+    &--archived  { background: rgba(245,158,11,.2); color: #FCD34D; }
+  }
 
-.cp-status {
-  font-size: .7rem;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 20px;
-  flex-shrink: 0;
-  margin-top: 4px;
+  &__name {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -.03em;
+    line-height: 1.15;
+    margin: 0;
+  }
 
-  &--draft     { background: #f3f4f6; color: #6b7280; }
-  &--active    { background: #ecfdf5; color: #065f46; }
-  &--completed { background: #eff6ff; color: #1e40af; }
-  &--archived  { background: #fef3c7; color: #92400e; }
-}
-
-// ── Progress ─────────────────────────────────────────────────
-.cp-progress {
-  margin: 1rem 0 1.5rem;
+  &__loc {
+    font-size: .73rem;
+    color: rgba(255,255,255,.55);
+    margin: 0;
+  }
 
   &__bar {
-    height: 5px;
-    background: #e8e6e0;
-    border-radius: 3px;
+    height: 3px;
+    background: rgba(255,255,255,.2);
+    border-radius: 2px;
     overflow: hidden;
-    margin-bottom: 6px;
+    margin-top: .25rem;
   }
 
   &__fill {
     height: 100%;
-    background: #1a1a1a;
-    border-radius: 3px;
-    transition: width .4s;
-  }
-
-  &__label {
-    font-size: .72rem;
-    color: #999;
+    background: #fff;
+    border-radius: 2px;
+    transition: width .5s;
   }
 }
 
-// ── Tabs ─────────────────────────────────────────────────────
-.cp-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 2px solid #e8e6e0;
-  margin-bottom: 1.5rem;
-}
-
-.cp-tab {
-  font-size: .85rem;
-  font-weight: 500;
-  color: #999;
-  background: none;
+.cp-back {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.15);
   border: none;
   cursor: pointer;
-  padding: .6rem 1.2rem;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: color .15s, border-color .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  backdrop-filter: blur(8px);
+  align-self: flex-start;
+  transition: background .15s;
 
-  &--active {
-    color: #1a1a1a;
-    border-bottom-color: #1a1a1a;
-  }
+  &:hover { background: rgba(255,255,255,.25); }
+
+  svg { width: 16px; height: 16px; }
 }
 
-// ── Blocks ───────────────────────────────────────────────────
-.cp-section { display: flex; flex-direction: column; gap: 1.5rem; }
+// ── Content ───────────────────────────────────────────────────
+.cp-content { padding: 1.25rem 1.25rem 1rem; }
 
+.cp-section { display: flex; flex-direction: column; gap: 1.25rem; }
+
+// ── Block ─────────────────────────────────────────────────────
 .cp-block {
-  &__title {
-    font-size: .75rem;
-    font-weight: 600;
+  &__label {
+    font-size: .65rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .06em;
-    color: #aaa;
-    margin: 0 0 .75rem;
+    letter-spacing: .1em;
+    color: #B0ADA6;
+    margin: 0 0 .65rem;
   }
 
   &__text {
     font-size: .9rem;
     color: #444;
-    line-height: 1.6;
+    line-height: 1.65;
     margin: 0;
   }
 }
 
-// ── Features grid ────────────────────────────────────────────
-.cp-feat-grid {
+// ── Features ─────────────────────────────────────────────────
+.cp-feats {
   display: flex;
   flex-wrap: wrap;
-  gap: .75rem;
+  gap: .6rem;
 }
 
 .cp-feat {
   background: #fff;
-  border: 1px solid #e8e6e0;
-  border-radius: 10px;
+  border: 1px solid #E8E4DC;
+  border-radius: 12px;
   padding: .6rem .9rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 80px;
+  min-width: 76px;
 
-  &__val   { font-size: 1rem; font-weight: 700; color: #1a1a1a; }
-  &__label { font-size: .68rem; color: #aaa; margin-top: 2px; }
+  &__val { font-size: 1.05rem; font-weight: 700; color: #0F0F0F; font-variant-numeric: tabular-nums; }
+  &__lbl { font-size: .64rem; color: #AAA; margin-top: 2px; }
 }
 
 // ── Tags ─────────────────────────────────────────────────────
-.cp-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-tags { display: flex; flex-wrap: wrap; gap: .4rem; }
 
 .cp-tag {
-  font-size: .75rem;
-  background: #fff;
+  font-size: .72rem;
   color: #555;
-  border: 1px solid #e8e6e0;
+  background: #fff;
+  border: 1px solid #E8E4DC;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 20px;
 }
 
-// ── Dates ────────────────────────────────────────────────────
+// ── Dates ─────────────────────────────────────────────────────
 .cp-dates { display: flex; gap: 1.5rem; }
 
 .cp-date {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: flex; flex-direction: column; gap: 2px;
 
-  &__label { font-size: .72rem; color: #aaa; }
-  &__val   { font-size: .9rem; font-weight: 600; color: #1a1a1a; }
+  &__lbl { font-size: .68rem; color: #AAA; }
+  &__val { font-size: .92rem; font-weight: 600; color: #1A1A1A; }
 }
 
-// ── Etapas ───────────────────────────────────────────────────
-.cp-etapas {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
+// ── Timeline ─────────────────────────────────────────────────
+.cp-timeline { display: flex; flex-direction: column; }
 
-.cp-etapa {
+.cp-step {
   display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .85rem 0;
-  border-bottom: 1px solid #f0ede6;
+  gap: .85rem;
 
-  &:last-child { border-bottom: none; }
+  &__track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    width: 16px;
+  }
 
   &__dot {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
+    border: 2px solid #E8E4DC;
+    background: #fff;
     flex-shrink: 0;
-    border: 2px solid #e8e6e0;
-    background: #fff;
+    margin-top: 2px;
+    transition: all .2s;
   }
 
-  &--completada &__dot {
-    background: #1a1a1a;
-    border-color: #1a1a1a;
-  }
+  &--completada &__dot { background: #1A1A1A; border-color: #1A1A1A; }
+  &--activa     &__dot { background: #fff; border-color: #1A1A1A; box-shadow: 0 0 0 3px rgba(26,26,26,.1); }
 
-  &--activa &__dot {
-    background: #fff;
-    border-color: #1a1a1a;
-    box-shadow: 0 0 0 3px rgba(26,26,26,.12);
-  }
-
-  &__content {
+  &__line {
     flex: 1;
+    width: 2px;
+    background: #E8E4DC;
+    margin: 3px 0;
+    min-height: 24px;
+  }
+
+  &--completada + .cp-step .cp-step__line,
+  &--completada &__line { background: #1A1A1A; }
+
+  &__body {
+    padding-bottom: 1.1rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .5rem;
+    margin-bottom: 3px;
   }
 
   &__name {
     font-size: .9rem;
-    color: #1a1a1a;
     font-weight: 500;
+    color: #1A1A1A;
   }
 
-  &--pendiente &__name { color: #bbb; }
+  &--pendiente &__name { color: #C0BDB6; }
 
   &__badge {
-    font-size: .68rem;
-    font-weight: 600;
-    padding: 2px 8px;
+    font-size: .63rem;
+    font-weight: 700;
+    padding: 2px 7px;
     border-radius: 10px;
     flex-shrink: 0;
   }
 
-  &--completada &__badge { background: #ecfdf5; color: #065f46; }
-  &--activa     &__badge { background: #fef9ec; color: #92400e; }
-  &--pendiente  &__badge { background: #f3f4f6; color: #9ca3af; }
+  &--completada &__badge { background: #F0FDF4; color: #16A34A; }
+  &--activa     &__badge { background: #FFFBEB; color: #D97706; }
+  &--pendiente  &__badge { background: #F3F4F6; color: #9CA3AF; }
 
-  &__date {
-    font-size: .72rem;
-    color: #bbb;
-    flex-shrink: 0;
+  &__date { font-size: .7rem; color: #B0ADA6; }
+}
+
+.cp-empty { color: #C0BDB6; font-size: .88rem; text-align: center; padding: 2.5rem 0; }
+
+// ── Bottom nav ───────────────────────────────────────────────
+.cp-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: #fff;
+  border-top: 1px solid #E8E4DC;
+  display: flex;
+  z-index: 30;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+
+  &__btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #C0BDB6;
+    font-size: .6rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    transition: color .15s;
+
+    svg { width: 20px; height: 20px; }
+
+    &--active { color: #1A1A1A; }
   }
 }
 
-.cp-empty {
-  color: #bbb;
-  font-size: .9rem;
-  text-align: center;
-  padding: 2rem 0;
+@media (min-width: 768px) {
+  .cp-content, .cp-hero { max-width: 640px; margin-left: auto; margin-right: auto; }
+  .cp-hero { max-width: 100%; }
+  .cp-nav { max-width: 640px; left: 50%; transform: translateX(-50%); border-left: 1px solid #E8E4DC; border-right: 1px solid #E8E4DC; }
 }

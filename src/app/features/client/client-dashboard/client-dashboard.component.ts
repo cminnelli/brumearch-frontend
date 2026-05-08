@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ClientService } from '../../../core/services/client.service';
-import { ClientProject, STATUS_LABELS, SERVICE_LABELS } from '../../../shared/models/client-project.model';
+import { ClientProject, STATUS_LABELS } from '../../../shared/models/client-project.model';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -17,47 +17,44 @@ export class ClientDashboardComponent implements OnInit {
   private router    = inject(Router);
   auth              = inject(AuthService);
 
-  projects  = signal<ClientProject[]>([]);
-  loading   = signal(true);
-  error     = signal<string | null>(null);
+  projects = signal<ClientProject[]>([]);
+  loading  = signal(true);
+  error    = signal<string | null>(null);
 
-  readonly STATUS_LABELS  = STATUS_LABELS;
-  readonly SERVICE_LABELS = SERVICE_LABELS;
+  readonly STATUS_LABELS = STATUS_LABELS;
 
   ngOnInit() {
     this.clientSvc.listProjects().subscribe({
-      next: ({ projects }) => {
-        this.projects.set(projects);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('No se pudieron cargar los proyectos.');
-        this.loading.set(false);
-      },
+      next: ({ projects }) => { this.projects.set(projects); this.loading.set(false); },
+      error: () => { this.error.set('No se pudieron cargar los proyectos.'); this.loading.set(false); },
     });
   }
 
-  openProject(id: string) {
-    this.router.navigate(['/client/projects', id]);
-  }
+  openProject(id: string) { this.router.navigate(['/client/projects', id]); }
+  logout() { this.auth.logout(); }
 
-  logout() {
-    this.auth.logout();
+  greeting(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
   }
 
   etapaProgress(p: ClientProject): number {
     if (!p.etapas?.length) return 0;
-    const done = p.etapas.filter((e) => e.estado === 'completada').length;
-    return Math.round((done / p.etapas.length) * 100);
+    return Math.round(p.etapas.filter(e => e.estado === 'completada').length / p.etapas.length * 100);
   }
 
   activeEtapa(p: ClientProject): string {
-    return p.etapas?.find((e) => e.estado === 'activa')?.nombre ?? '';
+    return p.etapas?.find(e => e.estado === 'activa')?.nombre ?? '';
   }
 
   locationStr(p: ClientProject): string {
     const l = p.location;
-    if (!l) return '';
-    return [l.neighborhood, l.city, l.province].filter(Boolean).join(', ');
+    return [l?.neighborhood, l?.city].filter(Boolean).join(', ');
+  }
+
+  initials(name: string): string {
+    return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   }
 }

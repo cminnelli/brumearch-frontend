@@ -48,7 +48,7 @@ export interface ClientProject {
   updatedAt:   string;
 }
 
-export const SERVICE_LABELS: Record<string, string> = {
+export const SERVICE_LABELS: Record<string, string | undefined> = {
   diseno_integral:          'Diseño integral',
   renderismo:               'Renders',
   documentacion_ejecutiva:  'Doc. ejecutiva',

@@ -1,0 +1,230 @@
+<div class="caja">
+
+  @if (loading()) {
+    <div class="caja-loading">
+      <div class="caja-spinner"></div>
+    </div>
+  } @else {
+
+    <!-- Balance hero -->
+    <div class="caja-hero">
+      <p class="caja-hero__label">Saldo total</p>
+      <p class="caja-hero__amount">$ {{ fmt(totalBalance()) }}</p>
+      <p class="caja-hero__sub">{{ cuentas().length }} {{ cuentas().length === 1 ? 'cuenta' : 'cuentas' }}</p>
+    </div>
+
+    <!-- Cuentas -->
+    <div class="caja-section">
+      <div class="caja-section__head">
+        <span class="caja-section__title">Cuentas</span>
+        <button class="caja-section__add" (click)="openCuentaSheet()">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
+          Nueva
+        </button>
+      </div>
+
+      @if (!cuentas().length) {
+        <div class="caja-empty">
+          <p>Agregá tu primera cuenta para empezar a registrar movimientos.</p>
+        </div>
+      } @else {
+        <div class="caja-cards">
+          @for (c of cuentas(); track c._id) {
+            <div class="caja-card" [class.caja-card--negative]="c.balance < 0">
+              <div class="caja-card__head">
+                <span class="caja-card__tipo">{{ TIPO_CUENTA_LABELS[c.tipo] }}</span>
+                <button class="caja-card__del" (click)="deleteCuenta(c._id)" title="Eliminar cuenta">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+              <p class="caja-card__nombre">{{ c.nombre }}</p>
+              <p class="caja-card__balance">$ {{ fmt(c.balance) }}</p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Movimientos -->
+    <div class="caja-section">
+      <div class="caja-section__head">
+        <span class="caja-section__title">Movimientos</span>
+        @if (cuentas().length) {
+          <button class="caja-section__add" (click)="openMovSheet()">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
+            Agregar
+          </button>
+        }
+      </div>
+
+      @if (!movimientos().length) {
+        <div class="caja-empty">
+          <p>Aún no hay movimientos registrados.</p>
+        </div>
+      } @else {
+        @for (group of movsByDate(); track group.label) {
+          <div class="caja-group">
+            <div class="caja-group__date">{{ group.label }}</div>
+            @for (m of group.movs; track m._id) {
+              <div class="caja-mov caja-mov--{{ m.tipo }}">
+                <div class="caja-mov__icon">
+                  @if (m.tipo === 'ingreso') {
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04L10.75 5.612V16.25A.75.75 0 0 1 10 17Z" clip-rule="evenodd"/></svg>
+                  } @else if (m.tipo === 'egreso') {
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a.75.75 0 0 1 .75.75v10.638l3.96-4.158a.75.75 0 1 1 1.08 1.04l-5.25 5.5a.75.75 0 0 1-1.08 0l-5.25-5.5a.75.75 0 1 1 1.08-1.04l3.96 4.158V3.75A.75.75 0 0 1 10 3Z" clip-rule="evenodd"/></svg>
+                  } @else {
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M13.47 4.22a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06L14.44 7.5H4.5a.75.75 0 0 1 0-1.5h9.94l-.97-.97a.75.75 0 0 1 0-1.06Zm-6.94 9a.75.75 0 0 1-1.06 0L3.22 11a.75.75 0 0 1 0-1.06l2.25-2.25a.75.75 0 0 1 1.06 1.06L5.56 9.75h9.94a.75.75 0 0 1 0 1.5H5.56l.97.97a.75.75 0 0 1 0 1.06Z" clip-rule="evenodd"/></svg>
+                  }
+                </div>
+                <div class="caja-mov__info">
+                  <span class="caja-mov__desc">{{ m.descripcion || (m.tipo === 'transferencia' ? 'Transferencia' : m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso') }}</span>
+                  @if (m.tipo === 'transferencia') {
+                    <span class="caja-mov__sub">{{ cuentaNombre(m.cuentaOrigenId) }} → {{ cuentaNombre(m.cuentaDestinoId) }}</span>
+                  } @else if (m.cuentaNombre) {
+                    <span class="caja-mov__sub">{{ m.cuentaNombre }}</span>
+                  }
+                </div>
+                <div class="caja-mov__right">
+                  <span class="caja-mov__amount">
+                    {{ m.tipo === 'ingreso' ? '+' : m.tipo === 'egreso' ? '−' : '' }}$ {{ fmt(m.monto) }}
+                  </span>
+                  <button class="caja-mov__del" (click)="deleteMov(m._id)" title="Eliminar">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+
+  }
+
+  <!-- Sheet: Nuevo movimiento -->
+  @if (showMovSheet()) {
+    <div class="sheet-backdrop" (click)="showMovSheet.set(false)"></div>
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <h2 class="sheet__title">Nuevo movimiento</h2>
+
+      <!-- Tipo selector -->
+      <div class="tipo-tabs">
+        @for (t of MOV_TIPOS; track t.key) {
+          <button class="tipo-tab tipo-tab--{{ t.key }}"
+            [class.tipo-tab--active]="movForm.tipo === t.key"
+            (click)="movForm.tipo = t.key">
+            {{ t.label }}
+          </button>
+        }
+      </div>
+
+      <!-- Monto -->
+      <div class="sheet-field">
+        <label class="sheet-field__label">Monto</label>
+        <div class="amount-input">
+          <span class="amount-input__prefix">$</span>
+          <input type="number" class="amount-input__input" [(ngModel)]="movForm.monto"
+            placeholder="0" min="0" step="1" inputmode="decimal" />
+        </div>
+      </div>
+
+      <!-- Cuenta(s) -->
+      @if (movForm.tipo !== 'transferencia') {
+        <div class="sheet-field">
+          <label class="sheet-field__label">Cuenta</label>
+          <select class="sheet-select" [(ngModel)]="movForm.cuentaId">
+            <option value="">Sin cuenta específica</option>
+            @for (c of cuentas(); track c._id) {
+              <option [value]="c._id">{{ c.nombre }}</option>
+            }
+          </select>
+        </div>
+      } @else {
+        <div class="sheet-field">
+          <label class="sheet-field__label">Desde</label>
+          <select class="sheet-select" [(ngModel)]="movForm.cuentaOrigenId">
+            <option value="">Seleccioná cuenta origen</option>
+            @for (c of cuentas(); track c._id) {
+              <option [value]="c._id">{{ c.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="sheet-field">
+          <label class="sheet-field__label">Hacia</label>
+          <select class="sheet-select" [(ngModel)]="movForm.cuentaDestinoId">
+            <option value="">Seleccioná cuenta destino</option>
+            @for (c of cuentas(); track c._id) {
+              <option [value]="c._id">{{ c.nombre }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <!-- Descripción -->
+      <div class="sheet-field">
+        <label class="sheet-field__label">Descripción <span class="sheet-field__opt">(opcional)</span></label>
+        <input type="text" class="sheet-input" [(ngModel)]="movForm.descripcion" placeholder="Ej: Compra materiales" />
+      </div>
+
+      <!-- Fecha -->
+      <div class="sheet-field">
+        <label class="sheet-field__label">Fecha</label>
+        <input type="date" class="sheet-input" [(ngModel)]="movForm.fecha" />
+      </div>
+
+      <button class="sheet-btn" [disabled]="saving() || !movForm.monto" (click)="saveMov()">
+        {{ saving() ? 'Guardando...' : 'Registrar movimiento' }}
+      </button>
+    </div>
+  }
+
+  <!-- Sheet: Nueva cuenta -->
+  @if (showCuentaSheet()) {
+    <div class="sheet-backdrop" (click)="showCuentaSheet.set(false)"></div>
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <h2 class="sheet__title">Nueva cuenta</h2>
+
+      <div class="sheet-field">
+        <label class="sheet-field__label">Nombre</label>
+        <input type="text" class="sheet-input" [(ngModel)]="cuentaForm.nombre" placeholder="Ej: Efectivo obra, Banco Nación..." />
+      </div>
+
+      <div class="sheet-field">
+        <label class="sheet-field__label">Tipo</label>
+        <div class="tipo-tabs">
+          @for (t of TIPO_CUENTA_TIPOS; track t) {
+            <button class="tipo-tab tipo-tab--neutral"
+              [class.tipo-tab--active]="cuentaForm.tipo === t"
+              (click)="cuentaForm.tipo = t">
+              {{ TIPO_CUENTA_LABELS[t] }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="sheet-field">
+        <label class="sheet-field__label">Saldo inicial</label>
+        <div class="amount-input">
+          <span class="amount-input__prefix">$</span>
+          <input type="number" class="amount-input__input" [(ngModel)]="cuentaForm.saldoInicial"
+            placeholder="0" min="0" inputmode="decimal" />
+        </div>
+      </div>
+
+      <div class="sheet-field">
+        <label class="sheet-field__label">Moneda</label>
+        <div class="tipo-tabs">
+          <button class="tipo-tab tipo-tab--neutral" [class.tipo-tab--active]="cuentaForm.moneda === 'ARS'" (click)="cuentaForm.moneda = 'ARS'">ARS</button>
+          <button class="tipo-tab tipo-tab--neutral" [class.tipo-tab--active]="cuentaForm.moneda === 'USD'" (click)="cuentaForm.moneda = 'USD'">USD</button>
+        </div>
+      </div>
+
+      <button class="sheet-btn" [disabled]="saving() || !cuentaForm.nombre.trim()" (click)="saveCuenta()">
+        {{ saving() ? 'Guardando...' : 'Crear cuenta' }}
+      </button>
+    </div>
+  }
+
+</div>

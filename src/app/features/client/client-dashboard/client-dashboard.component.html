@@ -1,88 +1,81 @@
 <div class="cd">
 
-  <!-- Header -->
   <header class="cd-header">
-    <div class="cd-header__brand">
-      <img src="/assets/logo brume vector2.png" alt="Brumelab" class="cd-header__logo" />
-    </div>
-    <div class="cd-header__user">
-      <span class="cd-header__name">{{ auth.currentUser()?.name }}</span>
-      <button class="cd-header__logout" (click)="logout()">Salir</button>
-    </div>
+    <img src="/assets/logo brume vector2.png" alt="Brumelab" class="cd-header__logo" />
+    <button class="cd-avatar" (click)="logout()" [title]="'Salir · ' + auth.currentUser()?.name">
+      {{ initials(auth.currentUser()?.name ?? 'U') }}
+    </button>
   </header>
+
+  <div class="cd-hero">
+    <p class="cd-hero__greeting">{{ greeting() }},</p>
+    <h1 class="cd-hero__name">{{ auth.currentUser()?.name?.split(' ')?.[0] }}</h1>
+  </div>
 
   <main class="cd-main">
 
-    <div class="cd-title">
-      <h1 class="cd-title__h">Mis proyectos</h1>
-      <p class="cd-title__sub">Seguimiento de obra</p>
-    </div>
-
     @if (loading()) {
-      <div class="cd-loading">
-        <div class="cd-spinner"></div>
+      <div class="cd-skeleton">
+        <div class="cd-skeleton__card"></div>
+        <div class="cd-skeleton__card"></div>
       </div>
     } @else if (error()) {
       <p class="cd-error">{{ error() }}</p>
     } @else if (!projects().length) {
       <div class="cd-empty">
-        <span class="cd-empty__icon">🏗️</span>
-        <p>No hay proyectos asignados todavía.</p>
+        <div class="cd-empty__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"/>
+          </svg>
+        </div>
+        <p class="cd-empty__title">Sin proyectos asignados</p>
+        <p class="cd-empty__sub">Contactá a tu arquitecto para que te vincule a tu obra.</p>
       </div>
     } @else {
-      <div class="cd-grid">
+      <div class="cd-label">Mis obras</div>
+      <div class="cd-list">
         @for (p of projects(); track p._id) {
           <button class="cd-card" (click)="openProject(p._id)">
 
-            @if (p.coverImage) {
-              <div class="cd-card__cover" [style.backgroundImage]="'url(' + p.coverImage + ')'"></div>
-            } @else {
-              <div class="cd-card__cover cd-card__cover--empty">
-                <span>🏛️</span>
+            <div class="cd-card__cover"
+              [style.backgroundImage]="p.coverImage ? 'url(' + p.coverImage + ')' : ''">
+              @if (!p.coverImage) {
+                <div class="cd-card__cover-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12"/>
+                  </svg>
+                </div>
+              }
+              <div class="cd-card__overlay">
+                <div class="cd-card__top-row">
+                  <span class="cd-card__status cd-card__status--{{ p.status }}">
+                    {{ STATUS_LABELS[p.status] }}
+                  </span>
+                </div>
+                <div class="cd-card__bottom">
+                  <h2 class="cd-card__name">{{ p.name }}</h2>
+                  @if (locationStr(p)) {
+                    <p class="cd-card__loc">{{ locationStr(p) }}</p>
+                  }
+                </div>
               </div>
-            }
+            </div>
 
             <div class="cd-card__body">
-              <div class="cd-card__top">
-                <h2 class="cd-card__name">{{ p.name }}</h2>
-                <span class="cd-card__status cd-card__status--{{ p.status }}">
-                  {{ STATUS_LABELS[p.status] }}
-                </span>
-              </div>
-
-              @if (locationStr(p)) {
-                <p class="cd-card__loc">📍 {{ locationStr(p) }}</p>
-              }
-
-              @if (p.description) {
-                <p class="cd-card__desc">{{ p.description }}</p>
-              }
-
-              <!-- Progreso de etapas -->
               @if (p.etapas?.length) {
-                <div class="cd-card__progress">
-                  <div class="cd-card__progress-bar">
-                    <div class="cd-card__progress-fill" [style.width.%]="etapaProgress(p)"></div>
+                <div class="cd-card__progress-row">
+                  <div class="cd-card__bar">
+                    <div class="cd-card__fill" [style.width.%]="etapaProgress(p)"></div>
                   </div>
-                  <div class="cd-card__progress-meta">
-                    <span>{{ etapaProgress(p) }}% completado</span>
-                    @if (activeEtapa(p)) {
-                      <span class="cd-card__etapa">{{ activeEtapa(p) }}</span>
-                    }
-                  </div>
+                  <span class="cd-card__pct">{{ etapaProgress(p) }}%</span>
                 </div>
-              }
-
-              <!-- Servicios -->
-              @if (p.services?.length) {
-                <div class="cd-card__tags">
-                  @for (s of p.services.slice(0, 3); track s) {
-                    <span class="cd-card__tag">{{ SERVICE_LABELS[s] ?? s }}</span>
-                  }
-                  @if (p.services.length > 3) {
-                    <span class="cd-card__tag cd-card__tag--more">+{{ p.services.length - 3 }}</span>
-                  }
-                </div>
+                @if (activeEtapa(p)) {
+                  <p class="cd-card__etapa">En curso: {{ activeEtapa(p) }}</p>
+                }
+              } @else {
+                <p class="cd-card__etapa cd-card__etapa--dim">Sin etapas cargadas</p>
               }
             </div>
 
