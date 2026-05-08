@@ -47,6 +47,7 @@ export class ClientCajaComponent implements OnInit {
   showMovSheet    = signal(false);
   showCuentaSheet = signal(false);
   saving          = signal(false);
+  editingMovId    = signal<string | null>(null);
 
   activeCuenta = signal<string>('all');
 
@@ -97,7 +98,22 @@ export class ClientCajaComponent implements OnInit {
   }
 
   openMovSheet() {
+    this.editingMovId.set(null);
     this.movForm = this.emptyMovForm();
+    this.showMovSheet.set(true);
+  }
+
+  openEditMovSheet(m: MovimientoCliente) {
+    this.editingMovId.set(m._id);
+    this.movForm = {
+      tipo:            m.tipo,
+      monto:           m.monto,
+      descripcion:     m.descripcion ?? '',
+      fecha:           new Date(m.fecha).toISOString().substring(0, 10),
+      cuentaId:        m.cuentaId ?? '',
+      cuentaOrigenId:  m.cuentaOrigenId ?? '',
+      cuentaDestinoId: m.cuentaDestinoId ?? '',
+    };
     this.showMovSheet.set(true);
   }
 
@@ -118,8 +134,12 @@ export class ClientCajaComponent implements OnInit {
       cuentaOrigenId:  this.movForm.tipo === 'transferencia' ? this.movForm.cuentaOrigenId || undefined : undefined,
       cuentaDestinoId: this.movForm.tipo === 'transferencia' ? this.movForm.cuentaDestinoId || undefined : undefined,
     };
-    this.svc.createMovimiento(this.projectId, body).subscribe({
-      next: () => { this.saving.set(false); this.showMovSheet.set(false); this.load(); },
+    const editId = this.editingMovId();
+    const call = editId
+      ? this.svc.updateMovimiento(this.projectId, editId, body)
+      : this.svc.createMovimiento(this.projectId, body);
+    call.subscribe({
+      next: () => { this.saving.set(false); this.showMovSheet.set(false); this.editingMovId.set(null); this.load(); },
       error: () => this.saving.set(false),
     });
   }

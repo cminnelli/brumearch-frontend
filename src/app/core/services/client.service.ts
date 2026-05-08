@@ -45,6 +45,10 @@ export class ClientService {
     return this.http.post<{ movimiento: MovimientoCliente }>(`${this.base}/projects/${projectId}/caja/movimientos`, body);
   }
 
+  updateMovimiento(projectId: string, id: string, body: Partial<MovimientoCliente>): Observable<{ movimiento: MovimientoCliente }> {
+    return this.http.put<{ movimiento: MovimientoCliente }>(`${this.base}/projects/${projectId}/caja/movimientos/${id}`, body);
+  }
+
   deleteMovimiento(projectId: string, id: string): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${this.base}/projects/${projectId}/caja/movimientos/${id}`);
   }
