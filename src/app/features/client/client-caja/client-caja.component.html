@@ -176,6 +176,10 @@
         <input type="date" class="sheet-input" [(ngModel)]="movForm.fecha" />
       </div>
 
+      @if (movError()) {
+        <p class="sheet-error">{{ movError() }}</p>
+      }
+
       <button class="sheet-btn" [disabled]="saving() || !movForm.monto" (click)="saveMov()">
         {{ saving() ? 'Guardando...' : editingMovId() ? 'Guardar cambios' : 'Registrar movimiento' }}
       </button>

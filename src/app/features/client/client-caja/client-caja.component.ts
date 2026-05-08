@@ -48,6 +48,7 @@ export class ClientCajaComponent implements OnInit {
   showCuentaSheet = signal(false);
   saving          = signal(false);
   editingMovId    = signal<string | null>(null);
+  movError        = signal<string | null>(null);
 
   activeCuenta = signal<string>('all');
 
@@ -99,11 +100,13 @@ export class ClientCajaComponent implements OnInit {
 
   openMovSheet() {
     this.editingMovId.set(null);
+    this.movError.set(null);
     this.movForm = this.emptyMovForm();
     this.showMovSheet.set(true);
   }
 
   openEditMovSheet(m: MovimientoCliente) {
+    this.movError.set(null);
     this.editingMovId.set(m._id);
     this.movForm = {
       tipo:            m.tipo,
@@ -139,8 +142,12 @@ export class ClientCajaComponent implements OnInit {
       ? this.svc.updateMovimiento(this.projectId, editId, body)
       : this.svc.createMovimiento(this.projectId, body);
     call.subscribe({
-      next: () => { this.saving.set(false); this.showMovSheet.set(false); this.editingMovId.set(null); this.load(); },
-      error: () => this.saving.set(false),
+      next: () => { this.saving.set(false); this.showMovSheet.set(false); this.editingMovId.set(null); this.movError.set(null); this.load(); },
+      error: (err) => {
+        this.saving.set(false);
+        const msg = err?.error?.message ?? 'No se pudo guardar el movimiento.';
+        this.movError.set(msg);
+      },
     });
   }
 

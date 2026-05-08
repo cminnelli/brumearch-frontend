@@ -430,6 +430,17 @@
   &--transferencia.tipo-tab--active { background: #7C3AED; border-color: #7C3AED; }
 }
 
+.sheet-error {
+  margin: .5rem 0 0;
+  padding: .65rem .9rem;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  font-size: .82rem;
+  color: #DC2626;
+  line-height: 1.4;
+}
+
 .sheet-btn {
   width: 100%;
   margin-top: 1.25rem;
