@@ -714,56 +714,179 @@
 
 .kv-grid { display: flex; flex-direction: column; gap: 0.5rem; }
 
-// Multi-owner
-.owner-row {
-  position: relative;
-  padding: .75rem .75rem .25rem;
+// ── Multi-owner view ─────────────────────────────────────────
+.owners-view {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.ow-card {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .6rem .75rem;
   background: #fafaf8;
   border: 1px solid #eeece6;
-  border-radius: 8px;
-  margin-bottom: .5rem;
+  border-radius: 10px;
+
+  &__avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2d2d2d 0%, #555 100%);
+    color: #fff;
+    font-size: .85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: .88rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__contacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+
+  &__link {
+    font-size: .73rem;
+    color: #888;
+    text-decoration: none;
+    &:hover { color: #1a1a1a; text-decoration: underline; }
+  }
 }
-.owner-remove {
-  position: absolute;
-  top: .5rem;
-  right: .5rem;
-  width: 20px;
-  height: 20px;
+
+// ── Multi-owner edit ─────────────────────────────────────────
+.owners-edit {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.ow-edit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  background: #fafaf8;
+  border: 1px solid #eeece6;
+  border-radius: 10px;
+  padding: .65rem .75rem;
+  position: relative;
+}
+
+.ow-edit-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2d2d2d 0%, #555 100%);
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.ow-edit-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+.ow-edit-sub {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .35rem;
+}
+
+.ow-input {
+  width: 100%;
+  font-size: .83rem;
+  color: #1a1a1a;
+  background: #fff;
+  border: 1px solid #e4e2dc;
+  border-radius: 6px;
+  padding: 5px 8px;
+  outline: none;
+  box-sizing: border-box;
+
+  &::placeholder { color: #ccc; }
+  &:focus { border-color: #aaa; }
+
+  &--name {
+    font-weight: 600;
+    font-size: .88rem;
+  }
+}
+
+.ow-del {
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: none;
-  background: #eee;
-  color: #999;
-  font-size: 14px;
+  background: #eeece6;
+  color: #aaa;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  &:hover { background: #f87171; color: #fff; }
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: background .15s, color .15s;
+
+  &:hover { background: #fecaca; color: #dc2626; }
 }
-.owner-card {
+
+.ow-add {
   display: flex;
-  flex-direction: column;
-  gap: .35rem;
-  padding: .6rem .75rem;
-  background: #fafaf8;
-  border: 1px solid #eeece6;
-  border-radius: 8px;
-  margin-bottom: .5rem;
-  &:last-child { margin-bottom: 0; }
-}
-.btn-add-owner {
-  font-size: .78rem;
-  color: #666;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  font-size: .8rem;
+  color: #888;
   background: none;
-  border: 1px dashed #ddd;
-  border-radius: 8px;
-  padding: 6px 12px;
+  border: 1.5px dashed #ddd;
+  border-radius: 10px;
+  padding: 7px 12px;
   cursor: pointer;
   width: 100%;
-  text-align: center;
-  margin-top: .25rem;
-  &:hover { background: #f5f4f0; border-color: #bbb; color: #333; }
+  transition: border-color .15s, color .15s, background .15s;
+
+  &:hover {
+    border-color: #aaa;
+    color: #333;
+    background: #f5f4f0;
+  }
+
+  &__plus {
+    font-size: 1rem;
+    font-weight: 300;
+    line-height: 1;
+  }
 }
 .kv { display: flex; align-items: baseline; gap: 0.5rem; }
 .kv__k { font-size: 0.75rem; color: #bbb; min-width: 70px; flex-shrink: 0; }

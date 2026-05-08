@@ -350,29 +350,49 @@
 
               <div class="icard">
                 <div class="icard__label">Propietarios</div>
+
                 @if (editing()) {
-                  @for (o of form.owners; track $index; let i = $index) {
-                    <div class="owner-row">
-                      <div class="field-row">
-                        <div class="ifield"><label>Nombre</label><input [(ngModel)]="form.owners[i].name" [name]="'ownerName'+i" placeholder="Nombre completo" /></div>
-                        <div class="ifield"><label>Email</label><input type="email" [(ngModel)]="form.owners[i].email" [name]="'ownerEmail'+i" /></div>
-                        <div class="ifield"><label>Celular</label><input [(ngModel)]="form.owners[i].phone" [name]="'ownerPhone'+i" /></div>
-                      </div>
-                      @if (form.owners.length > 1) {
-                        <button type="button" class="owner-remove" (click)="form.owners.splice(i,1)">×</button>
-                      }
-                    </div>
-                  }
-                  <button type="button" class="btn-add-owner" (click)="form.owners.push({name:'',email:'',phone:''})">+ Agregar propietario</button>
-                } @else {
-                  @if (allOwners(project()!).length) {
-                    @for (o of allOwners(project()!); track $index) {
-                      <div class="owner-card">
-                        @if (o.name)  { <div class="kv"><span class="kv__k">Nombre</span><span class="kv__v">{{ o.name }}</span></div> }
-                        @if (o.email) { <div class="kv"><span class="kv__k">Email</span><a class="kv__v kv__v--link" [href]="'mailto:'+o.email">{{ o.email }}</a></div> }
-                        @if (o.phone) { <div class="kv"><span class="kv__k">Celular</span><a class="kv__v kv__v--link" [href]="'tel:'+o.phone">{{ o.phone }}</a></div> }
+                  <div class="owners-edit">
+                    @for (o of form.owners; track $index; let i = $index) {
+                      <div class="ow-edit-row">
+                        <div class="ow-edit-avatar">{{ (o.name?.[0] || '?').toUpperCase() }}</div>
+                        <div class="ow-edit-fields">
+                          <input [(ngModel)]="form.owners[i].name"  [name]="'on'+i" placeholder="Nombre completo" class="ow-input ow-input--name" />
+                          <div class="ow-edit-sub">
+                            <input type="email" [(ngModel)]="form.owners[i].email" [name]="'oe'+i" placeholder="Email" class="ow-input" />
+                            <input [(ngModel)]="form.owners[i].phone" [name]="'op'+i" placeholder="Teléfono" class="ow-input" />
+                          </div>
+                        </div>
+                        @if (form.owners.length > 1) {
+                          <button type="button" class="ow-del" (click)="form.owners.splice(i,1)" title="Eliminar">×</button>
+                        }
                       </div>
                     }
+                    <button type="button" class="ow-add" (click)="form.owners.push({name:'',email:'',phone:''})">
+                      <span class="ow-add__plus">+</span> Agregar propietario
+                    </button>
+                  </div>
+
+                } @else {
+                  @if (allOwners(project()!).length) {
+                    <div class="owners-view">
+                      @for (o of allOwners(project()!); track $index) {
+                        <div class="ow-card">
+                          <div class="ow-card__avatar">{{ (o.name?.[0] || '?').toUpperCase() }}</div>
+                          <div class="ow-card__info">
+                            <span class="ow-card__name">{{ o.name || '—' }}</span>
+                            <div class="ow-card__contacts">
+                              @if (o.email) {
+                                <a class="ow-card__link" [href]="'mailto:'+o.email">✉ {{ o.email }}</a>
+                              }
+                              @if (o.phone) {
+                                <a class="ow-card__link" [href]="'tel:'+o.phone">📞 {{ o.phone }}</a>
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      }
+                    </div>
                   } @else {
                     <span class="empty-text">Sin datos del propietario</span>
                   }
