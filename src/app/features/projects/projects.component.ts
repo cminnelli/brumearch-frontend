@@ -106,7 +106,8 @@ export class ProjectsComponent implements OnInit {
       description: this.form.description || undefined,
       type: this.form.type as ProjectType,
       status: this.form.status as ProjectStatus,
-      owner: { name: this.form.client || undefined },
+      owner:  { name: this.form.client || undefined },
+      owners: this.form.client ? [{ name: this.form.client }] : [],
       startDate: this.form.startDate || undefined,
       endDate: this.form.endDate || undefined,
       location: {

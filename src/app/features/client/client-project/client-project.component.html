@@ -1,0 +1,151 @@
+<div class="cp">
+
+  <!-- Header -->
+  <header class="cp-header">
+    <button class="cp-back" (click)="goBack()">← Mis proyectos</button>
+    <img src="/assets/logo brume vector2.png" alt="Brumelab" class="cp-header__logo" />
+  </header>
+
+  @if (loading()) {
+    <div class="cp-loading"><div class="cp-spinner"></div></div>
+  } @else if (error()) {
+    <p class="cp-error">{{ error() }}</p>
+  } @else if (project()) {
+
+    <!-- Cover -->
+    @if (project()!.coverImage) {
+      <div class="cp-cover" [style.backgroundImage]="'url(' + project()!.coverImage + ')'"></div>
+    } @else {
+      <div class="cp-cover cp-cover--empty"><span>🏛️</span></div>
+    }
+
+    <div class="cp-body">
+
+      <!-- Title row -->
+      <div class="cp-title-row">
+        <div>
+          <h1 class="cp-name">{{ project()!.name }}</h1>
+          @if (locationStr()) {
+            <p class="cp-loc">📍 {{ locationStr() }}</p>
+          }
+        </div>
+        <span class="cp-status cp-status--{{ project()!.status }}">
+          {{ STATUS_LABELS[project()!.status] }}
+        </span>
+      </div>
+
+      <!-- Progress bar -->
+      @if (project()!.etapas?.length) {
+        <div class="cp-progress">
+          <div class="cp-progress__bar">
+            <div class="cp-progress__fill" [style.width.%]="etapaProgress()"></div>
+          </div>
+          <span class="cp-progress__label">{{ etapaProgress() }}% de avance</span>
+        </div>
+      }
+
+      <!-- Tabs -->
+      <div class="cp-tabs">
+        <button class="cp-tab" [class.cp-tab--active]="tab() === 'info'" (click)="setTab('info')">
+          Información
+        </button>
+        <button class="cp-tab" [class.cp-tab--active]="tab() === 'etapas'" (click)="setTab('etapas')">
+          Etapas
+        </button>
+      </div>
+
+      <!-- Tab: Info -->
+      @if (tab() === 'info') {
+        <div class="cp-section">
+
+          @if (project()!.description) {
+            <div class="cp-block">
+              <h3 class="cp-block__title">Descripción</h3>
+              <p class="cp-block__text">{{ project()!.description }}</p>
+            </div>
+          }
+
+          @if (featStr().length) {
+            <div class="cp-block">
+              <h3 class="cp-block__title">Características</h3>
+              <div class="cp-feat-grid">
+                @for (f of featStr(); track f.label) {
+                  <div class="cp-feat">
+                    <span class="cp-feat__val">{{ f.value }}</span>
+                    <span class="cp-feat__label">{{ f.label }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (project()!.services?.length) {
+            <div class="cp-block">
+              <h3 class="cp-block__title">Servicios contratados</h3>
+              <div class="cp-tags">
+                @for (s of project()!.services!; track s) {
+                  <span class="cp-tag">{{ SERVICE_LABELS[s] ?? s }}</span>
+                }
+              </div>
+            </div>
+          }
+
+          @if (project()!.startDate || project()!.endDate) {
+            <div class="cp-block">
+              <h3 class="cp-block__title">Fechas</h3>
+              <div class="cp-dates">
+                @if (project()!.startDate) {
+                  <div class="cp-date">
+                    <span class="cp-date__label">Inicio</span>
+                    <span class="cp-date__val">{{ project()!.startDate | date:'dd/MM/yyyy' }}</span>
+                  </div>
+                }
+                @if (project()!.endDate) {
+                  <div class="cp-date">
+                    <span class="cp-date__label">Fin estimado</span>
+                    <span class="cp-date__val">{{ project()!.endDate | date:'dd/MM/yyyy' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+        </div>
+      }
+
+      <!-- Tab: Etapas -->
+      @if (tab() === 'etapas') {
+        <div class="cp-section">
+          @if (!project()!.etapas?.length) {
+            <p class="cp-empty">No hay etapas cargadas todavía.</p>
+          } @else {
+            <div class="cp-etapas">
+              @for (e of project()!.etapas!; track e.etapaId) {
+                <div class="cp-etapa cp-etapa--{{ e.estado }}">
+                  <div class="cp-etapa__dot"></div>
+                  <div class="cp-etapa__content">
+                    <span class="cp-etapa__name">{{ e.nombre || 'Etapa ' + (e.orden + 1) }}</span>
+                    <span class="cp-etapa__badge">
+                      @switch (e.estado) {
+                        @case ('completada') { Completada }
+                        @case ('activa')     { En curso   }
+                        @default             { Pendiente  }
+                      }
+                    </span>
+                  </div>
+                  @if (e.fechaInicio) {
+                    <span class="cp-etapa__date">
+                      {{ e.fechaInicio | date:'dd/MM/yy' }}
+                    </span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+    </div>
+  }
+
+</div>

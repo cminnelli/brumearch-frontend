@@ -65,6 +65,7 @@ export interface Project {
   type:        ProjectType;
   status:      ProjectStatus;
   owner?:      ProjectOwner;
+  owners?:     ProjectOwner[];
   services?:   ProjectService[];
   location?:   ProjectLocation;
   features?:   ProjectFeatures;

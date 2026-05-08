@@ -349,22 +349,33 @@
               }
 
               <div class="icard">
-                <div class="icard__label">Propietario</div>
+                <div class="icard__label">Propietarios</div>
                 @if (editing()) {
-                  <div class="field-row">
-                    <div class="ifield"><label>Nombre</label><input [(ngModel)]="form.ownerName" name="ownerName" placeholder="Nombre completo" /></div>
-                    <div class="ifield"><label>Email</label><input type="email" [(ngModel)]="form.ownerEmail" name="ownerEmail" /></div>
-                    <div class="ifield"><label>Celular</label><input [(ngModel)]="form.ownerPhone" name="ownerPhone" /></div>
-                  </div>
+                  @for (o of form.owners; track $index; let i = $index) {
+                    <div class="owner-row">
+                      <div class="field-row">
+                        <div class="ifield"><label>Nombre</label><input [(ngModel)]="form.owners[i].name" [name]="'ownerName'+i" placeholder="Nombre completo" /></div>
+                        <div class="ifield"><label>Email</label><input type="email" [(ngModel)]="form.owners[i].email" [name]="'ownerEmail'+i" /></div>
+                        <div class="ifield"><label>Celular</label><input [(ngModel)]="form.owners[i].phone" [name]="'ownerPhone'+i" /></div>
+                      </div>
+                      @if (form.owners.length > 1) {
+                        <button type="button" class="owner-remove" (click)="form.owners.splice(i,1)">×</button>
+                      }
+                    </div>
+                  }
+                  <button type="button" class="btn-add-owner" (click)="form.owners.push({name:'',email:'',phone:''})">+ Agregar propietario</button>
                 } @else {
-                  <div class="kv-grid">
-                    @if (project()!.owner?.name)  { <div class="kv"><span class="kv__k">Nombre</span><span class="kv__v">{{ project()!.owner!.name }}</span></div> }
-                    @if (project()!.owner?.email) { <div class="kv"><span class="kv__k">Email</span><a class="kv__v kv__v--link" [href]="'mailto:'+project()!.owner!.email">{{ project()!.owner!.email }}</a></div> }
-                    @if (project()!.owner?.phone) { <div class="kv"><span class="kv__k">Celular</span><a class="kv__v kv__v--link" [href]="'tel:'+project()!.owner!.phone">{{ project()!.owner!.phone }}</a></div> }
-                    @if (!project()!.owner?.name && !project()!.owner?.email && !project()!.owner?.phone) {
-                      <span class="empty-text">Sin datos del propietario</span>
+                  @if (allOwners(project()!).length) {
+                    @for (o of allOwners(project()!); track $index) {
+                      <div class="owner-card">
+                        @if (o.name)  { <div class="kv"><span class="kv__k">Nombre</span><span class="kv__v">{{ o.name }}</span></div> }
+                        @if (o.email) { <div class="kv"><span class="kv__k">Email</span><a class="kv__v kv__v--link" [href]="'mailto:'+o.email">{{ o.email }}</a></div> }
+                        @if (o.phone) { <div class="kv"><span class="kv__k">Celular</span><a class="kv__v kv__v--link" [href]="'tel:'+o.phone">{{ o.phone }}</a></div> }
+                      </div>
                     }
-                  </div>
+                  } @else {
+                    <span class="empty-text">Sin datos del propietario</span>
+                  }
                 }
               </div>
 

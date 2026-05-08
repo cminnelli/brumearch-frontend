@@ -40,6 +40,10 @@ export class AuthService {
     return this.hasRole('admin');
   }
 
+  get isClient(): boolean {
+    return this.hasRole('client') && !this.isAdmin;
+  }
+
   login(email: string, password: string): Observable<void> {
     return from(signInWithEmailAndPassword(fbAuth, email, password)).pipe(
       switchMap((cred) => from(cred.user.getIdToken())),
@@ -125,6 +129,8 @@ export class AuthService {
     this.sessionRestored.set(true);
     if (!res.user.profileComplete) {
       this.router.navigate(['/profile-setup']);
+    } else if (this.isClient) {
+      this.router.navigate(['/client']);
     } else {
       this.router.navigate(['/dashboard']);
     }

@@ -225,12 +225,17 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   // ── Edit project ─────────────────────────────────────────
   startEdit(p: Project) {
     this.editing.set(true);
+    // Merge legacy owner + owners array, dedup by email
+    const merged = [
+      ...(p.owner?.name || p.owner?.email ? [{ name: p.owner!.name || '', email: p.owner!.email || '', phone: p.owner!.phone || '' }] : []),
+      ...(p.owners ?? []).map(o => ({ name: o.name || '', email: o.email || '', phone: o.phone || '' })),
+    ];
+    const seen = new Set<string>();
+    const owners = merged.filter(o => { const k = o.email || o.name; if (seen.has(k)) return false; seen.add(k); return true; });
     this.form = {
       description:      p.description || '',
       status:           p.status,
-      ownerName:        p.owner?.name || '',
-      ownerEmail:       p.owner?.email || '',
-      ownerPhone:       p.owner?.phone || '',
+      owners:           owners.length ? owners : [{ name: '', email: '', phone: '' }],
       services:         [...(p.services || [])],
       address:          p.location?.address || '',
       neighborhood:     p.location?.neighborhood || '',
@@ -252,12 +257,31 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   cancelEdit() { this.editing.set(false); this.form = {}; }
 
+  allOwners(p: Project): import('../../../shared/models/project.model').ProjectOwner[] {
+    const merged = [
+      ...(p.owner?.name || p.owner?.email ? [p.owner!] : []),
+      ...(p.owners ?? []),
+    ];
+    const seen = new Set<string>();
+    return merged.filter(o => {
+      const k = o.email || o.name || '';
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }
+
   save() {
     const id = this.project()!._id;
     const payload: Partial<Project> = {
       description: this.form.description || undefined,
       status:      this.form.status as ProjectStatus,
-      owner: { name: this.form.ownerName || undefined, email: this.form.ownerEmail || undefined, phone: this.form.ownerPhone || undefined },
+      owners: (this.form.owners as { name: string; email: string; phone: string }[])
+        .filter(o => o.name || o.email)
+        .map(o => ({ name: o.name || undefined, email: o.email || undefined, phone: o.phone || undefined })),
+      owner: this.form.owners?.[0]
+        ? { name: this.form.owners[0].name || undefined, email: this.form.owners[0].email || undefined, phone: this.form.owners[0].phone || undefined }
+        : undefined,
       services: this.form.services,
       location: {
         address: this.form.address || undefined, neighborhood: this.form.neighborhood || undefined,

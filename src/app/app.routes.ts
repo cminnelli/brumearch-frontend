@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth.guard';
+import { authGuard, clientGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -64,6 +64,22 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/profile/profile.component').then((m) => m.ProfileComponent),
     canActivate: [authGuard],
+  },
+  {
+    path: 'client',
+    loadComponent: () =>
+      import('./features/client/client-dashboard/client-dashboard.component').then(
+        (m) => m.ClientDashboardComponent
+      ),
+    canActivate: [clientGuard],
+  },
+  {
+    path: 'client/projects/:id',
+    loadComponent: () =>
+      import('./features/client/client-project/client-project.component').then(
+        (m) => m.ClientProjectComponent
+      ),
+    canActivate: [clientGuard],
   },
   {
     path: '**',
