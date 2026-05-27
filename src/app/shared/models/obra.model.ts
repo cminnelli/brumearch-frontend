@@ -69,7 +69,7 @@ export interface Gasto {
   _id: string;
   project: string;
   presupuestoId?: { _id: string; descripcion?: string; monto: number; moneda: Moneda; archivos?: Archivo[] };
-  subrubroId: { _id: string; nombre: string; codigo: string };
+  subrubroId: { _id: string; nombre: string; codigo: string; rubroId?: { _id: string; nombre: string; codigo: string } };
   proveedorId?: { _id: string; nombre: string };
   descripcion?: string;
   monto: number;

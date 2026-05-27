@@ -8,6 +8,8 @@ import { ConfigService, Rubro, Subrubro } from '../../../../core/services/config
 import { ReservaService } from '../../../../core/services/reserva.service';
 import { SolicitudService } from '../../../../core/services/solicitud.service';
 import { ConfirmService } from '../../../../core/services/confirm.service';
+import { ProjectService } from '../../../../core/services/project.service';
+import { PlanObraEntry } from '../../../../shared/models/project.model';
 import {
   Presupuesto, Gasto, Moneda, MetodoPago,
   METODO_LABELS, METODO_ICONS, METODO_HINT,
@@ -34,6 +36,7 @@ export class ObraComponent implements OnInit {
   private reservaSvc   = inject(ReservaService);
   private solicitudSvc = inject(SolicitudService);
   private confirmSvc   = inject(ConfirmService);
+  private projectSvc   = inject(ProjectService);
 
   // ── Data ────────────────────────────────────────────────
   presupuestos = signal<Presupuesto[]>([]);
@@ -67,8 +70,62 @@ export class ObraComponent implements OnInit {
     archivos: File[]; provs: Proveedor[];
   } = { proveedorId: '', monto: null, moneda: 'ARS', notas: '', plazo: '', condiciones: '', archivos: [], provs: [] };
 
+  // ── Plan de Obra (presupuesto arquitecto por subrubro) ──
+  planObra        = signal<PlanObraEntry[]>([]);
+  soloConDatos    = signal(false);
+
+  // ── Finanzas de Obra: tabla agrupada rubro → subrubro ───
+  finanzasData = computed(() => {
+    const rubros      = this.rubros();
+    const subs        = this.allSubrubros();
+    const gastos      = this.gastos();
+    const plan        = this.planObra();
+    const soloConData = this.soloConDatos();
+
+    return rubros.map(rubro => {
+      const rubroIdStr = String(rubro._id);
+      const rubroSubs  = subs.filter(s => String(s.rubroId?._id ?? '') === rubroIdStr);
+
+      const rows = rubroSubs.map(sub => {
+        const subIdStr   = String(sub._id);
+        const subGastos  = gastos.filter(g => String(g.subrubroId?._id ?? '') === subIdStr);
+        // realTotal = suma de montos de gastos (comprometido)
+        const realTotal  = subGastos.reduce((acc, g) => acc + (g.monto ?? 0), 0);
+        // realPagado = suma de pagos efectivamente realizados
+        const realPagado = subGastos.reduce((acc, g) => acc + totalPagadoGasto(g), 0);
+        const planEntry  = plan.find(p => p.subrubroId === subIdStr);
+        const planMonto  = planEntry?.monto ?? 0;
+        const planMoneda = planEntry?.moneda ?? 'ARS';
+        const pct        = planMonto > 0 ? Math.min(999, Math.round(realPagado / planMonto * 100)) : null;
+        const hasData    = realTotal > 0 || realPagado > 0 || planMonto > 0;
+        return { sub, realTotal, realPagado, planMonto, planMoneda, pct, hasData };
+      }).filter(r => !soloConData || r.hasData);
+      // Mostrar siempre el rubro aunque sus subrubros no tengan datos
+      const rubroRealTotal  = rows.reduce((acc, r) => acc + r.realTotal, 0);
+      const rubroRealPagado = rows.reduce((acc, r) => acc + r.realPagado, 0);
+      const rubroPlan       = rows.reduce((acc, r) => acc + r.planMonto, 0);
+      const hasAnyData      = rows.some(r => r.hasData);
+      return { rubro, rows, rubroRealTotal, rubroRealPagado, rubroPlan, hasAnyData };
+    // Solo ocultar rubros que no tienen subrubros configurados
+    }).filter(r => r.rows.length > 0);
+  });
+
+  finanzasTotals() {
+    const data = this.finanzasData();
+    return {
+      plan:       data.reduce((acc, r) => acc + r.rubroPlan, 0),
+      realTotal:  data.reduce((acc, r) => acc + r.rubroRealTotal, 0),
+      realPagado: data.reduce((acc, r) => acc + r.rubroRealPagado, 0),
+    };
+  }
+
+  // ── UI: editar celda Plan por subrubro ───────────────────
+  editingPlanSubId = signal<string | null>(null);
+  editPlanForm     = { monto: 0, moneda: 'ARS' };
+  savingPlan       = signal(false);
+
   // ── Filter ──────────────────────────────────────────────
-  obraFilter = signal<'todos' | 'cotizaciones' | 'pendiente' | 'aprobado' | 'rechazado' | 'gasto'>('todos');
+  obraFilter = signal<'todos' | 'cotizaciones' | 'pendiente' | 'aprobado' | 'rechazado' | 'gasto' | 'finanzas'>('todos');
 
   // ── Master/detail selection ──────────────────────────────
   selectedId   = signal<string | null>(null);
@@ -78,6 +135,24 @@ export class ObraComponent implements OnInit {
   selectedGasto = computed(() => this.selectedType() === 'gasto' ? this.gastos().find(g => g._id === this.selectedId()) ?? null : null);
   selectedSol   = computed(() => this.selectedType() === 'sol'   ? this.solicitudes().find(s => s._id === this.selectedId()) ?? null : null);
 
+  // ── Paginación del historial de pagos ────────────────────
+  readonly PAGO_PAGE    = 10;
+  pagoVisibleCount      = signal(this.PAGO_PAGE);
+  pagosVisibles         = computed(() => {
+    const g = this.selectedGasto();
+    return g ? [...g.pagos].reverse().slice(0, this.pagoVisibleCount()) : [];
+  });
+  hasMasPagos           = computed(() => {
+    const g = this.selectedGasto();
+    return !!g && g.pagos.length > this.pagoVisibleCount();
+  });
+  pagosRestantes        = computed(() => {
+    const g = this.selectedGasto();
+    return g ? Math.min(this.PAGO_PAGE, g.pagos.length - this.pagoVisibleCount()) : 0;
+  });
+
+  loadMorePagos() { this.pagoVisibleCount.update(n => n + this.PAGO_PAGE); }
+
   select(type: 'pres' | 'gasto' | 'sol', id: string) {
     if (this.selectedId() === id) { this.selectedId.set(null); this.selectedType.set(null); return; }
     this.selectedId.set(id);
@@ -86,6 +161,8 @@ export class ObraComponent implements OnInit {
     this.generandoGastoPresId.set(null);
     this.activePagoGastoId.set(null);
     this.addingCotizacionId.set(null);
+    this.editingPagoId.set(null);
+    this.pagoVisibleCount.set(this.PAGO_PAGE);
     this.showPresForm.set(false);
     this.showSolicitudForm.set(false);
   }
@@ -115,10 +192,16 @@ export class ObraComponent implements OnInit {
   generarGastoForm: {
     fecha: string;
     comprobante: File | null;
-    fuente: '' | 'reserva' | 'cliente';
-    reservaId: string;
-    metodoPago: MetodoPago | '';
-  } = { fecha: '', comprobante: null, fuente: '', reservaId: '', metodoPago: '' };
+    // Pago inmediato (opcional)
+    registrarPago: boolean;
+    pagoFecha: string;
+    pagoMonto: number | null;
+    pagoMetodo: MetodoPago | '';
+    pagoReferencia: string;
+    pagoNotas: string;
+    pagoFuente: '' | 'reserva';
+    pagoReservaId: string;
+  } = { fecha: '', comprobante: null, registrarPago: false, pagoFecha: '', pagoMonto: null, pagoMetodo: '' as MetodoPago | '', pagoReferencia: '', pagoNotas: '', pagoFuente: '', pagoReservaId: '' };
 
   // ── UI: Edit gasto ──────────────────────────────────────
   editingGastoId = signal<string | null>(null);
@@ -167,6 +250,11 @@ export class ObraComponent implements OnInit {
   savingPago        = signal(false);
   pagoError         = signal<string | null>(null);
 
+  // ── UI: Editar pago existente ─────────────────────────────
+  editingPagoId  = signal<string | null>(null);
+  editPagoForm   = { referencia: '', notas: '' };
+  savingEditPago = signal(false);
+
   // ── Constants for template ───────────────────────────────
   readonly metodoLabels = METODO_LABELS;
   readonly metodoIcons  = METODO_ICONS;
@@ -178,6 +266,7 @@ export class ObraComponent implements OnInit {
     this.cfgSvc.getSubrubros().subscribe(d => this.allSubrubros.set(d));
     this.reservaSvc.list(this.projectId).subscribe(d => this.reservas.set(d));
     this.solicitudSvc.list(this.projectId).subscribe(d => this.solicitudes.set(d));
+    this.projectSvc.getById(this.projectId).subscribe(p => this.planObra.set(p.planObra ?? []));
     this.reload();
   }
 
@@ -286,7 +375,15 @@ export class ObraComponent implements OnInit {
 
   startGenerarGasto(p: Presupuesto) {
     this.selectedId.set(p._id); this.selectedType.set('pres');
-    this.generarGastoForm = { fecha: this.todayISO(), comprobante: null, fuente: '', reservaId: '', metodoPago: '' };
+    const today = this.todayISO();
+    this.generarGastoForm = {
+      fecha: today, comprobante: null,
+      registrarPago: false,
+      pagoFecha: today, pagoMonto: p.monto,
+      pagoMetodo: 'transferencia',
+      pagoReferencia: '', pagoNotas: '',
+      pagoFuente: '', pagoReservaId: '',
+    };
     this.generarError.set(null);
     this.generandoGastoPresId.set(p._id);
   }
@@ -304,10 +401,12 @@ export class ObraComponent implements OnInit {
   confirmarGenerarGasto(p: Presupuesto) {
     if (!this.generarGastoForm.fecha) return;
 
-    // Validar saldo de reserva si corresponde
-    if (this.generarGastoForm.fuente === 'reserva' && this.generarGastoForm.reservaId) {
-      const rv = this.reservas().find(r => r._id === this.generarGastoForm.reservaId);
-      if (rv && saldoReserva(rv) < p.monto) {
+    const { registrarPago, pagoFuente, pagoReservaId, pagoMonto } = this.generarGastoForm;
+
+    // Validar saldo de reserva si se va a registrar un pago desde reserva
+    if (registrarPago && pagoFuente === 'reserva' && pagoReservaId) {
+      const rv = this.reservas().find(r => r._id === pagoReservaId);
+      if (rv && saldoReserva(rv) < (pagoMonto ?? p.monto)) {
         this.generarError.set(`Saldo insuficiente en "${rv.nombre}": disponible ${this.fmt(saldoReserva(rv), rv.moneda)}`);
         return;
       }
@@ -330,11 +429,17 @@ export class ObraComponent implements OnInit {
       next: item => {
         this.gastos.update(l => [item, ...l]);
 
-        // Registrar pago inmediato si se indicó fuente
-        const { fuente, reservaId, metodoPago } = this.generarGastoForm;
-        if (fuente && metodoPago) {
-          const pagoBody: any = { fecha: this.generarGastoForm.fecha, monto: p.monto, metodoPago };
-          if (fuente === 'reserva' && reservaId) pagoBody.reservaId = reservaId;
+        // Registrar pago inmediato si el usuario lo activó
+        if (registrarPago) {
+          const { pagoFecha, pagoMonto: pm, pagoMetodo, pagoReferencia, pagoNotas } = this.generarGastoForm;
+          const pagoBody: any = {
+            fecha:      pagoFecha || this.generarGastoForm.fecha,
+            monto:      pm ?? p.monto,
+            metodoPago: pagoMetodo || 'efectivo',
+          };
+          if (pagoReferencia)                                pagoBody.referencia = pagoReferencia;
+          if (pagoNotas)                                     pagoBody.notas      = pagoNotas;
+          if (pagoFuente === 'reserva' && pagoReservaId)     pagoBody.reservaId  = pagoReservaId;
           this.gastoSvc.addPago(this.projectId, item._id, pagoBody).subscribe({
             next: updatedGasto => {
               this.gastos.update(l => l.map(g => g._id === item._id ? updatedGasto : g));
@@ -343,7 +448,7 @@ export class ObraComponent implements OnInit {
           });
         }
 
-        // El backend eliminó el presupuesto — quitarlo de la lista
+        // Quitar el presupuesto de la lista (el backend lo elimina/desasocia)
         this.presupuestos.update(l => l.filter(x => x._id !== p._id));
         this.savingGenerar.set(false);
         this.generandoGastoPresId.set(null);
@@ -428,9 +533,64 @@ export class ObraComponent implements OnInit {
   }
 
   deletePago(g: Gasto, pagoId: string) {
-    this.gastoSvc.removePago(this.projectId, g._id, pagoId).subscribe(updated =>
-      this.gastos.update(l => l.map(x => x._id === g._id ? updated : x))
-    );
+    // Guardar el pagoId eliminado para poder refrescar la reserva si correspondía
+    const pagoEliminado = g.pagos.find(p => p._id === pagoId);
+    this.gastoSvc.removePago(this.projectId, g._id, pagoId).subscribe({
+      next: updated => {
+        this.gastos.update(l => l.map(x => x._id === g._id ? updated : x));
+        // Si el pago estaba vinculado a una reserva, refrescarla
+        if (pagoEliminado?.reservaId) {
+          this.reservaSvc.list(this.projectId).subscribe(d => this.reservas.set(d));
+        }
+      },
+      error: () => {
+        // No modificar el estado local si el backend falla
+        console.error('Error al eliminar el pago');
+      },
+    });
+  }
+
+  // Ventana de edición: 7 días desde la fecha de pago
+  canEditPago(pago: { fecha: string }): boolean {
+    const [y, m, d] = pago.fecha.substring(0, 10).split('-').map(Number);
+    const pagoDate = new Date(y, m - 1, d);
+    pagoDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = (today.getTime() - pagoDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
+  }
+
+  startEditPago(pago: { _id: string; referencia?: string; notas?: string }) {
+    this.editingPagoId.set(pago._id);
+    this.editPagoForm = { referencia: pago.referencia ?? '', notas: pago.notas ?? '' };
+  }
+
+  cancelEditPago() { this.editingPagoId.set(null); }
+
+  saveEditPago(g: Gasto, pago: { _id: string }) {
+    this.savingEditPago.set(true);
+    this.gastoSvc.updatePago(this.projectId, g._id, pago._id, this.editPagoForm).subscribe({
+      next: updated => {
+        this.gastos.update(l => l.map(x => x._id === g._id ? updated : x));
+        this.editingPagoId.set(null);
+        this.savingEditPago.set(false);
+      },
+      error: () => this.savingEditPago.set(false),
+    });
+  }
+
+  // Visualizar comprobante en nueva pestaña (con botón de imprimir)
+  visualizarPago(g: Gasto, pago: import('../../../../shared/models/obra.model').Pago) {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(this.buildComprobanteHtml(g, pago));
+    w.document.close();
+  }
+
+  // Descargar PDF directo para un pago específico
+  descargarPago(g: Gasto, pago: import('../../../../shared/models/obra.model').Pago) {
+    this.descargarPdf(this.buildComprobanteHtml(g, pago));
   }
 
   // ── Solicitudes de Cotización ────────────────────────────
@@ -524,6 +684,54 @@ export class ObraComponent implements OnInit {
     });
   }
 
+  // ── Plan de Obra: edición inline ─────────────────────────
+  getPlanEntry(subId: string): PlanObraEntry | undefined {
+    return this.planObra().find(p => p.subrubroId === String(subId));
+  }
+
+  startEditPlan(sub: Subrubro) {
+    const subId = String(sub._id);
+    const entry = this.getPlanEntry(subId);
+    this.editPlanForm = { monto: entry?.monto ?? 0, moneda: entry?.moneda ?? 'ARS' };
+    this.editingPlanSubId.set(subId);
+  }
+
+  cancelEditPlan() { this.editingPlanSubId.set(null); }
+
+  savePlan(sub: Subrubro) {
+    const subId = String(sub._id);
+    // Guard: evitar doble llamada (Enter dispara blur)
+    if (this.editingPlanSubId() !== subId || this.savingPlan()) return;
+    const monto = this.editPlanForm.monto;
+    if (monto == null || isNaN(+monto)) { this.cancelEditPlan(); return; }
+    this.savingPlan.set(true);
+    this.projectSvc.updatePlanObra(this.projectId, subId, +monto, this.editPlanForm.moneda).subscribe({
+      next: entries => {
+        this.planObra.set(entries);
+        this.editingPlanSubId.set(null);
+        this.savingPlan.set(false);
+      },
+      error: () => { this.editingPlanSubId.set(null); this.savingPlan.set(false); },
+    });
+  }
+
+  finPct(pct: number | null): string {
+    if (pct === null) return '—';
+    return Math.round(pct) + '%';
+  }
+
+  finPctClass(pct: number | null): string {
+    if (pct === null) return 'fin-pct--none';
+    if (pct >= 100) return 'fin-pct--over';
+    if (pct >= 75)  return 'fin-pct--warn';
+    return 'fin-pct--ok';
+  }
+
+  rubroRawPct(ejecutado: number, plan: number): number {
+    if (!plan) return 0;
+    return Math.round(ejecutado / plan * 100);
+  }
+
   // ── Helpers ─────────────────────────────────────────────
   totalPagadoG(g: Gasto)  { return totalPagadoGasto(g); }
   estadoG(g: Gasto)        { return estadoGasto(g); }
@@ -542,137 +750,243 @@ export class ObraComponent implements OnInit {
   }
 
   fmtFecha(fecha: string) {
-    return new Date(fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+    // Parsear como fecha local para evitar el desfase UTC-3 (new Date("YYYY-MM-DD") lo toma como UTC)
+    const [y, m, d] = fecha.substring(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   todayISO() { return new Date().toISOString().substring(0, 10); }
 
-  imprimirComprobante(g: Gasto) {
+  // Visualizar comprobante general del gasto en nueva pestaña
+  visualizarComprobante(g: Gasto) {
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(this.buildComprobanteHtml(g));
     w.document.close();
   }
 
-  private buildComprobanteHtml(g: Gasto): string {
-    const fecha     = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
-    const fmtM      = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
-    const totalPag  = totalPagadoGasto(g);
-    const restante  = Math.max(0, g.monto - totalPag);
-    const estado    = estadoGasto(g);
-    const estadoColor = estado === 'pagado' ? '#166534' : estado === 'parcial' ? '#92400e' : '#888';
-    const estadoTxt   = estado === 'pagado' ? 'PAGADO' : estado === 'parcial' ? 'PAGO PARCIAL' : 'PENDIENTE';
-    const logoUrl   = `${window.location.origin}/assets/logo%20brume%20vector2.png`;
+  // Descargar PDF directo del gasto completo
+  imprimirComprobante(g: Gasto) {
+    this.descargarPdf(this.buildComprobanteHtml(g));
+  }
 
-    // Last payment (hero)
-    const lastPago  = g.pagos.length ? g.pagos[g.pagos.length - 1] : null;
-    const lastFecha = lastPago
-      ? new Date(lastPago.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
-      : fecha;
+  // ── Descarga PDF directa (sin diálogo de impresión) ─────
+  private async descargarPdf(htmlStr: string): Promise<void> {
+    const parser  = new DOMParser();
+    const parsed  = parser.parseFromString(htmlStr, 'text/html');
+    const filename = (parsed.querySelector('title')?.textContent ?? 'Comprobante') + '.pdf';
 
-    // History = all pagos except the last
-    const histPagos = g.pagos.length > 1 ? g.pagos.slice(0, g.pagos.length - 1) : [];
-    const histRows  = histPagos.map(p => `
+    // Montar estilos + .doc en un contenedor oculto fuera de la pantalla
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:fixed;top:-99999px;left:0;width:680px;background:#fff;z-index:-1';
+
+    const styleTag = document.createElement('style');
+    styleTag.textContent = parsed.querySelector('style')?.textContent ?? '';
+    wrapper.appendChild(styleTag);
+
+    const docEl = parsed.querySelector('.doc') as HTMLElement;
+    docEl.style.borderRadius = '0';
+    docEl.style.boxShadow    = 'none';
+    docEl.style.border       = 'none';
+    docEl.style.maxWidth     = '100%';
+    wrapper.appendChild(docEl);
+    document.body.appendChild(wrapper);
+
+    // Esperar un tick para que el DOM pinte
+    await new Promise(r => setTimeout(r, 80));
+
+    const html2canvas = (await import('html2canvas')).default;
+    const { jsPDF }   = await import('jspdf');
+
+    const canvas = await html2canvas(docEl, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
+
+    document.body.removeChild(wrapper);
+
+    const imgData  = canvas.toDataURL('image/png');
+    const pdf      = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const pageW    = pdf.internal.pageSize.getWidth();
+    const pageH    = pdf.internal.pageSize.getHeight();
+    // scale=2 → cada px CSS = 2px canvas → dividir por 2 para mm reales
+    const mmPerPx  = pageW / (canvas.width / 2);
+    const totalH   = (canvas.height / 2) * mmPerPx;
+
+    let yRendered = 0;
+    while (yRendered < totalH) {
+      if (yRendered > 0) pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, -yRendered, pageW, totalH);
+      yRendered += pageH;
+    }
+
+    pdf.save(filename);
+  }
+
+  private buildComprobanteHtml(g: Gasto, heroPago?: import('../../../../shared/models/obra.model').Pago): string {
+    const fmtM = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    const fmtFechaLocal = (f: string) => {
+      const [y, m, d] = f.substring(0, 10).split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+    const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+    const fechaEmision = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const rubroNombre  = g.subrubroId.rubroId?.nombre ?? '';
+    const logoUrl = `${window.location.origin}/assets/logo%20brume%20vector2.png`;
+
+    const metodoLabel: Record<string, string> = {
+      efectivo: 'Efectivo', transferencia: 'Transferencia', cheque: 'Cheque',
+      tarjeta_credito: 'Tarjeta crédito', tarjeta_debito: 'Tarjeta débito',
+    };
+
+    // El código interno del subrubro no se muestra en el comprobante
+
+    // Si se imprime un pago específico, cortar el historial hasta ese pago (inclusive)
+    // y recalcular los totales al momento de ese pago — no mostrar pagos futuros
+    const lastPago = heroPago ?? (g.pagos.length ? g.pagos[g.pagos.length - 1] : null);
+    const heroPagoIdx = heroPago ? g.pagos.findIndex(p => p._id === heroPago._id) : -1;
+    const pagosHasta  = heroPagoIdx >= 0 ? g.pagos.slice(0, heroPagoIdx + 1) : g.pagos;
+
+    const totalPag = pagosHasta.reduce((s, p) => s + p.monto, 0);
+    const restante = Math.max(0, g.monto - totalPag);
+
+    // Estado al momento del comprobante (no el estado actual del gasto)
+    const estadoSnap = totalPag === 0 ? 'sin_pago' : totalPag < g.monto ? 'parcial' : 'pagado';
+    const eColor = estadoSnap === 'pagado' ? '#166534' : estadoSnap === 'parcial' ? '#92400e' : '#666';
+    const eBg    = estadoSnap === 'pagado' ? '#f0fdf4' : estadoSnap === 'parcial' ? '#fffbeb' : '#f5f5f5';
+    const eTxt   = estadoSnap === 'pagado' ? 'Pagado' : estadoSnap === 'parcial' ? 'Pago parcial' : 'Pendiente';
+
+    const lastFecha = lastPago ? fmtFechaLocal(lastPago.fecha) : fechaEmision;
+
+    // Nombre del archivo PDF (lo usa el browser como título de pestaña → nombre al guardar)
+    const provSlug  = (g.proveedorId?.nombre ?? 'SinProveedor').replace(/\s+/g, '_');
+    const fechaSlug = (lastPago?.fecha ?? new Date().toISOString()).substring(0, 10);
+    const pdfTitle  = `Comprobante_${provSlug}_${fechaSlug}`;
+
+    const histRows = [...pagosHasta].reverse().map(p => `
       <tr>
-        <td>${new Date(p.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-        <td>${p.referencia ?? '—'}</td>
+        <td>${fmtFechaLocal(p.fecha)}</td>
+        <td>${metodoLabel[p.metodoPago] ?? p.metodoPago}</td>
+        <td>${p.notas ?? '—'}</td>
         <td class="tr">${g.moneda} ${fmtM(p.monto)}</td>
       </tr>`).join('');
-    const histSection = histPagos.length ? `
-      <div class="sep"></div>
-      <div class="section-lbl">Pagos anteriores</div>
-      <table class="tbl">
-        <thead><tr><th>Fecha</th><th>Referencia</th><th class="tr">Monto</th></tr></thead>
-        <tbody>${histRows}</tbody>
-      </table>` : '';
+    const histSection = pagosHasta.length ? `
+      <div class="sec">
+        <div class="sec-lbl">Historial de pagos</div>
+        <table class="tbl">
+          <thead><tr><th>Fecha</th><th>Método</th><th>Observación</th><th class="tr">Monto</th></tr></thead>
+          <tbody>${histRows}</tbody>
+        </table>
+      </div>` : '';
 
     return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Comprobante de pago — Brumelab Arch</title>
+<title>${pdfTitle}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',system-ui,sans-serif;background:#f4f4f2;color:#111;-webkit-font-smoothing:antialiased}
+  body{font-family:'Inter',system-ui,sans-serif;background:#f2f2f0;color:#111;-webkit-font-smoothing:antialiased}
 
-  .bar{position:fixed;top:0;left:0;right:0;height:52px;background:#111;display:flex;align-items:center;
-    justify-content:space-between;padding:0 2rem;z-index:10;gap:1rem}
-  .bar-brand{color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;white-space:nowrap}
-  .bar-actions{display:flex;gap:0.5rem;flex-shrink:0}
-  .btn{padding:0.38rem 1rem;border-radius:6px;font-size:0.78rem;font-weight:600;font-family:inherit;cursor:pointer;border:none}
-  .btn-sec{background:transparent;color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.22)}
-  .btn-sec:hover{color:#fff;border-color:rgba(255,255,255,0.5)}
+  /* ── Top bar ── */
+  .bar{position:fixed;top:0;left:0;right:0;height:48px;background:#111;display:flex;align-items:center;
+    justify-content:space-between;padding:0 1.75rem;z-index:10}
+  .bar-brand{color:#fff;font-size:0.68rem;font-weight:800;letter-spacing:0.16em;text-transform:uppercase}
+  .bar-actions{display:flex;gap:0.4rem}
+  .btn{padding:0.32rem 0.85rem;border-radius:5px;font-size:0.72rem;font-weight:600;font-family:inherit;cursor:pointer;border:none;line-height:1}
+  .btn-sec{background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.18)}
+  .btn-sec:hover{color:#fff;border-color:rgba(255,255,255,0.4)}
   .btn-pri{background:#fff;color:#111}
-  .btn-pri:hover{background:#f0f0f0}
+  .btn-pri:hover{background:#efefef}
 
-  .page{padding:70px 1.5rem 3rem;display:flex;justify-content:center;min-height:100vh}
-  .doc{background:#fff;width:100%;max-width:680px;border-radius:16px;padding:2.75rem 3.25rem 2.5rem;
-    box-shadow:0 2px 16px rgba(0,0,0,0.07);border:1px solid #e8e8e8;height:fit-content}
+  /* ── Page wrapper ── */
+  .page{padding:60px 1.25rem 3rem;display:flex;justify-content:center;min-height:100vh}
+  .doc{background:#fff;width:100%;max-width:620px;border-radius:12px;
+    box-shadow:0 1px 14px rgba(0,0,0,0.08);border:1px solid #e4e4e4;height:fit-content;overflow:hidden}
 
-  /* Header */
-  .doc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem}
-  .brand-logo{height:32px;width:auto;display:block}
-  .brand-sub{font-size:0.65rem;color:#bbb;margin-top:0.28rem;font-weight:400}
-  .doc-head-right{text-align:right}
-  .doc-estado{display:inline-block;font-size:0.6rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;
-    padding:0.2rem 0.65rem;border-radius:20px;border:1px solid currentColor;margin-bottom:0.3rem}
-  .doc-fecha{font-size:0.72rem;color:#aaa}
+  /* ── Doc header ── */
+  .doc-head{display:flex;justify-content:space-between;align-items:flex-start;
+    padding:1.5rem 2rem 1.25rem;border-bottom:1px solid #f0f0f0}
+  .brand-logo{height:26px;width:auto;display:block;margin-bottom:0.3rem}
+  .brand-sub{font-size:0.58rem;color:#ccc;font-weight:400;letter-spacing:0.02em}
+  .doc-meta{text-align:right}
+  .doc-title{font-size:0.68rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#111;margin-bottom:0.22rem}
+  .doc-info{font-size:0.65rem;color:#bbb;line-height:1.6}
+  .doc-project{font-size:0.7rem;font-weight:600;color:#555;margin-top:0.12rem}
 
-  .line{height:2px;background:#111;margin-bottom:1.75rem;border-radius:1px;border:none}
-  .sep{height:1px;background:#ebebeb;margin:1.5rem 0;border:none}
+  /* ── Sections ── */
+  .sec{padding:1.25rem 2rem;border-bottom:1px solid #f0f0f0}
+  .sec:last-child{border-bottom:none}
+  .sec-lbl{font-size:0.55rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#ccc;margin-bottom:0.75rem}
 
-  /* Hero — último pago */
-  .pago-hero{margin-bottom:1.75rem}
-  .pago-hero__label{font-size:0.6rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#aaa;margin-bottom:0.55rem}
-  .pago-hero__amount{font-size:2.6rem;font-weight:900;color:#111;font-variant-numeric:tabular-nums;
-    letter-spacing:-0.03em;line-height:1;margin-bottom:0.4rem}
-  .pago-hero__date{font-size:0.8rem;color:#666;margin-bottom:0.25rem}
-  .pago-hero__ref{font-size:0.74rem;color:#aaa;font-style:italic}
+  /* ── Concepto ── */
+  .concept-row{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+  .concept-rubro{display:inline-block;font-size:0.57rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:0.1em;color:#888;background:#f4f4f2;padding:0.16rem 0.5rem;
+    border-radius:20px;margin-bottom:0.45rem}
+  .concept-nombre{font-size:1rem;font-weight:800;color:#111;line-height:1.2;margin-bottom:0.3rem}
+  .concept-codigo{font-size:0.65rem;color:#ccc;font-weight:400;margin-left:0.3rem}
+  .concept-prov{font-size:0.73rem;color:#777;margin-top:0.18rem}
+  .concept-prov strong{font-weight:600;color:#444}
+  .concept-desc{font-size:0.72rem;color:#999;line-height:1.5;margin-top:0.18rem}
+  .concept-notes{font-size:0.66rem;color:#bbb;font-style:italic;margin-top:0.1rem}
+  .estado-pill{display:inline-flex;align-items:center;gap:0.28rem;font-size:0.58rem;font-weight:700;
+    letter-spacing:0.08em;text-transform:uppercase;padding:0.2rem 0.6rem;border-radius:20px;
+    white-space:nowrap;flex-shrink:0;margin-top:0.15rem}
+  .estado-dot{width:4px;height:4px;border-radius:50%;background:currentColor}
 
-  /* Trabajo — concepto + proveedor integrados */
-  .trabajo{background:#fafafa;border:1px solid #ebebeb;border-radius:10px;
-    padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;flex-direction:column;gap:0.3rem}
-  .trabajo-nombre{font-size:0.92rem;font-weight:800;color:#111}
-  .trabajo-code{font-size:0.68rem;font-weight:400;color:#ccc;margin-left:0.3rem;font-variant-numeric:tabular-nums}
-  .trabajo-prov{font-size:0.78rem;color:#555;margin-top:0.1rem}
-  .trabajo-prov span{font-weight:600;color:#333}
-  .trabajo-desc{font-size:0.78rem;color:#666;line-height:1.45;margin-top:0.1rem}
-  .trabajo-notes{font-size:0.72rem;color:#aaa;font-style:italic}
+  /* ── Pago hero ── */
+  .pago-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1.25rem 2rem;border-bottom:1px solid #f0f0f0}
+  .pago-lbl{font-size:0.55rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#ccc;margin-bottom:0.28rem}
+  .pago-amount{font-size:1.9rem;font-weight:900;color:#111;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1}
+  .pago-right{text-align:right;flex-shrink:0}
+  .pago-fecha{font-size:0.78rem;font-weight:600;color:#444;margin-bottom:0.18rem}
+  .pago-metodo{font-size:0.68rem;color:#999}
+  .pago-extra{display:flex;flex-direction:column;gap:0.22rem;padding:0.75rem 2rem;
+    border-bottom:1px solid #f0f0f0;background:#fafafa}
+  .pago-extra-row{display:flex;align-items:baseline;gap:0.5rem;font-size:0.74rem}
+  .pago-extra-lbl{font-size:0.57rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;
+    color:#bbb;white-space:nowrap;flex-shrink:0;padding-top:0.05rem}
+  .pago-extra-val{color:#444;line-height:1.4}
 
-  /* Saldo — secondary */
-  .saldo{margin-bottom:0.5rem}
-  .section-lbl{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#ccc;margin-bottom:0.55rem}
-  .saldo-rows{display:flex;flex-direction:column;gap:0.28rem}
-  .saldo-row{display:flex;justify-content:space-between;align-items:baseline;font-size:0.78rem;color:#aaa}
-  .saldo-row span:last-child{font-weight:700;font-variant-numeric:tabular-nums;color:#888}
-  .saldo-row--highlight span{color:#555}
-  .saldo-row--highlight span:last-child{color:#111;font-size:0.86rem}
+  /* ── Resumen ── */
+  .resumen-grid{display:grid;grid-template-columns:1fr auto;row-gap:0.3rem;column-gap:2rem}
+  .r-label{font-size:0.74rem;color:#aaa}
+  .r-val{font-size:0.74rem;font-weight:600;font-variant-numeric:tabular-nums;color:#888;text-align:right}
+  .r-label--main{color:#444;font-weight:500}
+  .r-val--main{color:#111;font-size:0.82rem;font-weight:700}
+  .r-divider{grid-column:1/-1;height:1px;background:#f4f4f4;margin:0.2rem 0}
 
-  /* Historial */
-  .tbl{width:100%;border-collapse:collapse;font-size:0.76rem}
-  .tbl th{text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;font-size:0.58rem;color:#bbb;
-    padding:0.28rem 0.5rem;border-bottom:1px solid #e8e8e8}
-  .tbl td{padding:0.38rem 0.5rem;color:#888;border-bottom:1px solid #f5f5f5;font-variant-numeric:tabular-nums}
+  /* ── Historial table ── */
+  .tbl{width:100%;border-collapse:collapse}
+  .tbl th{text-align:left;font-size:0.54rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;
+    color:#ccc;padding:0 0.35rem 0.55rem;border-bottom:1px solid #f0f0f0}
+  .tbl td{font-size:0.72rem;padding:0.4rem 0.35rem;color:#999;border-bottom:1px solid #f8f8f8;font-variant-numeric:tabular-nums}
   .tbl tr:last-child td{border-bottom:none}
-  .tr{text-align:right;font-weight:600}
+  .tr{text-align:right;font-weight:600;color:#555!important}
 
-  /* Signatures */
-  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:3rem;margin:2rem 0 1rem}
-  .sig-space{height:3rem}
-  .sig-line{height:1px;background:#111;margin-bottom:0.5rem}
-  .sig-name{font-size:0.82rem;font-weight:700;color:#111}
-  .sig-role{font-size:0.68rem;color:#aaa;margin-top:0.1rem}
+  /* ── Firmas ── */
+  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;padding:1.5rem 2rem 1.25rem;border-bottom:1px solid #f0f0f0}
+  .sig-space{height:2.5rem}
+  .sig-line{height:1px;background:#ddd;margin-bottom:0.4rem}
+  .sig-name{font-size:0.76rem;font-weight:700;color:#111}
+  .sig-role{font-size:0.6rem;color:#bbb;margin-top:0.08rem}
 
-  .doc-foot{font-size:0.58rem;color:#ccc;text-align:center;padding-top:1rem;border-top:1px solid #f0f0f0;letter-spacing:0.03em}
+  /* ── Footer ── */
+  .doc-foot{padding:0.7rem 2rem;background:#fafafa;font-size:0.55rem;color:#ccc;
+    text-align:center;letter-spacing:0.04em}
 
   @media print{
     .bar{display:none!important}
     body{background:#fff}
     .page{padding:0}
-    .doc{box-shadow:none;border:none;border-radius:0;padding:2cm 2.2cm;max-width:100%}
-    @page{margin:0;size:A4}
+    .doc{box-shadow:none;border:none;border-radius:0;max-width:100%}
+    @page{margin:1.5cm 2cm;size:A4}
   }
 </style>
 </head>
@@ -682,75 +996,73 @@ export class ObraComponent implements OnInit {
   <span class="bar-brand">Brumelab Arch</span>
   <div class="bar-actions">
     <button class="btn btn-sec" onclick="window.close()">Cerrar</button>
-    <button class="btn btn-pri" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <button class="btn btn-pri" onclick="window.print()">Imprimir / PDF</button>
   </div>
 </div>
 
-<div class="page">
-<div class="doc">
+<div class="page"><div class="doc">
 
+  <!-- Header -->
   <div class="doc-head">
     <div>
       <img src="${logoUrl}" alt="Brumelab Arch" class="brand-logo" />
-      <div class="brand-sub">Arquitectura · Diseño · Construcción</div>
     </div>
-    <div class="doc-head-right">
-      <div class="doc-estado" style="color:${estadoColor}">${estadoTxt}</div>
-      <div class="doc-fecha">${fecha}</div>
-      ${this.projectName ? `<div class="doc-fecha" style="margin-top:0.15rem">${this.projectName}</div>` : ''}
+    <div class="doc-meta">
+      <div class="doc-title">Comprobante de pago</div>
+      <div class="doc-info">Emitido el ${fechaEmision}</div>
+      ${this.projectName ? `<div class="doc-project">${this.projectName}</div>` : ''}
     </div>
   </div>
 
-  <hr class="line">
-
-  ${lastPago ? `
-  <div class="pago-hero">
-    <div class="pago-hero__label">Este pago</div>
-    <div class="pago-hero__amount">${g.moneda} ${fmtM(lastPago.monto)}</div>
-    <div class="pago-hero__date">${lastFecha}</div>
-    ${lastPago.referencia ? `<div class="pago-hero__ref">${lastPago.referencia}</div>` : ''}
-    ${lastPago.notas ? `<div class="pago-hero__ref">${lastPago.notas}</div>` : ''}
-  </div>` : `
-  <div class="pago-hero">
-    <div class="pago-hero__label">Monto del gasto</div>
-    <div class="pago-hero__amount">${g.moneda} ${fmtM(g.monto)}</div>
-    <div class="pago-hero__date">${fecha}</div>
-  </div>`}
-
-  <div class="trabajo">
-    <div>
-      <span class="trabajo-nombre">${g.subrubroId.nombre}</span>
-      <span class="trabajo-code">${g.subrubroId.codigo}</span>
-    </div>
-    ${g.proveedorId ? `<div class="trabajo-prov">Proveedor · <span>${g.proveedorId.nombre}</span></div>` : ''}
-    ${g.descripcion ? `<div class="trabajo-desc">${g.descripcion}</div>` : ''}
-    ${g.notas ? `<div class="trabajo-notes">${g.notas}</div>` : ''}
-  </div>
-
-  <div class="saldo">
-    <div class="section-lbl">Resumen del gasto</div>
-    <div class="saldo-rows">
-      <div class="saldo-row saldo-row--highlight">
-        <span>Total presupuestado</span>
-        <span>${g.moneda} ${fmtM(g.monto)}</span>
+  <!-- Concepto -->
+  <div class="sec">
+    <div class="concept-row">
+      <div>
+        ${rubroNombre ? `<span class="concept-rubro">${rubroNombre}</span>` : ''}
+        <div class="concept-nombre">${g.subrubroId.nombre}</div>
+        ${g.proveedorId ? `<div class="concept-prov">Proveedor · <strong>${g.proveedorId.nombre}</strong></div>` : ''}
       </div>
-      ${totalPag > 0 ? `
-      <div class="saldo-row">
-        <span>Pagado acumulado</span>
-        <span>${g.moneda} ${fmtM(totalPag)}</span>
-      </div>` : ''}
-      ${restante > 0 ? `
-      <div class="saldo-row">
-        <span>Saldo pendiente</span>
-        <span>${g.moneda} ${fmtM(restante)}</span>
-      </div>` : ''}
+      <div class="estado-pill" style="color:${eColor};background:${eBg}">
+        <span class="estado-dot"></span>${eTxt}
+      </div>
     </div>
   </div>
 
+  <!-- Pago hero -->
+  <div class="pago-row">
+    <div>
+      <div class="pago-lbl">${lastPago ? 'Este pago' : 'Total del gasto'}</div>
+      <div class="pago-amount">${g.moneda} ${fmtM(lastPago ? lastPago.monto : g.monto)}</div>
+    </div>
+    <div class="pago-right">
+      <div class="pago-fecha">${lastFecha}</div>
+      ${lastPago ? `<div class="pago-metodo">${metodoLabel[lastPago.metodoPago] ?? lastPago.metodoPago}</div>` : ''}
+    </div>
+  </div>
+  ${lastPago?.notas ? `
+  <div class="pago-extra">
+    <div class="pago-extra-row"><span class="pago-extra-lbl">Observación</span><span class="pago-extra-val">${lastPago.notas}</span></div>
+  </div>` : ''}
+
+  <!-- Resumen -->
+  <div class="sec">
+    <div class="sec-lbl">Resumen del gasto</div>
+    <div class="resumen-grid">
+      <span class="r-label r-label--main">Total del gasto</span>
+      <span class="r-val r-val--main">${g.moneda} ${fmtM(g.monto)}</span>
+      ${totalPag > 0 ? `<div class="r-divider"></div>
+      <span class="r-label">Pagado acumulado</span>
+      <span class="r-val">${g.moneda} ${fmtM(totalPag)}</span>` : ''}
+      ${restante > 0 ? `
+      <span class="r-label">Saldo pendiente</span>
+      <span class="r-val">${g.moneda} ${fmtM(restante)}</span>` : ''}
+    </div>
+  </div>
+
+  <!-- Historial -->
   ${histSection}
 
-  <hr class="sep">
-
+  <!-- Firmas -->
   <div class="sigs">
     <div>
       <div class="sig-space"></div>
@@ -766,12 +1078,12 @@ export class ObraComponent implements OnInit {
     </div>
   </div>
 
+  <!-- Footer -->
   <div class="doc-foot">
-    Emitido el ${fecha} &middot; Brumelab Arch &middot; Conservar original firmado por ambas partes
+    Emitido el ${fechaEmision} &middot; Brumelab Arch &middot; Conservar original firmado por ambas partes
   </div>
 
-</div>
-</div>
+</div></div>
 </body>
 </html>`;
   }
@@ -789,11 +1101,11 @@ export class ObraComponent implements OnInit {
     return {
       fecha:      this.todayISO(),
       monto:      null as any,
-      metodoPago: 'efectivo' as MetodoPago | '',
+      metodoPago: 'transferencia' as MetodoPago | '',
       referencia: '',
       notas:      '',
       reservaId:  '',
-      fuente:     '' as '' | 'reserva' | 'cliente',
+      fuente:     'cliente' as '' | 'reserva' | 'cliente',
     };
   }
 }

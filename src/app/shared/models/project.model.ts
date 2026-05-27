@@ -58,6 +58,12 @@ export interface ProjectLocation {
   coordinates?:      { lat: number; lng: number };
 }
 
+export interface PlanObraEntry {
+  subrubroId: string;
+  monto:      number;
+  moneda:     string;
+}
+
 export interface Project {
   _id:         string;
   name:        string;
@@ -74,6 +80,7 @@ export interface Project {
   endDate?:    string;
   tags?:       string[];
   coverImage?: string;
+  planObra?:   PlanObraEntry[];
   createdAt:   string;
   updatedAt:   string;
 }

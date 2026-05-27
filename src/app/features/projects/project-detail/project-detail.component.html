@@ -224,9 +224,9 @@
         <!-- KPIs -->
         <div class="fin-kpis">
           <div class="fin-kpi">
-            <span class="fin-kpi__label">Presupuestado</span>
+            <span class="fin-kpi__label">Planificado</span>
             <span class="fin-kpi__value">{{ fmt(totalPresupuestado()) }}</span>
-            <span class="fin-kpi__sub">presupuestos aprobados</span>
+            <span class="fin-kpi__sub">suma del plan de obra</span>
           </div>
           <div class="fin-kpi fin-kpi--ejecucion">
             <span class="fin-kpi__label">En ejecución</span>
@@ -266,61 +266,104 @@
           </div>
         }
 
-        <!-- Tabla por rubro -->
-        @if (resumenPorRubro().length) {
-          <div class="fin-table-card">
-            <div class="fin-table-title">Por rubro</div>
-            <table class="fin-table">
-              <thead>
-                <tr>
-                  <th class="fin-th--name">Rubro / Subrubro</th>
-                  <th class="fin-th--num">Presupuestado</th>
-                  <th class="fin-th--num">Ejecutado</th>
-                  <th class="fin-th--num">Pagado</th>
-                  <th class="fin-th--bar">Avance pago</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (rubro of resumenPorRubro(); track rubro.rubroId) {
-                  <!-- Rubro row -->
-                  <tr class="fin-tr--rubro">
-                    <td class="fin-td--name">{{ rubro.rubroNombre }}</td>
-                    <td class="fin-td--num">{{ rubro.presupuestado ? fmt(rubro.presupuestado) : '—' }}</td>
-                    <td class="fin-td--num">{{ fmt(rubro.gastado) }}</td>
-                    <td class="fin-td--num fin-td--pagado">{{ fmt(rubro.pagado) }}</td>
-                    <td class="fin-td--bar">
-                      <div class="fin-mini-track">
-                        <div class="fin-mini-fill"
-                             [style.width.%]="pctBar(rubro.pagado, rubro.presupuestado || rubro.gastado)"></div>
-                      </div>
-                      <span class="fin-mini-pct">{{ pctBar(rubro.pagado, rubro.presupuestado || rubro.gastado) }}%</span>
-                    </td>
-                  </tr>
-                  <!-- Subrubros -->
-                  @for (sub of rubro.subrubros; track sub.subrubroId) {
-                    <tr class="fin-tr--sub">
-                      <td class="fin-td--name fin-td--sub-name">↳ {{ sub.subrubroNombre }}</td>
-                      <td class="fin-td--num fin-td--muted">{{ sub.presupuestado ? fmt(sub.presupuestado) : '—' }}</td>
-                      <td class="fin-td--num fin-td--muted">{{ fmt(sub.gastado) }}</td>
-                      <td class="fin-td--num fin-td--pagado fin-td--muted">{{ fmt(sub.pagado) }}</td>
-                      <td class="fin-td--bar">
-                        <div class="fin-mini-track">
-                          <div class="fin-mini-fill"
-                               [style.width.%]="pctBar(sub.pagado, sub.presupuestado || sub.gastado)"></div>
-                        </div>
-                      </td>
-                    </tr>
+        <!-- Tabla Plan / Real por rubro y subrubro -->
+        <div class="finanzas-header">
+          <span class="finanzas-header__title">Plan de obra</span>
+          <label class="finanzas-toggle" [class.finanzas-toggle--active]="soloConDatos()">
+            <input type="checkbox" [checked]="soloConDatos()" (change)="soloConDatos.set(!soloConDatos())" hidden />
+            <span class="finanzas-toggle__dot"></span>
+            Solo con datos
+          </label>
+        </div>
+
+        <div class="fin-table">
+
+          <!-- Encabezado -->
+          <div class="fin-head">
+            <span class="fin-head__name">Rubro / Subrubro</span>
+            <span>Plan</span>
+            <span>Real Total</span>
+            <span>Real Pagado</span>
+            <span>%</span>
+          </div>
+
+          <!-- Filas -->
+          @for (rd of finanzasData(); track rd.rubro._id) {
+            <div class="fin-rubro">
+              <span class="fin-rubro__name">{{ rd.rubro.nombre }}</span>
+              <span class="fin-rubro__num">{{ rd.rubroPlan > 0       ? fmt(rd.rubroPlan)       : '' }}</span>
+              <span class="fin-rubro__num">{{ rd.rubroRealTotal > 0  ? fmt(rd.rubroRealTotal)  : '' }}</span>
+              <span class="fin-rubro__num">{{ rd.rubroRealPagado > 0 ? fmt(rd.rubroRealPagado) : '' }}</span>
+              <span class="fin-rubro__num">
+                @if (rd.rubroPlan > 0) { {{ rubroRawPct(rd.rubroRealPagado, rd.rubroPlan) }}% }
+              </span>
+            </div>
+
+            @for (row of rd.rows; track row.sub._id) {
+              <div class="fin-sub">
+                <span class="fin-sub__name">{{ row.sub.nombre }}</span>
+
+                <!-- Plan — editable inline -->
+                <span class="fin-cell-plan">
+                  @if (editingPlanSubId() === row.sub._id) {
+                    <input class="fin-plan-input"
+                           type="number"
+                           [(ngModel)]="editPlanForm.monto"
+                           [name]="'plan_' + row.sub._id"
+                           (keydown.enter)="savePlan(row.sub)"
+                           (keydown.escape)="cancelEditPlan()"
+                           (blur)="savePlan(row.sub)"
+                           min="0"
+                           step="100"
+                           (click)="$event.stopPropagation()" />
+                  } @else {
+                    <span class="fin-cell-plan__val" (click)="startEditPlan(row.sub)">
+                      @if (row.planMonto > 0) {
+                        {{ fmt(row.planMonto, row.planMoneda) }}
+                      } @else {
+                        <span class="fin-cell-plan__empty">—</span>
+                      }
+                    </span>
+                    <button class="fin-edit-btn" (click)="startEditPlan(row.sub)" title="Editar plan">✎</button>
                   }
-                }
-              </tbody>
-            </table>
+                </span>
+
+                <!-- Real Total -->
+                <span class="fin-cell-num fin-cell-num--gasto">
+                  @if (row.realTotal > 0) { {{ fmt(row.realTotal) }} } @else { <span class="fin-dash">—</span> }
+                </span>
+
+                <!-- Real Pagado -->
+                <span class="fin-cell-num fin-cell-num--ejecutado">
+                  @if (row.realPagado > 0) { {{ fmt(row.realPagado) }} } @else { <span class="fin-dash">—</span> }
+                </span>
+
+                <!-- % -->
+                <span class="fin-pct" [ngClass]="finPctClass(row.pct)">{{ finPct(row.pct) }}</span>
+              </div>
+            }
+          } @empty {
+            <div class="fin-empty-row">
+              @if (rubros().length === 0) {
+                <span>No hay rubros configurados. Configurá los rubros en la sección de Configuración.</span>
+              } @else {
+                <span>No hay subrubros que mostrar.</span>
+              }
+            </div>
+          }
+
+          <!-- Total general -->
+          <div class="fin-total">
+            <span class="fin-total__label">Total</span>
+            <span>{{ finanzasTotals().plan > 0       ? fmt(finanzasTotals().plan)       : '—' }}</span>
+            <span>{{ finanzasTotals().realTotal > 0  ? fmt(finanzasTotals().realTotal)  : '—' }}</span>
+            <span class="fin-total__ejecutado">{{ finanzasTotals().realPagado > 0 ? fmt(finanzasTotals().realPagado) : '—' }}</span>
+            <span [ngClass]="finPctClass(finanzasTotals().plan > 0 ? finanzasTotals().realPagado / finanzasTotals().plan * 100 : null)">
+              {{ finanzasTotals().plan > 0 ? rubroRawPct(finanzasTotals().realPagado, finanzasTotals().plan) + '%' : '—' }}
+            </span>
           </div>
-        } @else {
-          <div class="fin-empty">
-            <p class="fin-empty__title">Sin datos financieros</p>
-            <p class="fin-empty__desc">Aprobá presupuestos y generá gastos para ver el resumen.</p>
-          </div>
-        }
+
+        </div>
 
       </div>
     }

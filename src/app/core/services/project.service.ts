@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Project } from '../../shared/models/project.model';
+import { Project, PlanObraEntry } from '../../shared/models/project.model';
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
@@ -33,5 +33,9 @@ export class ProjectService {
     const fd = new FormData();
     fd.append('cover', file);
     return this.http.patch<{ coverImage: string }>(`${this.baseUrl}/${id}/cover`, fd);
+  }
+
+  updatePlanObra(projectId: string, subrubroId: string, monto: number, moneda = 'ARS'): Observable<PlanObraEntry[]> {
+    return this.http.patch<PlanObraEntry[]>(`${this.baseUrl}/${projectId}/plan-obra`, { subrubroId, monto, moneda });
   }
 }

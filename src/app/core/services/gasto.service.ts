@@ -25,6 +25,10 @@ export class GastoService {
     return this.http.post<Gasto>(`${this.base(projectId)}/${gastoId}/pagos`, pago);
   }
 
+  updatePago(projectId: string, gastoId: string, pagoId: string, data: { referencia?: string; notas?: string }) {
+    return this.http.patch<Gasto>(`${this.base(projectId)}/${gastoId}/pagos/${pagoId}`, data);
+  }
+
   removePago(projectId: string, gastoId: string, pagoId: string) {
     return this.http.delete<Gasto>(`${this.base(projectId)}/${gastoId}/pagos/${pagoId}`);
   }

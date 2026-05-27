@@ -153,7 +153,9 @@ export class CajaComponent implements OnInit {
   }
 
   fmtFecha(fecha: string) {
-    return new Date(fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    // Parsear como fecha local para evitar el desfase UTC-3
+    const [y, m, d] = fecha.substring(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
   }
 
   cancelNewReserva() {

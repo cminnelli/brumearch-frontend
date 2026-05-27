@@ -126,33 +126,40 @@
   }
 
   &--active {
-    border-color: var(--c-text);
-    background: var(--c-text);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+    border-color: #1e293b;
+    background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.28);
 
-    &::before { background: transparent; }
+    &::before {
+      background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+      height: 4px;
+    }
 
-    .rv-card__nombre    { color: rgba(255,255,255,0.95); }
-    .rv-card__moneda    { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); border-color: transparent; }
-    .rv-card__desc      { color: rgba(255,255,255,0.5); }
-    .rv-card__saldo-label { color: rgba(255,255,255,0.5); }
-    .rv-card__saldo-value { color: #fff; }
-    .rv-card__kpi-label { color: rgba(255,255,255,0.45); }
-    .rv-card__kpi-value { color: rgba(255,255,255,0.85); }
-    .rv-card__kpi-value--in  { color: #4ade80; }
+    .rv-card__vault     { opacity: 0.9; color: #94a3b8; }
+    .rv-card__nombre    { color: #f1f5f9; }
+    .rv-card__moneda    { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75); border-color: rgba(255,255,255,0.12); }
+    .rv-card__desc      { color: rgba(255,255,255,0.45); }
+    .rv-card__saldo-label { color: rgba(255,255,255,0.55); }
+    .rv-card__saldo-value { color: #f0fdf4; }
+    .rv-card__kpi-label { color: rgba(255,255,255,0.5); }
+    .rv-card__kpi-value { color: rgba(255,255,255,0.88); }
+    .rv-card__kpi-value--in  { color: #86efac; }
     .rv-card__kpi-value--out { color: #fca5a5; }
-    .rv-card__kpi-arrow--in  { color: #4ade80; }
+    .rv-card__kpi-arrow--in  { color: #86efac; }
     .rv-card__kpi-arrow--out { color: #fca5a5; }
-    .rv-card__movs      { color: rgba(255,255,255,0.4); }
-    .rv-card__chevron   { color: rgba(255,255,255,0.6); }
+    .rv-card__movs      { color: rgba(255,255,255,0.35); }
+    .rv-card__chevron   { color: rgba(255,255,255,0.55); }
   }
 
   &--neg {
-    &::before { background: #c0392b; }
-    .rv-card__saldo-value { color: #c0392b; }
+    &::before { background: #ef4444; }
+    .rv-card__saldo-value { color: #dc2626; }
   }
 
-  &--active#{&}--neg .rv-card__saldo-value { color: #ff8a7a; }
+  &--active#{&}--neg {
+    .rv-card__saldo-value { color: #fca5a5; }
+    &::before { background: linear-gradient(90deg, #f87171, #fb923c); }
+  }
 
   /* Card "+" nueva reserva */
   &--new {
@@ -234,9 +241,9 @@
   &__saldo-value {
     font-size: var(--text-2xl);
     font-weight: 900;
-    color: #15803d;
+    color: #16a34a;
     letter-spacing: -0.04em;
-    line-height: 1;
+    line-height: 1.05;
     transition: color var(--t-fast);
 
     &--neg { color: #c0392b; }

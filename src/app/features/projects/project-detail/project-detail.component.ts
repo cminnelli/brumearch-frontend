@@ -13,6 +13,7 @@ import { ConfigService, Rubro, Subrubro } from '../../../core/services/config.se
 import {
   Project, ProjectType, ProjectStatus, ProjectService as ProjService,
   PROJECT_TYPE_LABELS, PROJECT_STATUS_LABELS, SERVICE_LABELS,
+  PlanObraEntry,
 } from '../../../shared/models/project.model';
 import { Presupuesto, Gasto, totalPagadoGasto, Reserva, Moneda, saldoReserva } from '../../../shared/models/obra.model';
 import { ObraComponent } from './obra/obra.component';
@@ -100,8 +101,15 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   rubros        = signal<Rubro[]>([]);
   allSubrubros  = signal<Subrubro[]>([]);
   reservas      = signal<Reserva[]>([]);
+  planObra      = signal<PlanObraEntry[]>([]);
+  soloConDatos  = signal(false);
   resumenLoaded   = signal(false);
   configSection   = signal<string>('etapas');
+
+  // ── Plan edición inline ──────────────────────────────────
+  editingPlanSubId = signal<string | null>(null);
+  editPlanForm     = { monto: 0, moneda: 'ARS' };
+  savingPlan       = signal(false);
 
   activeTab = toSignal(
     this.route.queryParamMap.pipe(map(p => (p.get('tab') as DetailTab) || 'info')),
@@ -156,7 +164,50 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return Array.from(map.values());
   });
 
-  totalPresupuestado = computed(() => this.presupuestos().filter(p => p.estado === 'aprobado').reduce((s, p) => s + p.monto, 0));
+  // ── Finanzas: tabla completa con Plan ───────────────────
+  finanzasData = computed(() => {
+    if (!this.resumenLoaded()) return [];
+    const rubros      = this.rubros();
+    const subs        = this.allSubrubros();
+    const gastos      = this.gastos();
+    const plan        = this.planObra();
+    const soloConData = this.soloConDatos();
+
+    return rubros.map(rubro => {
+      const rubroIdStr = String(rubro._id);
+      const rubroSubs  = subs.filter(s => String(s.rubroId?._id ?? '') === rubroIdStr);
+
+      const rows = rubroSubs.map(sub => {
+        const subIdStr   = String(sub._id);
+        const subGastos  = gastos.filter(g => String(g.subrubroId?._id ?? '') === subIdStr);
+        const realTotal  = subGastos.reduce((acc, g) => acc + (g.monto ?? 0), 0);
+        const realPagado = subGastos.reduce((acc, g) => acc + totalPagadoGasto(g), 0);
+        const planEntry  = plan.find(p => p.subrubroId === subIdStr);
+        const planMonto  = planEntry?.monto ?? 0;
+        const planMoneda = planEntry?.moneda ?? 'ARS';
+        const pct        = planMonto > 0 ? Math.min(999, Math.round(realPagado / planMonto * 100)) : null;
+        const hasData    = realTotal > 0 || realPagado > 0 || planMonto > 0;
+        return { sub, realTotal, realPagado, planMonto, planMoneda, pct, hasData };
+      }).filter(r => !soloConData || r.hasData);
+
+      const rubroRealTotal  = rows.reduce((acc, r) => acc + r.realTotal, 0);
+      const rubroRealPagado = rows.reduce((acc, r) => acc + r.realPagado, 0);
+      const rubroPlan       = rows.reduce((acc, r) => acc + r.planMonto, 0);
+      const hasAnyData      = rows.some(r => r.hasData);
+      return { rubro, rows, rubroRealTotal, rubroRealPagado, rubroPlan, hasAnyData };
+    }).filter(r => r.rows.length > 0);
+  });
+
+  finanzasTotals() {
+    const data = this.finanzasData();
+    return {
+      plan:       data.reduce((acc, r) => acc + r.rubroPlan, 0),
+      realTotal:  data.reduce((acc, r) => acc + r.rubroRealTotal, 0),
+      realPagado: data.reduce((acc, r) => acc + r.rubroRealPagado, 0),
+    };
+  }
+
+  totalPresupuestado = computed(() => this.planObra().reduce((s, p) => s + p.monto, 0));
   totalGastado       = computed(() => this.gastos().reduce((s, g) => s + g.monto, 0));
   totalPagado        = computed(() => this.gastos().reduce((s, g) => s + totalPagadoGasto(g), 0));
   totalPorPagar      = computed(() => this.totalGastado() - this.totalPagado());
@@ -180,6 +231,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.projectService.getById(id).subscribe({
       next: (p) => {
         this.project.set(p);
+        this.planObra.set(p.planObra ?? []);
         this.loading.set(false);
         this.chatCtx.setProject(p._id, p.name);
         this.documentService.list(id).subscribe(d => this.docs.set(d));
@@ -355,10 +407,53 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return [p.location?.address, p.location?.neighborhood, p.location?.city, p.location?.province].filter(Boolean).join(', ');
   }
 
-  fmt(n: number) { return 'ARS ' + n.toLocaleString('es-AR', { maximumFractionDigits: 0 }); }
+  fmt(n: number, moneda = 'ARS') { return moneda + ' ' + n.toLocaleString('es-AR', { maximumFractionDigits: 0 }); }
   fmtM(n: number, m: Moneda) { return m + ' ' + Math.abs(n).toLocaleString('es-AR', { maximumFractionDigits: 0 }); }
 
   pctBar(num: number, den: number) { return den ? Math.min(100, Math.round(num / den * 100)) : 0; }
+
+  // ── Plan inline editing ──────────────────────────────────
+  startEditPlan(sub: Subrubro) {
+    const subId  = String(sub._id);
+    const entry  = this.planObra().find(p => p.subrubroId === subId);
+    this.editPlanForm = { monto: entry?.monto ?? 0, moneda: entry?.moneda ?? 'ARS' };
+    this.editingPlanSubId.set(subId);
+  }
+
+  cancelEditPlan() { this.editingPlanSubId.set(null); }
+
+  savePlan(sub: Subrubro) {
+    const subId = String(sub._id);
+    if (this.editingPlanSubId() !== subId || this.savingPlan()) return;
+    const monto = this.editPlanForm.monto;
+    if (monto == null || isNaN(+monto)) { this.cancelEditPlan(); return; }
+    this.savingPlan.set(true);
+    this.projectService.updatePlanObra(this.project()!._id, subId, +monto, this.editPlanForm.moneda).subscribe({
+      next: entries => {
+        this.planObra.set(entries);
+        this.editingPlanSubId.set(null);
+        this.savingPlan.set(false);
+      },
+      error: () => { this.editingPlanSubId.set(null); this.savingPlan.set(false); },
+    });
+  }
+
+  finPct(pct: number | null): string {
+    if (pct === null) return '—';
+    return Math.round(pct) + '%';
+  }
+
+  finPctClass(pct: number | null): string {
+    if (pct === null) return 'fin-pct--none';
+    if (pct >= 100) return 'fin-pct--over';
+    if (pct >= 75)  return 'fin-pct--warn';
+    return 'fin-pct--ok';
+  }
+
+  rubroRawPct(ejecutado: number, plan: number): number {
+    if (!plan) return 0;
+    return Math.round(ejecutado / plan * 100);
+  }
 
   ngOnDestroy() {
     this.chatCtx.clearProject();
