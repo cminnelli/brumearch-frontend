@@ -4,13 +4,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ClientService } from '../../../core/services/client.service';
 import { ClientProject, STATUS_LABELS, SERVICE_LABELS } from '../../../shared/models/client-project.model';
 import { ClientCajaComponent } from '../client-caja/client-caja.component';
+import { ClientSeleccionesComponent } from './client-selecciones/client-selecciones.component';
 
-type Tab = 'info' | 'etapas' | 'finanzas';
+type Tab = 'info' | 'etapas' | 'finanzas' | 'selecciones';
 
 @Component({
   selector: 'app-client-project',
   standalone: true,
-  imports: [CommonModule, ClientCajaComponent],
+  imports: [CommonModule, ClientCajaComponent, ClientSeleccionesComponent],
   templateUrl: './client-project.component.html',
   styleUrl: './client-project.component.scss',
 })

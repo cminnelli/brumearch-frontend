@@ -805,6 +805,20 @@
   min-width: 0;
 }
 
+.pago-edit-select {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-family: inherit;
+  background: var(--c-bg);
+  color: var(--c-text);
+  cursor: pointer;
+
+  &:focus { outline: none; border-color: var(--c-text); }
+}
+
 .pago-edit-input {
   flex: 1;
   min-width: 0;

@@ -662,6 +662,9 @@
                       <span class="pago-fecha">{{ fmtFecha(pago.fecha) }}</span>
                       <span class="pago-monto">{{ fmt(pago.monto, g.moneda) }}</span>
                       <div class="pago-edit-inline">
+                        <select class="pago-edit-select" [(ngModel)]="editPagoForm.metodoPago" name="ep_metodo">
+                          @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
+                        </select>
                         <input class="pago-edit-input" [(ngModel)]="editPagoForm.referencia" name="ep_ref" placeholder="Referencia" />
                         <input class="pago-edit-input" [(ngModel)]="editPagoForm.notas"      name="ep_notas" placeholder="Notas" />
                       </div>
@@ -715,6 +718,12 @@
                       <span class="input-prefix-static">{{ g.moneda }}</span>
                       <input type="number" [(ngModel)]="pagoForm.monto" name="pf_monto" placeholder="0" min="0" required (ngModelChange)="pagoError.set(null)" />
                     </div>
+                  </div>
+                  <div class="field">
+                    <label>Método</label>
+                    <select [(ngModel)]="pagoForm.metodoPago" name="pf_metodo">
+                      @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
+                    </select>
                   </div>
                   <div class="field">
                     <label>Referencia</label>

@@ -252,7 +252,7 @@ export class ObraComponent implements OnInit {
 
   // ── UI: Editar pago existente ─────────────────────────────
   editingPagoId  = signal<string | null>(null);
-  editPagoForm   = { referencia: '', notas: '' };
+  editPagoForm   = { referencia: '', notas: '', metodoPago: '' as MetodoPago | '' };
   savingEditPago = signal(false);
 
   // ── Constants for template ───────────────────────────────
@@ -380,7 +380,7 @@ export class ObraComponent implements OnInit {
       fecha: today, comprobante: null,
       registrarPago: false,
       pagoFecha: today, pagoMonto: p.monto,
-      pagoMetodo: 'transferencia',
+      pagoMetodo: 'efectivo',
       pagoReferencia: '', pagoNotas: '',
       pagoFuente: '', pagoReservaId: '',
     };
@@ -561,9 +561,9 @@ export class ObraComponent implements OnInit {
     return diffDays <= 7;
   }
 
-  startEditPago(pago: { _id: string; referencia?: string; notas?: string }) {
+  startEditPago(pago: { _id: string; referencia?: string; notas?: string; metodoPago?: MetodoPago }) {
     this.editingPagoId.set(pago._id);
-    this.editPagoForm = { referencia: pago.referencia ?? '', notas: pago.notas ?? '' };
+    this.editPagoForm = { referencia: pago.referencia ?? '', notas: pago.notas ?? '', metodoPago: pago.metodoPago ?? '' };
   }
 
   cancelEditPago() { this.editingPagoId.set(null); }
@@ -1101,7 +1101,7 @@ export class ObraComponent implements OnInit {
     return {
       fecha:      this.todayISO(),
       monto:      null as any,
-      metodoPago: 'transferencia' as MetodoPago | '',
+      metodoPago: 'efectivo' as MetodoPago | '',
       referencia: '',
       notas:      '',
       reservaId:  '',

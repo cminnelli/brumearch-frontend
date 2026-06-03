@@ -1,0 +1,90 @@
+<div class="cs">
+
+  <!-- Barra de progreso -->
+  @if (!loading() && total() > 0) {
+    <div class="cs-progress">
+      <div class="cs-progress__info">
+        <span class="cs-progress__label">Tu progreso</span>
+        <span class="cs-progress__pct">{{ comprados() }}/{{ total() }} comprados</span>
+      </div>
+      <div class="cs-progress__bar">
+        <div class="cs-progress__fill" [style.width.%]="progreso()"></div>
+      </div>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="skeleton" style="height:200px; border-radius: var(--radius-lg)"></div>
+  } @else if (items().length === 0) {
+    <div class="cs-empty">
+      Tu arquitecto aún no definió ítems de compra para este proyecto.
+    </div>
+  } @else {
+
+    @for (rGroup of rubroGroups(); track rGroup.rubroId) {
+      <div class="cs-rubro-group">
+
+        <div class="cs-rubro-group__header">{{ rGroup.rubroNombre }}</div>
+
+        @for (sGroup of rGroup.subrubroGroups; track sGroup.subrubroId) {
+          <div class="cs-sub-group">
+            <div class="cs-sub-group__header">{{ sGroup.subrubroNombre }}</div>
+
+            <div class="cs-list">
+              @for (item of sGroup.items; track item._id) {
+                <div class="cs-item" [class.cs-item--comprado]="item.estadoCliente === 'comprado'">
+
+                  <div class="cs-item__body">
+                    <div class="cs-item__main">
+                      <span class="cs-item__nombre">{{ item.itemId?.nombre }}</span>
+                      @if (item.cantidad) {
+                        <span class="cs-item__qty">{{ item.cantidad }} {{ unidadEfectiva(item) }}</span>
+                      } @else {
+                        <code class="cs-item__unit">{{ unidadEfectiva(item) }}</code>
+                      }
+                    </div>
+
+                    @if (item.observacion) {
+                      <p class="cs-item__obs">{{ item.observacion }}</p>
+                    }
+
+                    <!-- Notas propias del cliente -->
+                    @if (editingNotasId() === item._id) {
+                      <div class="cs-item__notas-edit">
+                        <input class="input input--xs"
+                               placeholder="Tu nota..."
+                               [value]="editingNotas()"
+                               (input)="editingNotas.set($any($event.target).value)"
+                               (keydown.enter)="commitNotas(item)"
+                               (keydown.escape)="cancelNotas()"
+                               autofocus />
+                        <div class="cs-item__notas-actions">
+                          <button class="btn btn--ghost btn--xs" (click)="commitNotas(item)">Guardar</button>
+                          <button class="btn btn--ghost btn--xs" (click)="cancelNotas()">✕</button>
+                        </div>
+                      </div>
+                    } @else {
+                      <button class="cs-item__notas-btn" (click)="startEditNotas(item)">
+                        {{ item.notasCliente ? '📝 ' + item.notasCliente : '+ Agregar nota' }}
+                      </button>
+                    }
+                  </div>
+
+                  <!-- Estado cíclico interactivo -->
+                  <button class="estado-chip estado-chip--interactive {{ estadoClass(item.estadoCliente) }}"
+                          (click)="ciclarEstado(item)"
+                          title="Tocá para avanzar estado">
+                    {{ ESTADO_LABELS[item.estadoCliente] }}
+                  </button>
+
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+  }
+
+</div>

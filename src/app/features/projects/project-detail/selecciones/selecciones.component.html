@@ -1,0 +1,176 @@
+<div class="selec">
+
+  <!-- Header -->
+  <div class="selec-header">
+    <div class="selec-header__left">
+      <p class="section-label">Selecciones</p>
+      @if (total() > 0) {
+        <span class="selec-badge">{{ total() }} ítems · {{ comprados() }} comprados</span>
+      }
+    </div>
+    <button class="btn btn--ghost btn--sm" (click)="catOpen.set(!catOpen())">
+      {{ catOpen() ? '✕ Cerrar catálogo' : '+ Agregar del catálogo' }}
+    </button>
+  </div>
+
+  <!-- ── CATÁLOGO ── -->
+  @if (catOpen()) {
+    <div class="cat-panel">
+      <div class="cat-panel__head">
+        <span class="cat-panel__title">Catálogo de ítems</span>
+        <span class="cat-panel__hint">Hacé clic en un ítem para asignarlo al proyecto</span>
+      </div>
+
+      @if (catalogRubros().length === 0) {
+        <div class="cat-empty">
+          No hay ítems en el catálogo. Configuralos en <strong>Configuración → Rubros → Subrubros → Ítems</strong>.
+        </div>
+      }
+
+      @for (rubro of catalogRubros(); track rubro._id) {
+        <div class="cat-rubro">
+          <button class="cat-rubro__head" (click)="toggleCatRubro(rubro._id)">
+            <span class="tree-arrow" [class.tree-arrow--open]="isCatRubroOpen(rubro._id)">▶</span>
+            <span class="cat-rubro__nombre">{{ rubro.nombre }}</span>
+          </button>
+
+          @if (isCatRubroOpen(rubro._id)) {
+            @for (sub of subrubrosDe(rubro._id); track sub._id) {
+              @if (itemsDe(sub._id).length > 0) {
+                <div class="cat-sub">
+                  <button class="cat-sub__head" (click)="toggleCatSubrubro(sub._id)">
+                    <span class="tree-arrow tree-arrow--sm" [class.tree-arrow--open]="isCatSubrubroOpen(sub._id)">▶</span>
+                    <span class="cat-sub__nombre">{{ sub.nombre }}</span>
+                    <span class="cat-sub__count">{{ itemsDe(sub._id).length }}</span>
+                  </button>
+
+                  @if (isCatSubrubroOpen(sub._id)) {
+                    <div class="cat-items">
+                      @for (item of itemsDe(sub._id); track item._id) {
+                        <div class="cat-item" [class.cat-item--assigned]="isAssigned(item._id)">
+
+                          <div class="cat-item__info">
+                            <span class="cat-item__nombre">{{ item.nombre }}</span>
+                            <code class="chip chip--unit">{{ item.unidad }}</code>
+                            @if (item.descripcion) {
+                              <span class="cat-item__desc">{{ item.descripcion }}</span>
+                            }
+                          </div>
+
+                          @if (isAssigned(item._id)) {
+                            <span class="cat-item__assigned-badge">Ya asignado</span>
+                          } @else if (addingItemId() === item._id) {
+                            <!-- Quick-config before adding -->
+                            <div class="cat-item__add-form">
+                              <input class="input input--xs" type="number" min="0"
+                                     placeholder="Cantidad"
+                                     [ngModel]="addDraft().cantidad"
+                                     (ngModelChange)="setAddField('cantidad', $event)" />
+                              <input class="input input--xs"
+                                     placeholder="Unidad"
+                                     [ngModel]="addDraft().unidad"
+                                     (ngModelChange)="setAddField('unidad', $event)" />
+                              <input class="input input--sm"
+                                     placeholder="Observación (opcional)"
+                                     [ngModel]="addDraft().observacion"
+                                     (ngModelChange)="setAddField('observacion', $event)"
+                                     (keydown.enter)="confirmAdd()" />
+                              <button class="btn btn--primary btn--xs" (click)="confirmAdd()">Confirmar</button>
+                              <button class="btn btn--ghost btn--xs" (click)="cancelAdd()">✕</button>
+                            </div>
+                          } @else {
+                            <button class="cat-item__btn" (click)="startAdd(item)">+ Agregar</button>
+                          }
+
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ── LISTA ASIGNADA ── -->
+  @if (loading()) {
+    <div class="skeleton" style="height:160px; border-radius: var(--radius-lg)"></div>
+  } @else if (asignadas().length === 0) {
+    <div class="selec-empty">
+      Aún no hay ítems asignados. Usá "Agregar del catálogo" para comenzar.
+    </div>
+  } @else {
+
+    @for (rGroup of rubroGroups(); track rGroup.rubroId) {
+      <div class="selec-group">
+
+        <div class="selec-group__rubro">{{ rGroup.rubroNombre }}</div>
+
+        @for (sGroup of rGroup.subrubroGroups; track sGroup.subrubroId) {
+          <div class="selec-subgroup">
+            <div class="selec-subgroup__head">{{ sGroup.subrubroNombre }}</div>
+
+            <div class="selec-list">
+              @for (s of sGroup.items; track s._id) {
+                <div class="selec-row">
+                  <div class="selec-row__body">
+
+                    @if (editingId() === s._id) {
+                      <!-- Modo edición -->
+                      <div class="selec-row__edit">
+                        <div class="selec-row__edit-fields">
+                          <input class="input input--xs" type="number" min="0" placeholder="Cantidad"
+                                 [ngModel]="editDraft().cantidad"
+                                 (ngModelChange)="setEditField('cantidad', $event)" />
+                          <input class="input input--xs" placeholder="Unidad"
+                                 [ngModel]="editDraft().unidad"
+                                 (ngModelChange)="setEditField('unidad', $event)" />
+                          <input class="input" placeholder="Observación"
+                                 [ngModel]="editDraft().observacion"
+                                 (ngModelChange)="setEditField('observacion', $event)"
+                                 (keydown.enter)="commitEdit(s)"
+                                 (keydown.escape)="cancelEdit()" />
+                        </div>
+                        <div class="selec-row__edit-actions">
+                          <button class="btn btn--ghost btn--xs" (click)="commitEdit(s)">Listo</button>
+                          <button class="btn btn--ghost btn--xs" (click)="cancelEdit()">Cancelar</button>
+                        </div>
+                      </div>
+                    } @else {
+                      <!-- Modo vista -->
+                      <div class="selec-row__info" (click)="startEdit(s)">
+                        <span class="selec-row__nombre">{{ s.itemId?.nombre }}</span>
+                        @if (s.cantidad) {
+                          <span class="selec-row__qty">{{ s.cantidad }} {{ unidadEfectiva(s) }}</span>
+                        } @else {
+                          <code class="chip chip--unit">{{ unidadEfectiva(s) }}</code>
+                        }
+                        @if (s.observacion) {
+                          <span class="selec-row__obs">{{ s.observacion }}</span>
+                        }
+                      </div>
+                    }
+
+                  </div>
+
+                  <!-- Estado cliente (readonly para admin) -->
+                  <span class="estado-chip {{ estadoClass(s.estadoCliente) }}">
+                    {{ ESTADO_LABELS[s.estadoCliente] }}
+                  </span>
+
+                  <button class="selec-row__del" (click)="remove(s._id)">×</button>
+                </div>
+              }
+            </div>
+
+          </div>
+        }
+      </div>
+    }
+
+  }
+
+</div>

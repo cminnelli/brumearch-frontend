@@ -75,6 +75,7 @@
         @if (docs().length) { <span class="proj-tab__badge">{{ docs().length }}</span> }
       </button>
       <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'planificacion'" (click)="setTab('planificacion')">Planificación</button>
+      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'selecciones'" (click)="setTab('selecciones')">Selecciones</button>
       <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'config'" (click)="setTab('config')">Configuración</button>
     </nav>
 
@@ -212,6 +213,15 @@
     @if (activeTab() === 'planificacion') {
       <div class="tab-content">
         <app-planificacion [projectId]="project()!._id" [projectName]="project()!.name" />
+      </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════
+         TAB: SELECCIONES
+    ════════════════════════════════════════════════════ -->
+    @if (activeTab() === 'selecciones') {
+      <div class="tab-content">
+        <app-selecciones [projectId]="project()!._id" />
       </div>
     }
 

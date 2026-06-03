@@ -1,7 +1,7 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ConfigService, EtapaPlantilla, Rubro, Subrubro } from '../../core/services/config.service';
+import { ConfigService, EtapaPlantilla, Rubro, Subrubro, Item } from '../../core/services/config.service';
 import { ProveedorService } from '../../core/services/proveedor.service';
 import { Proveedor, Direccion, CondicionIva, CONDICION_IVA_LABELS } from '../../shared/models/proveedor.model';
 import { MapPickerComponent, MapLocation } from '../../shared/components/map-picker/map-picker.component';
@@ -36,6 +36,7 @@ export class ConfigComponent implements OnInit {
   etapas      = signal<EtapaPlantilla[]>([]);
   rubros      = signal<Rubro[]>([]);
   subrubros   = signal<Subrubro[]>([]);
+  items       = signal<Item[]>([]);
   proveedores = signal<Proveedor[]>([]);
   showForm    = signal(false);
 
@@ -133,6 +134,7 @@ export class ConfigComponent implements OnInit {
     this.svc.getEtapas().subscribe(d    => this.etapas.set(d));
     this.svc.getRubros().subscribe(d    => this.rubros.set(d));
     this.svc.getSubrubros().subscribe(d => this.subrubros.set(d));
+    this.svc.getItems().subscribe(d     => this.items.set(d));
     this.provSvc.list().subscribe(d     => this.proveedores.set(d));
   }
 
@@ -529,6 +531,65 @@ export class ConfigComponent implements OnInit {
   instagramUrl(handle: string): string {
     const clean = handle.replace(/^@/, '');
     return `https://instagram.com/${clean}`;
+  }
+
+  // ── Items (3er nivel) ─────────────────────────────────
+  expandedSubrubros = signal<Set<string>>(new Set());
+
+  toggleSubrubro(id: string) {
+    this.expandedSubrubros.update(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  isSubrubroExpanded(id: string) { return this.expandedSubrubros().has(id); }
+
+  itemsDe(subrubroId: string) {
+    return this.items().filter(i => i.subrubroId?._id === subrubroId);
+  }
+
+  countItems(subrubroId: string) {
+    return this.items().filter(i => i.subrubroId?._id === subrubroId).length;
+  }
+
+  totalItems() { return this.items().length; }
+
+  inlineItemForms: Record<string, { nombre: string; unidad: string; descripcion: string }> = {};
+
+  getInlineItemForm(subrubroId: string) {
+    if (!this.inlineItemForms[subrubroId]) {
+      this.inlineItemForms[subrubroId] = { nombre: '', unidad: '', descripcion: '' };
+    }
+    return this.inlineItemForms[subrubroId];
+  }
+
+  saveInlineItem(subrubroId: string) {
+    const f = this.inlineItemForms[subrubroId];
+    if (!f?.nombre || !f?.unidad) return;
+    this.svc.createItem({ nombre: f.nombre, unidad: f.unidad, descripcion: f.descripcion || undefined, subrubroId }).subscribe(item => {
+      this.items.update(l => [...l, item].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      this.inlineItemForms[subrubroId] = { nombre: '', unidad: '', descripcion: '' };
+    });
+  }
+
+  startEditItem(item: Item) {
+    this.editingId.set(item._id);
+    this.showForm.set(false);
+    this.draft = {
+      nombre:      item.nombre,
+      unidad:      item.unidad,
+      descripcion: item.descripcion || '',
+      activo:      item.activo,
+    };
+  }
+
+  saveEditItem(id: string) {
+    this.svc.updateItem(id, this.draft).subscribe(updated => {
+      this.items.update(list => list.map(i => i._id === id ? updated : i).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      this.cancelEdit();
+    });
+  }
+
+  deleteItem(id: string, nombre: string) {
+    if (!confirm(`¿Eliminar ítem "${nombre}"?`)) return;
+    this.svc.deleteItem(id).subscribe(() => this.items.update(l => l.filter(i => i._id !== id)));
   }
 
   // ── Rubros tree ───────────────────────────────────────

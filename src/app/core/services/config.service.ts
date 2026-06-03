@@ -27,6 +27,20 @@ export interface Subrubro {
   activo: boolean;
 }
 
+export interface Item {
+  _id: string;
+  nombre: string;
+  unidad: string;
+  descripcion?: string;
+  activo: boolean;
+  subrubroId: {
+    _id: string;
+    nombre: string;
+    codigo: string;
+    rubroId: { _id: string; nombre: string; codigo: string };
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class ConfigService {
   private http = inject(HttpClient);
@@ -47,4 +61,12 @@ export class ConfigService {
   deleteEtapa(id: string)    { return this.http.delete(`${this.base}/etapas/${id}`); }
   deleteRubro(id: string)    { return this.http.delete(`${this.base}/rubros/${id}`); }
   deleteSubrubro(id: string) { return this.http.delete(`${this.base}/subrubros/${id}`); }
+
+  getItems(subrubroId?: string) {
+    const params = subrubroId ? `?subrubroId=${subrubroId}` : '';
+    return this.http.get<Item[]>(`${this.base}/items${params}`);
+  }
+  createItem(data: { nombre: string; unidad: string; descripcion?: string; subrubroId: string; activo?: boolean }) { return this.http.post<Item>(`${this.base}/items`, data); }
+  updateItem(id: string, data: Partial<Item>)              { return this.http.put<Item>(`${this.base}/items/${id}`, data); }
+  deleteItem(id: string)                                   { return this.http.delete(`${this.base}/items/${id}`); }
 }

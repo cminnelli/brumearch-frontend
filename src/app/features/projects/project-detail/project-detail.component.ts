@@ -20,11 +20,12 @@ import { ObraComponent } from './obra/obra.component';
 import { CajaComponent } from './caja/caja.component';
 import { EtapasComponent } from './etapas/etapas.component';
 import { PlanificacionComponent } from './planificacion/planificacion.component';
+import { SeleccionesComponent } from './selecciones/selecciones.component';
 import { SafePipe } from '../../../shared/pipes/safe.pipe';
 import { ArsNumPipe } from '../../../shared/pipes/ars-num.pipe';
 import { ChatContextService } from '../../../core/services/chat-context.service';
 
-type DetailTab = 'info' | 'documentos' | 'resumen' | 'obra' | 'caja' | 'config' | 'planificacion';
+type DetailTab = 'info' | 'documentos' | 'resumen' | 'obra' | 'caja' | 'config' | 'planificacion' | 'selecciones';
 
 const ALL_SERVICES = Object.entries(SERVICE_LABELS) as [ProjService, string][];
 
@@ -48,7 +49,7 @@ export interface RubroResumen {
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SafePipe, ArsNumPipe],
+  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, SafePipe, ArsNumPipe],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.scss',
 })
