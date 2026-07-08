@@ -41,6 +41,15 @@ export const METODO_HINT: Record<MetodoPago, string> = {
 
 export type MetodoMovimiento = 'efectivo' | 'bancario';
 
+export interface PagoFlag {
+  valor: boolean;
+  fecha?: string;
+}
+
+export interface PagoFirmado extends PagoFlag {
+  comprobante?: Archivo;
+}
+
 export interface Pago {
   _id: string;
   fecha: string;
@@ -49,6 +58,8 @@ export interface Pago {
   referencia?: string;
   notas?: string;
   reservaId?: string;
+  pagado?: PagoFlag;
+  firmado?: PagoFirmado;
 }
 
 export interface Presupuesto {

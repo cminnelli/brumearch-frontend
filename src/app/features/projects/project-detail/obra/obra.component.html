@@ -538,10 +538,18 @@
               </div>
               <div class="dp-actions__utility">
                 <button class="btn-icon btn-icon--edit" (click)="startEditPres(p)" title="Editar">✎</button>
-                <button class="btn-icon btn-icon--del" (click)="removePres(p)" title="Eliminar">×</button>
               </div>
             </div>
           }
+
+          <!-- Zona de Peligro -->
+          <div class="dp-danger">
+            <div class="dp-danger__label">Zona de peligro</div>
+            <div class="dp-danger__row">
+              <span class="dp-danger__desc">Eliminar este presupuesto es permanente e irreversible.</span>
+              <button class="dp-danger__btn" (click)="removePres(p)">Eliminar presupuesto</button>
+            </div>
+          </div>
         }
 
         <!-- ── GASTO DETAIL ── -->
@@ -679,6 +687,9 @@
                         @if (pago.referencia) { <span class="pago-ref">{{ pago.referencia }}</span> }
                         @if (pago.notas)      { <span class="pago-nota">{{ pago.notas }}</span> }
                         @if (pago.reservaId)  { <span class="pago-reserva-tag">↳ {{ reservaNombre(pago.reservaId) }}</span> }
+                        @if (pagoStatusLabel(pago)) {
+                          <span class="pago-status-pill {{ pagoStatusClass(pago) }}">{{ pagoStatusLabel(pago) }}</span>
+                        }
                       </div>
                       <div class="pago-row__icons">
                         <button class="btn-icon btn-icon--print" (click)="visualizarPago(g, pago)" title="Visualizar comprobante">👁</button>
@@ -691,6 +702,42 @@
                         <button class="btn-icon btn-icon--del" (click)="deletePago(g, pago._id)" title="Eliminar">×</button>
                       </div>
                     }
+                    <!-- Pagado / Firmado flags — siempre visibles -->
+                    <div class="pago-flags">
+                      <label class="pago-flag" [class.pago-flag--on]="pago.pagado?.valor">
+                        <input type="checkbox" [checked]="pago.pagado?.valor" (change)="togglePagado(g, pago)" />
+                        <span class="pago-flag__label">Pagado</span>
+                        @if (pago.pagado?.valor) {
+                          <input class="pago-flag-date" type="date"
+                                 [ngModel]="getPagadoFecha(pago)"
+                                 (ngModelChange)="setPagadoFecha(pago._id, $event)"
+                                 (blur)="savePagadoFecha(g, pago)"
+                                 [name]="'pf_pagado_' + pago._id" />
+                        }
+                      </label>
+                      <label class="pago-flag" [class.pago-flag--on]="pago.firmado?.valor">
+                        <input type="checkbox" [checked]="pago.firmado?.valor" (change)="toggleFirmado(g, pago)" />
+                        <span class="pago-flag__label">Firmado</span>
+                        @if (pago.firmado?.valor) {
+                          <input class="pago-flag-date" type="date"
+                                 [ngModel]="getFirmadoFecha(pago)"
+                                 (ngModelChange)="setFirmadoFecha(pago._id, $event)"
+                                 (blur)="saveFirmadoFecha(g, pago)"
+                                 [name]="'pf_firmado_' + pago._id" />
+                          @if (pago.firmado?.comprobante) {
+                            <a class="pago-flag-file" [href]="fileUrl(pago.firmado.comprobante.filename)" target="_blank">
+                              {{ fileIcon(pago.firmado.comprobante.mimetype) }} {{ pago.firmado.comprobante.originalName }}
+                            </a>
+                          }
+                          <label class="pago-flag-upload" [class.pago-flag-upload--loading]="uploadingFirmadoId() === pago._id">
+                            {{ uploadingFirmadoId() === pago._id ? 'Subiendo…' : (pago.firmado?.comprobante ? '↑ Reemplazar' : '↑ Adjuntar') }}
+                            <input type="file" hidden (change)="onFirmadoComprobante(g, pago, $event)"
+                                   accept=".pdf,.jpg,.jpeg,.png"
+                                   [disabled]="uploadingFirmadoId() === pago._id" />
+                          </label>
+                        }
+                      </label>
+                    </div>
                   </div>
                 }
               </div>
@@ -823,10 +870,18 @@
               </div>
               <div class="dp-actions__utility">
                 <button class="btn-icon btn-icon--edit" (click)="startEditGasto(g)" title="Editar">✎</button>
-                <button class="btn-icon btn-icon--del" (click)="removeGasto(g)" title="Eliminar">×</button>
               </div>
             </div>
           }
+
+          <!-- Zona de Peligro -->
+          <div class="dp-danger">
+            <div class="dp-danger__label">Zona de peligro</div>
+            <div class="dp-danger__row">
+              <span class="dp-danger__desc">Eliminar este gasto y todos sus pagos es permanente e irreversible.</span>
+              <button class="dp-danger__btn" (click)="removeGasto(g)">Eliminar gasto</button>
+            </div>
+          </div>
         }
 
         <!-- ── SOLICITUD DETAIL ── -->

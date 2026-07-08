@@ -25,8 +25,14 @@ export class GastoService {
     return this.http.post<Gasto>(`${this.base(projectId)}/${gastoId}/pagos`, pago);
   }
 
-  updatePago(projectId: string, gastoId: string, pagoId: string, data: { referencia?: string; notas?: string }) {
+  updatePago(projectId: string, gastoId: string, pagoId: string, data: any) {
     return this.http.patch<Gasto>(`${this.base(projectId)}/${gastoId}/pagos/${pagoId}`, data);
+  }
+
+  uploadComprobanteFirmado(projectId: string, gastoId: string, pagoId: string, file: File) {
+    const fd = new FormData();
+    fd.append('comprobante', file);
+    return this.http.post<Gasto>(`${this.base(projectId)}/${gastoId}/pagos/${pagoId}/comprobante-firmado`, fd);
   }
 
   removePago(projectId: string, gastoId: string, pagoId: string) {

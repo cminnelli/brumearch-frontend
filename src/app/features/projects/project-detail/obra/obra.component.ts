@@ -255,6 +255,10 @@ export class ObraComponent implements OnInit {
   editPagoForm   = { referencia: '', notas: '', metodoPago: '' as MetodoPago | '' };
   savingEditPago = signal(false);
 
+  // ── UI: Pagado / Firmado flags ─────────────────────────────
+  uploadingFirmadoId = signal<string | null>(null);
+  pagoFlagDates: Record<string, { pagadoFecha: string; firmadoFecha: string }> = {};
+
   // ── Constants for template ───────────────────────────────
   readonly metodoLabels = METODO_LABELS;
   readonly metodoIcons  = METODO_ICONS;
@@ -548,6 +552,93 @@ export class ObraComponent implements OnInit {
         console.error('Error al eliminar el pago');
       },
     });
+  }
+
+  // ── Pagado / Firmado toggles ──────────────────────────────
+  getPagadoFecha(pago: import('../../../../shared/models/obra.model').Pago): string {
+    return this.pagoFlagDates[pago._id]?.pagadoFecha
+      ?? pago.pagado?.fecha?.substring(0, 10)
+      ?? this.todayISO();
+  }
+
+  getFirmadoFecha(pago: import('../../../../shared/models/obra.model').Pago): string {
+    return this.pagoFlagDates[pago._id]?.firmadoFecha
+      ?? pago.firmado?.fecha?.substring(0, 10)
+      ?? this.todayISO();
+  }
+
+  setPagadoFecha(pagoId: string, fecha: string) {
+    this.pagoFlagDates[pagoId] = { ...this.pagoFlagDates[pagoId], pagadoFecha: fecha };
+  }
+
+  setFirmadoFecha(pagoId: string, fecha: string) {
+    this.pagoFlagDates[pagoId] = { ...this.pagoFlagDates[pagoId], firmadoFecha: fecha };
+  }
+
+  togglePagado(g: Gasto, pago: import('../../../../shared/models/obra.model').Pago) {
+    const nuevoValor = !pago.pagado?.valor;
+    const fecha = nuevoValor ? (this.pagoFlagDates[pago._id]?.pagadoFecha ?? this.todayISO()) : null;
+    this.gastoSvc.updatePago(this.projectId, g._id, pago._id, { pagado: { valor: nuevoValor, fecha } }).subscribe({
+      next: updated => this.gastos.update(l => l.map(x => x._id === g._id ? updated : x)),
+    });
+  }
+
+  toggleFirmado(g: Gasto, pago: import('../../../../shared/models/obra.model').Pago) {
+    const nuevoValor = !pago.firmado?.valor;
+    const fecha = nuevoValor ? (this.pagoFlagDates[pago._id]?.firmadoFecha ?? this.todayISO()) : null;
+    this.gastoSvc.updatePago(this.projectId, g._id, pago._id, { firmado: { valor: nuevoValor, fecha } }).subscribe({
+      next: updated => this.gastos.update(l => l.map(x => x._id === g._id ? updated : x)),
+    });
+  }
+
+  savePagadoFecha(g: Gasto, pago: import('../../../../shared/models/obra.model').Pago) {
+    if (!pago.pagado?.valor) return;
+    const fecha = this.pagoFlagDates[pago._id]?.pagadoFecha ?? pago.pagado?.fecha?.substring(0, 10);
+    if (!fecha) return;
+    this.gastoSvc.updatePago(this.projectId, g._id, pago._id, { pagado: { valor: true, fecha } }).subscribe({
+      next: updated => this.gastos.update(l => l.map(x => x._id === g._id ? updated : x)),
+    });
+  }
+
+  saveFirmadoFecha(g: Gasto, pago: import('../../../../shared/models/obra.model').Pago) {
+    if (!pago.firmado?.valor) return;
+    const fecha = this.pagoFlagDates[pago._id]?.firmadoFecha ?? pago.firmado?.fecha?.substring(0, 10);
+    if (!fecha) return;
+    this.gastoSvc.updatePago(this.projectId, g._id, pago._id, { firmado: { valor: true, fecha } }).subscribe({
+      next: updated => this.gastos.update(l => l.map(x => x._id === g._id ? updated : x)),
+    });
+  }
+
+  onFirmadoComprobante(g: Gasto, pago: import('../../../../shared/models/obra.model').Pago, event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.uploadingFirmadoId.set(pago._id);
+    this.gastoSvc.uploadComprobanteFirmado(this.projectId, g._id, pago._id, file).subscribe({
+      next: updated => {
+        this.gastos.update(l => l.map(x => x._id === g._id ? updated : x));
+        this.uploadingFirmadoId.set(null);
+        (event.target as HTMLInputElement).value = '';
+      },
+      error: () => this.uploadingFirmadoId.set(null),
+    });
+  }
+
+  pagoStatusLabel(pago: import('../../../../shared/models/obra.model').Pago): string {
+    const p = pago.pagado?.valor;
+    const f = pago.firmado?.valor;
+    if (p && f) return 'Pagado + Firmado';
+    if (p)      return 'Pagado';
+    if (f)      return 'Firmado';
+    return '';
+  }
+
+  pagoStatusClass(pago: import('../../../../shared/models/obra.model').Pago): string {
+    const p = pago.pagado?.valor;
+    const f = pago.firmado?.valor;
+    if (p && f) return 'pago-status--ambos';
+    if (p)      return 'pago-status--pagado';
+    if (f)      return 'pago-status--firmado';
+    return '';
   }
 
   // Ventana de edición: 7 días desde la fecha de pago
