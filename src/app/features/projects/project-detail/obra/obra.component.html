@@ -538,6 +538,7 @@
               </div>
               <div class="dp-actions__utility">
                 <button class="btn-icon btn-icon--edit" (click)="startEditPres(p)" title="Editar">✎</button>
+                <button class="btn-icon btn-icon--del" (click)="removePres(p)" title="Eliminar presupuesto">×</button>
               </div>
             </div>
           }
@@ -870,18 +871,10 @@
               </div>
               <div class="dp-actions__utility">
                 <button class="btn-icon btn-icon--edit" (click)="startEditGasto(g)" title="Editar">✎</button>
+                <button class="btn-icon btn-icon--del" (click)="removeGasto(g)" title="Eliminar gasto">×</button>
               </div>
             </div>
           }
-
-          <!-- Zona de Peligro -->
-          <div class="dp-danger">
-            <div class="dp-danger__label">Zona de peligro</div>
-            <div class="dp-danger__row">
-              <span class="dp-danger__desc">Eliminar este gasto y todos sus pagos es permanente e irreversible.</span>
-              <button class="dp-danger__btn" (click)="removeGasto(g)">Eliminar gasto</button>
-            </div>
-          </div>
         }
 
         <!-- ── SOLICITUD DETAIL ── -->
