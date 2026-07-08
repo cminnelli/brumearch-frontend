@@ -1875,6 +1875,29 @@
   &--ambos   { background: #fefce8; color: #854d0e; border-color: #fde68a; }
 }
 
+/* ── Botón eliminar (rojo visible) ───────────────────── */
+.btn--delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.85rem;
+  background: transparent;
+  color: #c0392b;
+  border: 1.5px solid #fca5a5;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  white-space: nowrap;
+
+  &:hover {
+    background: #fef2f2;
+    border-color: #c0392b;
+  }
+}
+
 /* ── Danger Zone ──────────────────────────────────────── */
 .dp-danger {
   border: 1px solid #fca5a5;
