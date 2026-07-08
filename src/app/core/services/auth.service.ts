@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { from, EMPTY, Observable } from 'rxjs';
+import { from, EMPTY, Observable, Observer } from 'rxjs';
 import { tap, catchError, switchMap, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { User, AuthResponse } from '../../shared/models/user.model';
@@ -12,6 +12,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import { firebaseApp } from '../../firebase.config';
 
@@ -84,11 +85,37 @@ export class AuthService {
           this.currentUser.set(res.user);
           this.sessionRestored.set(true);
         }),
-        catchError(() => {
-          this.clearToken();
-          this.sessionRestored.set(true);
-          return EMPTY;
-        })
+        catchError(() =>
+          new Observable<void>((observer: Observer<void>) => {
+            const unsub = onAuthStateChanged(fbAuth, (fbUser) => {
+              unsub();
+              if (!fbUser) {
+                this.clearToken();
+                this.sessionRestored.set(true);
+                observer.complete();
+                return;
+              }
+              from(fbUser.getIdToken(true))
+                .pipe(
+                  switchMap((idToken) =>
+                    this.http.post<AuthResponse>(`${this.baseUrl}/firebase`, { idToken }).pipe(
+                      tap((res) => {
+                        localStorage.setItem('auth_token', res.token);
+                        this.currentUser.set(res.user);
+                        this.sessionRestored.set(true);
+                      })
+                    )
+                  ),
+                  catchError(() => {
+                    this.clearToken();
+                    this.sessionRestored.set(true);
+                    return EMPTY;
+                  })
+                )
+                .subscribe({ next: () => observer.next(), error: () => observer.complete(), complete: () => observer.complete() });
+            });
+          })
+        )
       )
       .subscribe();
   }

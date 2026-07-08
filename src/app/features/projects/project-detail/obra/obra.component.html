@@ -22,6 +22,12 @@
       <button class="obra-filter obra-filter--fin" [class.obra-filter--active]="obraFilter() === 'finanzas'" (click)="obraFilter.set('finanzas')">
         📊 Finanzas
       </button>
+      <button class="obra-filter obra-filter--confirm" [class.obra-filter--active]="obraFilter() === 'por_confirmar'" (click)="obraFilter.set('por_confirmar')">
+        ✓ Por confirmar
+        @if (pagosPendientesView().length) {
+          <span class="obra-filter__badge obra-filter__badge--warn">{{ pagosPendientesView().length }}</span>
+        }
+      </button>
     </div>
     <div class="obra-toolbar__actions">
       @if (obraFilter() !== 'gasto' && obraFilter() !== 'finanzas') {
@@ -236,8 +242,59 @@
     </div>
   }
 
+  <!-- ─── PAGOS POR CONFIRMAR ──────────────────────────── -->
+  @if (obraFilter() === 'por_confirmar') {
+    <div class="confirmar-view">
+      <div class="confirmar-header">
+        <span class="confirmar-header__title">Pagos sin confirmar</span>
+        <span class="confirmar-header__sub">Pagos que aún no tienen registro de pago o firma</span>
+      </div>
+
+      @if (pagosPendientesView().length) {
+        <div class="confirmar-list">
+          @for (item of pagosPendientesView(); track item.pago._id) {
+            <div class="confirmar-row">
+              <div class="confirmar-row__main">
+                <div class="confirmar-row__name">{{ item.gasto.subrubroId.nombre }}</div>
+                <div class="confirmar-row__meta">
+                  @if (item.gasto.proveedorId) { <span>{{ item.gasto.proveedorId.nombre }}</span> }
+                  <span class="confirmar-row__sep">·</span>
+                  <span>{{ fmtFecha(item.pago.fecha) }}</span>
+                  <span class="confirmar-row__sep">·</span>
+                  <span class="confirmar-row__monto">{{ fmt(item.pago.monto, item.gasto.moneda) }}</span>
+                </div>
+              </div>
+              <div class="confirmar-row__flags">
+                @if (item.faltaPago) {
+                  <span class="confirmar-tag confirmar-tag--pago">Sin pago</span>
+                }
+                @if (item.faltaFirma) {
+                  <span class="confirmar-tag confirmar-tag--firma">Sin firma</span>
+                }
+              </div>
+              <div class="confirmar-row__actions">
+                <button class="btn btn--ghost btn--sm" (click)="select('gasto', item.gasto._id); obraFilter.set('gasto')">
+                  Ver gasto
+                </button>
+                <button class="confirmar-ok-btn" (click)="confirmarPendiente(item)">
+                  ✓ Confirmar
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="confirmar-empty">
+          <div class="confirmar-empty__icon">✓</div>
+          <div class="confirmar-empty__title">Todo al día</div>
+          <div class="confirmar-empty__desc">Todos los pagos tienen registro de pago y firma.</div>
+        </div>
+      }
+    </div>
+  }
+
   <!-- ─── MASTER / DETAIL SPLIT ────────────────────────── -->
-  @if (obraFilter() !== 'finanzas') {
+  @if (obraFilter() !== 'finanzas' && obraFilter() !== 'por_confirmar') {
   <div class="obra-split" [class.obra-split--open]="selectedId()">
 
     <!-- LIST PANE ─────────────────────────────────────── -->
@@ -662,6 +719,9 @@
                 Pagos
                 @if (g.pagos.length) { <span class="dp-section__count">{{ g.pagos.length }}</span> }
               </span>
+              @if (tienePagosSinCompletar(g)) {
+                <button class="pagar-firmar-btn" (click)="pagarYFirmarTodos(g)">✓ Pagar y firmar todos</button>
+              }
             </div>
             @if (g.pagos.length) {
               <div class="pagos-list">
@@ -726,8 +786,8 @@
                                  (blur)="saveFirmadoFecha(g, pago)"
                                  [name]="'pf_firmado_' + pago._id" />
                           @if (pago.firmado?.comprobante) {
-                            <a class="pago-flag-file" [href]="fileUrl(pago.firmado.comprobante.filename)" target="_blank">
-                              {{ fileIcon(pago.firmado.comprobante.mimetype) }} {{ pago.firmado.comprobante.originalName }}
+                            <a class="pago-flag-file" [href]="fileUrl(pago.firmado?.comprobante?.filename ?? '')" target="_blank">
+                              {{ fileIcon(pago.firmado?.comprobante?.mimetype ?? '') }} {{ pago.firmado?.comprobante?.originalName }}
                             </a>
                           }
                           <label class="pago-flag-upload" [class.pago-flag-upload--loading]="uploadingFirmadoId() === pago._id">
@@ -871,9 +931,10 @@
               </div>
               <div class="dp-actions__utility">
                 <button class="btn-icon btn-icon--edit" (click)="startEditGasto(g)" title="Editar">✎</button>
-                <button class="btn btn--delete btn--sm" (click)="removeGasto(g)">🗑 Eliminar gasto</button>
               </div>
             </div>
+
+            <button class="gasto-borrar-btn" (click)="removeGasto(g)">🗑 Borrar gasto</button>
           }
         }
 
@@ -1009,6 +1070,6 @@
     }
 
   </div>
-  } <!-- end @if obraFilter !== 'finanzas' -->
+  } <!-- end @if obraFilter !== 'finanzas' && !== 'por_confirmar' -->
 
 </div>

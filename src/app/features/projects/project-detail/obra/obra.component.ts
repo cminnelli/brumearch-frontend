@@ -125,7 +125,27 @@ export class ObraComponent implements OnInit {
   savingPlan       = signal(false);
 
   // ── Filter ──────────────────────────────────────────────
-  obraFilter = signal<'todos' | 'cotizaciones' | 'pendiente' | 'aprobado' | 'rechazado' | 'gasto' | 'finanzas'>('todos');
+  obraFilter = signal<'todos' | 'cotizaciones' | 'pendiente' | 'aprobado' | 'rechazado' | 'gasto' | 'finanzas' | 'por_confirmar'>('todos');
+
+  // ── Vista cruzada: pagos sin pagado o sin firmado ────────
+  pagosPendientesView = computed(() => {
+    const result: Array<{
+      gasto: Gasto;
+      pago: import('../../../../shared/models/obra.model').Pago;
+      faltaPago: boolean;
+      faltaFirma: boolean;
+    }> = [];
+    for (const g of this.gastos()) {
+      for (const p of g.pagos) {
+        const faltaPago  = !p.pagado?.valor;
+        const faltaFirma = !p.firmado?.valor;
+        if (faltaPago || faltaFirma) {
+          result.push({ gasto: g, pago: p, faltaPago, faltaFirma });
+        }
+      }
+    }
+    return result;
+  });
 
   // ── Master/detail selection ──────────────────────────────
   selectedId   = signal<string | null>(null);
@@ -623,6 +643,37 @@ export class ObraComponent implements OnInit {
     });
   }
 
+  tienePagosSinCompletar(g: Gasto): boolean {
+    return g.pagos.some(p => !p.pagado?.valor || !p.firmado?.valor);
+  }
+
+  pagarYFirmarTodos(g: Gasto) {
+    const hoy = this.todayISO();
+    const pendientes = g.pagos.filter(p => !p.pagado?.valor || !p.firmado?.valor);
+    let completados = 0;
+    for (const pago of pendientes) {
+      this.gastoSvc.updatePago(this.projectId, g._id, pago._id, {
+        pagado:  { valor: true, fecha: hoy },
+        firmado: { valor: true, fecha: hoy },
+      }).subscribe({
+        next: updated => {
+          completados++;
+          this.gastos.update(l => l.map(x => x._id === g._id ? updated : x));
+        },
+      });
+    }
+  }
+
+  confirmarPendiente(item: { gasto: Gasto; pago: import('../../../../shared/models/obra.model').Pago; faltaPago: boolean; faltaFirma: boolean }) {
+    const hoy = this.todayISO();
+    const data: any = {};
+    if (item.faltaPago)  data.pagado  = { valor: true, fecha: hoy };
+    if (item.faltaFirma) data.firmado = { valor: true, fecha: hoy };
+    this.gastoSvc.updatePago(this.projectId, item.gasto._id, item.pago._id, data).subscribe({
+      next: updated => this.gastos.update(l => l.map(x => x._id === item.gasto._id ? updated : x)),
+    });
+  }
+
   pagoStatusLabel(pago: import('../../../../shared/models/obra.model').Pago): string {
     const p = pago.pagado?.valor;
     const f = pago.firmado?.valor;
@@ -957,19 +1008,34 @@ export class ObraComponent implements OnInit {
     const fechaSlug = (lastPago?.fecha ?? new Date().toISOString()).substring(0, 10);
     const pdfTitle  = `Comprobante_${provSlug}_${fechaSlug}`;
 
-    const histRows = [...pagosHasta].reverse().map(p => `
+    const MAX_HIST = 8;
+    const pagosReversed = [...pagosHasta].reverse();
+    const pagosToShow   = pagosReversed.slice(0, MAX_HIST);
+    const pagosOmitidos = pagosReversed.slice(MAX_HIST);
+    const montoOmitidos = pagosOmitidos.reduce((s, p) => s + p.monto, 0);
+
+    const histRows = pagosToShow.map(p => `
       <tr>
         <td>${fmtFechaLocal(p.fecha)}</td>
         <td>${metodoLabel[p.metodoPago] ?? p.metodoPago}</td>
         <td>${p.notas ?? '—'}</td>
         <td class="tr">${g.moneda} ${fmtM(p.monto)}</td>
       </tr>`).join('');
+
+    const omitidosRow = pagosOmitidos.length ? `
+      <tr>
+        <td colspan="3" style="font-size:0.65rem;color:#bbb;font-style:italic;padding-top:0.2rem">
+          + ${pagosOmitidos.length} pago${pagosOmitidos.length > 1 ? 's' : ''} anteriores
+        </td>
+        <td class="tr" style="font-size:0.65rem;color:#bbb">${g.moneda} ${fmtM(montoOmitidos)}</td>
+      </tr>` : '';
+
     const histSection = pagosHasta.length ? `
       <div class="sec">
         <div class="sec-lbl">Historial de pagos</div>
         <table class="tbl">
           <thead><tr><th>Fecha</th><th>Método</th><th>Observación</th><th class="tr">Monto</th></tr></thead>
-          <tbody>${histRows}</tbody>
+          <tbody>${histRows}${omitidosRow}</tbody>
         </table>
       </div>` : '';
 
