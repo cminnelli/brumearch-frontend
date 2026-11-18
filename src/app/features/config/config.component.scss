@@ -3,7 +3,7 @@
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: 0;
-  min-height: calc(100vh - 56px);
+  min-height: 100vh;
   margin: calc(-1 * var(--sp-4));
 }
 
@@ -14,7 +14,7 @@
   padding: var(--sp-3) var(--sp-2) var(--sp-4);
   position: sticky;
   top: 0;
-  height: calc(100vh - 56px);
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
