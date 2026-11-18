@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -19,6 +19,17 @@
   --c-text-sub:  #555555;
   --c-text-muted:#aaaaaa;
   --c-accent:    #111111;
+
+  /* Plano Suizo — un único acento (naranja de obra) y colores de estado */
+  --c-brand:       #ff4f00;
+  --c-brand-soft:  #fff1ea;
+  --c-good:        #17803d;
+  --c-good-soft:   #e8f5ec;
+  --c-warn:        #b45309;
+  --c-warn-soft:   #fdf3e3;
+  --c-bad:         #c0261c;
+  --c-bad-soft:    #fdeceb;
+  --font-head:   'Space Grotesk', 'Inter', system-ui, sans-serif;
 
   /* Typography */
   --font:        'Inter', system-ui, -apple-system, sans-serif;
@@ -56,6 +67,10 @@
   --shadow:           0 1px 4px rgba(0,0,0,0.06);
   --radius:           var(--radius-md);
 }
+
+h1, h2, h3, .page-header__title { font-family: var(--font-head); }
+
+:focus-visible { outline: 2px solid var(--c-brand); outline-offset: 2px; }
 
 body {
   font-family: var(--font);
@@ -150,7 +165,7 @@ a { color: inherit; text-decoration: none; }
   &--primary {
     background: var(--c-text);
     color: #fff;
-    &:hover { background: #333; }
+    &:hover { background: var(--c-brand); border-color: var(--c-brand); }
   }
 
   &--ghost {
@@ -216,3 +231,54 @@ a { color: inherit; text-decoration: none; }
   100% { background-position: -200% 0; }
 }
 
+
+
+/* ── Plano Suizo · componentes compartidos ──────────────────────────────── */
+
+/* Pill de estado */
+.pill {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: .02em;
+  padding: .18rem .6rem; border-radius: 999px;
+  border: 1px solid var(--c-border-strong); color: var(--c-text-sub); background: transparent; white-space: nowrap;
+  &--good  { color: var(--c-good);  background: var(--c-good-soft);  border-color: transparent; }
+  &--warn  { color: var(--c-warn);  background: var(--c-warn-soft);  border-color: transparent; }
+  &--bad   { color: var(--c-bad);   background: var(--c-bad-soft);   border-color: transparent; }
+  &--brand { color: var(--c-brand); background: var(--c-brand-soft); border-color: transparent; }
+  &--dark  { color: #fff; background: var(--c-text); border-color: var(--c-text); }
+}
+
+/* Barra de progreso (valor en --v, 0–100) */
+.progress {
+  height: 6px; background: #efefef; border-radius: 999px; overflow: hidden;
+  > i { display: block; height: 100%; width: calc(var(--v, 0) * 1%); background: var(--c-brand); border-radius: inherit; transition: width .4s ease; }
+  &--good > i { background: var(--c-good); }
+  &--warn > i { background: var(--c-warn); }
+  &--bad  > i { background: var(--c-bad); }
+  &--dark > i { background: var(--c-text); }
+}
+
+/* Cifras */
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* Control segmentado */
+.seg {
+  display: inline-flex; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--c-bg);
+  > button { all: unset; cursor: pointer; padding: .45rem .9rem; font-size: var(--text-sm); font-weight: 500; color: var(--c-text-sub); border-right: 1px solid var(--c-border); box-sizing: border-box;
+    &:last-child { border-right: 0; }
+    &:hover { color: var(--c-text); background: var(--c-surface); }
+    &[aria-pressed="true"], &.is-on { background: var(--c-text); color: #fff; }
+    &:focus-visible { outline: 2px solid var(--c-brand); outline-offset: -3px; } }
+}
+
+/* Input de búsqueda y campos compactos */
+.search {
+  position: relative; display: inline-flex; align-items: center;
+  svg { position: absolute; left: .7rem; width: 15px; height: 15px; color: var(--c-text-muted); pointer-events: none; }
+  input { font: inherit; font-size: var(--text-sm); padding: .55rem .8rem .55rem 2.1rem; width: min(280px, 100%); border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); background: var(--c-bg); color: var(--c-text); }
+}
+
+/* Modo lector: oculta controles de modificación (el servidor igual los rechaza) */
+.detail--readonly {
+  .btn--primary, .btn--del, .btn--danger, [data-edit], label.proj-cover__btn { display: none !important; }
+}

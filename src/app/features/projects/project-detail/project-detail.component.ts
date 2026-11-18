@@ -28,7 +28,7 @@ import { fileUrl } from '../../../shared/utils/file-url';
 import { EquipoComponent } from './equipo/equipo.component';
 import { MembersService, ProjectRole } from '../../../core/services/members.service';
 
-type DetailTab = 'info' | 'documentos' | 'resumen' | 'obra' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'equipo';
+export type DetailTab = 'info' | 'documentos' | 'resumen' | 'obra' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'equipo';
 
 const ALL_SERVICES = Object.entries(SERVICE_LABELS) as [ProjService, string][];
 
@@ -266,6 +266,40 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       });
     });
   }
+
+  // ── Navegación agrupada ──────────────────────────────────
+  private readonly NAV: { id: DetailTab; label: string; group: DetailTab[]; sub?: { id: DetailTab; label: string }[] }[] = [
+    { id: 'info',          label: 'Resumen',       group: ['info'] },
+    { id: 'obra',          label: 'Obra',          group: ['obra'] },
+    { id: 'resumen',       label: 'Finanzas',      group: ['resumen', 'caja'], sub: [{ id: 'resumen', label: 'Plan vs. real' }, { id: 'caja', label: 'Reservas' }] },
+    { id: 'planificacion', label: 'Planificación', group: ['planificacion', 'config'], sub: [{ id: 'planificacion', label: 'Cronograma' }, { id: 'config', label: 'Etapas' }] },
+    { id: 'documentos',    label: 'Documentos',    group: ['documentos'] },
+    { id: 'selecciones',   label: 'Selecciones',   group: ['selecciones'] },
+    { id: 'equipo',        label: 'Equipo',        group: ['equipo'] },
+  ];
+  navTabs = computed(() => this.NAV.filter(t => t.id !== 'equipo' || this.canEdit()));
+  isGroupActive(t: { group: DetailTab[] }) { return t.group.includes(this.activeTab()); }
+  activeSub = computed(() => this.NAV.find(t => t.sub && t.group.includes(this.activeTab()))?.sub ?? null);
+
+  /** Cifras de cabecera, en la moneda principal del proyecto (USD, ARS o EUR, la primera con movimiento). */
+  kpis = computed(() => {
+    const p = this.project();
+    if (!p || !this.resumenLoaded()) return null;
+    const apr = this.presupuestos().filter(x => x.estado === 'aprobado');
+    const gst = this.gastos();
+    const mon = (['USD', 'ARS', 'EUR'] as Moneda[]).find(m => apr.some(x => x.moneda === m) || gst.some(g => g.moneda === m)) ?? 'ARS';
+    const aprobado = apr.filter(x => x.moneda === mon).reduce((s, x) => s + x.monto, 0);
+    const gastado  = gst.filter(g => g.moneda === mon).reduce((s, g) => s + g.monto, 0);
+    const pagado   = gst.filter(g => g.moneda === mon).reduce((s, g) => s + totalPagadoGasto(g), 0);
+    const et = p.etapas ?? [];
+    const comp = et.filter(e => e.estado === 'completada').length, act = et.some(e => e.estado === 'activa') ? 0.5 : 0;
+    const f = (n: number) => `${mon} ${Math.round(n).toLocaleString('es-AR')}`;
+    return {
+      aprobado: aprobado ? f(aprobado) : '—', gastado: f(gastado), pagado: f(pagado), pendiente: f(Math.max(0, gastado - pagado)),
+      pctEjec: aprobado ? Math.round(gastado / aprobado * 100) : null,
+      avance: et.length ? Math.round((comp + act) / et.length * 100) : 0,
+    };
+  });
 
   setTab(tab: DetailTab) {
     this.router.navigate([], { queryParams: { tab }, replaceUrl: false });

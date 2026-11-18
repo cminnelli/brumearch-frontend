@@ -1,34 +1,57 @@
 @if (showNav) {
-  <nav class="navbar">
-    <a class="navbar__brand" routerLink="/dashboard" aria-label="Brumelab Arch">
-      <img src="assets/logo brume vector2.png" alt="Brumelab Arch" class="navbar__logo" />
-    </a>
-    <ul class="navbar__links">
-      <li><a routerLink="/dashboard" routerLinkActive="active">Dashboard</a></li>
-      <li><a routerLink="/projects" routerLinkActive="active">Proyectos</a></li>
-      <li><a routerLink="/config" routerLinkActive="active">Configuración</a></li>
-      <li><a routerLink="/entorno" routerLinkActive="active">Entorno</a></li>
-      @if (auth.isAdmin) {
-        <li><a routerLink="/usuarios" routerLinkActive="active">Usuarios</a></li>
-      }
-    </ul>
-    <div class="navbar__user">
-      @if (auth.currentUser()) {
-        <a routerLink="/profile" class="nav-avatar" [title]="auth.currentUser()!.name">
-          @if (auth.currentUser()!.avatar) {
-            <img [src]="avatarSrc()" [alt]="auth.currentUser()!.name" />
-          } @else {
-            {{ auth.currentUser()!.name[0].toUpperCase() }}
-          }
+  <div class="shell" [class.shell--open]="menuOpen()">
+    <header class="topbar">
+      <button class="topbar__burger" type="button" (click)="menuOpen.set(!menuOpen())" aria-label="Abrir menú" [attr.aria-expanded]="menuOpen()">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <a routerLink="/dashboard" class="topbar__brand"><span class="mark"></span>Brume Arch</a>
+    </header>
+
+    <div class="scrim" (click)="menuOpen.set(false)"></div>
+
+    <aside class="side" aria-label="Navegación principal">
+      <a routerLink="/dashboard" class="side__brand"><span class="mark"></span>Brume Arch</a>
+
+      <nav class="side__nav">
+        <span class="side__group">Estudio</span>
+        <a routerLink="/dashboard" routerLinkActive="on" (click)="menuOpen.set(false)">
+          <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6v-9h-6v9zm0-16v5h6V4h-6z"/></svg>Panel
         </a>
+        <a routerLink="/projects" routerLinkActive="on" (click)="menuOpen.set(false)">
+          <svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12h-6v-7H9v7H3z"/></svg>Proyectos
+        </a>
+        <a routerLink="/config" routerLinkActive="on" (click)="menuOpen.set(false)">
+          <svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Catálogos
+        </a>
+        <a routerLink="/entorno" routerLinkActive="on" (click)="menuOpen.set(false)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Entorno
+        </a>
+        @if (auth.isAdmin) {
+          <span class="side__group">Administración</span>
+          <a routerLink="/usuarios" routerLinkActive="on" (click)="menuOpen.set(false)">
+            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 010 7M18 14.2c2.2.6 3.5 2.5 3.5 5.8"/></svg>Usuarios
+          </a>
+        }
+      </nav>
+
+      @if (auth.currentUser(); as u) {
+        <div class="side__me">
+          <a routerLink="/profile" class="me" (click)="menuOpen.set(false)" [title]="'Mi perfil'">
+            <span class="me__av">
+              @if (u.avatar) { <img [src]="avatarSrc()" [alt]="u.name" /> } @else { {{ u.name[0].toUpperCase() }} }
+            </span>
+            <span class="me__txt"><strong>{{ u.name }}</strong><small>{{ auth.isAdmin ? 'Superadmin' : 'Equipo' }}</small></span>
+          </a>
+          <button class="side__out" type="button" (click)="auth.logout()">Salir</button>
+        </div>
       }
-      <button class="btn-logout" (click)="auth.logout()">Salir</button>
-    </div>
-  </nav>
+    </aside>
+
+    <main class="shell__main"><router-outlet /></main>
+  </div>
+} @else {
+  <main class="bare"><router-outlet /></main>
 }
-<main [class.main-content]="showNav">
-  <router-outlet />
-</main>
 
 @if (showNav && auth.isAuthenticated) {
   <app-chat />

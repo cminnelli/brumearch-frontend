@@ -1,16 +1,13 @@
 <div class="projects">
 
-  <!-- Header -->
   <header class="page-header">
     <div class="page-header__left">
       <h1 class="page-header__title">Proyectos</h1>
-      <p class="page-header__desc">
-        {{ projects().length }} obra{{ projects().length !== 1 ? 's' : '' }} registrada{{ projects().length !== 1 ? 's' : '' }}
-      </p>
+      <p class="page-header__desc">{{ projects().length }} obra{{ projects().length !== 1 ? 's' : '' }} a las que tenés acceso</p>
     </div>
-    <button class="btn btn--primary" (click)="toggleForm()">
-      {{ showForm() ? 'Cancelar' : '+ Nuevo proyecto' }}
-    </button>
+    @if (auth.isAdmin) {
+      <button class="btn btn--primary" (click)="toggleForm()">{{ showForm() ? 'Cancelar' : '+ Nuevo proyecto' }}</button>
+    }
   </header>
 
   <!-- Form nuevo proyecto -->
@@ -154,65 +151,76 @@
     </form>
   }
 
-  <!-- Grid de proyectos -->
-  @if (projects().length === 0 && !showForm()) {
-    <div class="empty-state">
-      <p class="empty-state__title">Sin proyectos</p>
-      <p class="empty-state__desc">Creá tu primer proyecto para comenzar a gestionar obras</p>
-      <button class="btn btn--primary" (click)="toggleForm()">+ Nuevo proyecto</button>
+  @if (!showForm()) {
+    <div class="toolbar">
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span class="sr-only">Buscar proyecto</span>
+        <input type="search" placeholder="Buscar por nombre, cliente o ciudad" [value]="query()" (input)="query.set($any($event.target).value)" />
+      </label>
+      <div class="seg" role="group" aria-label="Filtrar por estado">
+        @for (f of filtros; track f.id) {
+          <button type="button" [attr.aria-pressed]="filtro() === f.id" (click)="filtro.set(f.id)">{{ f.label }}@if (conteo()[f.id]) { <span class="seg__n">{{ conteo()[f.id] }}</span> }</button>
+        }
+      </div>
+      <div class="seg toolbar__view" role="group" aria-label="Vista">
+        <button type="button" [attr.aria-pressed]="vista() === 'tarjetas'" (click)="setVista('tarjetas')" title="Tarjetas">Tarjetas</button>
+        <button type="button" [attr.aria-pressed]="vista() === 'tabla'" (click)="setVista('tabla')" title="Tabla">Tabla</button>
+      </div>
     </div>
-  }
 
-  @if (projects().length > 0 || showForm()) {
-    <div class="project-list">
-      @for (project of projects(); track project._id) {
-        <div class="project-card" [routerLink]="['/projects', project._id]">
-          <div class="project-card__meta">
-            <span class="project-card__type">{{ typeLabel(project.type) }}</span>
-            <span class="project-card__badge project-card__badge--{{ project.status }}">{{ statusLabel(project.status) }}</span>
-          </div>
-
-          <h2 class="project-card__name">{{ project.name }}</h2>
-
-          @if (project.owner?.name) {
-            <p class="project-card__client">{{ project.owner!.name }}</p>
-          }
-
-          @if (project.location?.city || project.location?.neighborhood) {
-            <p class="project-card__location">{{ locationStr(project) }}</p>
-          }
-
-          @if (project.features?.levels || project.features?.surface) {
-            <div class="project-card__metrics">
-              @if (project.features?.levels) {
-                <span class="project-card__metric">{{ project.features!.levels }} niveles</span>
-              }
-              @if (project.features?.surface) {
-                <span class="project-card__metric">{{ project.features!.surface }} m²</span>
-              }
-              @if (project.features?.units) {
-                <span class="project-card__metric">{{ project.features!.units }} unid.</span>
-              }
+    @if (loading()) {
+      <div class="cards">@for (i of [1,2,3]; track i) { <div class="card skeleton" style="height:230px"></div> }</div>
+    } @else if (!projects().length) {
+      <div class="empty-state">
+        <p class="empty-state__title">Sin proyectos</p>
+        <p class="empty-state__desc">{{ auth.isAdmin ? 'Creá tu primer proyecto para comenzar a gestionar obras.' : 'Todavía no tenés proyectos asignados. Pedile acceso al superadmin.' }}</p>
+        @if (auth.isAdmin) { <button class="btn btn--primary" (click)="toggleForm()">+ Nuevo proyecto</button> }
+      </div>
+    } @else if (!visibles().length) {
+      <div class="empty-state"><p class="empty-state__title">Sin resultados</p><p class="empty-state__desc">Probá con otro filtro o búsqueda.</p>
+        <button class="btn btn--ghost" (click)="query.set(''); filtro.set('todos')">Limpiar filtros</button></div>
+    } @else if (vista() === 'tarjetas') {
+      <div class="cards">
+        @for (p of visibles(); track p._id) {
+          <a class="card" [routerLink]="['/projects', p._id]">
+            <div class="card__cover" [style.background-image]="p.coverImage ? 'url(' + fileUrl(p.coverImage) + ')' : ''">
+              @if (!p.coverImage) { <span class="card__ph">{{ p.name[0] }}</span> }
+              <span class="pill card__status" [class.pill--good]="p.status === 'active'" [class.pill--dark]="p.status === 'completed'">{{ statusLabel(p.status) }}</span>
             </div>
-          }
-
-          <div class="project-card__footer">
-            @if ((docsMap()[project._id]?.length ?? 0) > 0) {
-              <span class="project-card__docs">{{ docsMap()[project._id]!.length }} doc{{ docsMap()[project._id]!.length !== 1 ? 's' : '' }}</span>
+            <div class="card__body">
+              <h2 class="card__name">{{ p.name }}</h2>
+              <p class="card__meta">{{ typeLabel(p.type) }}@if (p.city) { · {{ p.city }} }@if (p.client) { · {{ p.client }} }</p>
+              <div class="card__bars">
+                <div><span>Avance <b class="num">{{ p.avance.pct }}%</b></span><div class="progress progress--dark" [style.--v]="p.avance.pct"><i></i></div></div>
+                @if (ejecucion(p); as e) {
+                  <div><span>Ejecutado <b class="num">{{ fmt(e.gastado, e.moneda) }}</b></span><div class="progress" [style.--v]="e.aprobado ? e.pct : 0"><i></i></div></div>
+                }
+              </div>
+              @if (p.vencidos) { <span class="pill pill--bad">{{ p.vencidos }} pago{{ p.vencidos !== 1 ? 's' : '' }} vencido{{ p.vencidos !== 1 ? 's' : '' }}</span> }
+              @else if (p.avance.activa) { <span class="card__stage">Etapa: {{ p.avance.activa }}</span> }
+            </div>
+          </a>
+        }
+      </div>
+    } @else {
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Proyecto</th><th>Estado</th><th>Avance</th><th>Ejecutado</th><th>Pagos</th></tr></thead>
+          <tbody>
+            @for (p of visibles(); track p._id) {
+              <tr>
+                <td><a [routerLink]="['/projects', p._id]"><strong>{{ p.name }}</strong><small>{{ typeLabel(p.type) }}@if (p.city) { · {{ p.city }} }@if (p.client) { · {{ p.client }} }</small></a></td>
+                <td><span class="pill" [class.pill--good]="p.status === 'active'" [class.pill--dark]="p.status === 'completed'">{{ statusLabel(p.status) }}</span></td>
+                <td class="tbl__prog"><div class="progress progress--dark" [style.--v]="p.avance.pct"><i></i></div><b class="num">{{ p.avance.pct }}%</b></td>
+                <td class="num">@if (ejecucion(p); as e) { {{ fmt(e.gastado, e.moneda) }} } @else { — }</td>
+                <td>@if (p.vencidos) { <span class="pill pill--bad">{{ p.vencidos }} vencido{{ p.vencidos !== 1 ? 's' : '' }}</span> } @else if (p.pendientes) { <span class="pill">{{ p.pendientes }} pendiente{{ p.pendientes !== 1 ? 's' : '' }}</span> } @else { <span class="tbl__ok">Al día</span> }</td>
+              </tr>
             }
-            <span class="project-card__arrow">→</span>
-          </div>
-        </div>
-      }
-
-      <!-- Tarjeta "+" nuevo proyecto -->
-      @if (!showForm()) {
-        <div class="project-card project-card--new" (click)="toggleForm()">
-          <span class="project-card__new-icon">+</span>
-          <span class="project-card__new-label">Nuevo proyecto</span>
-        </div>
-      }
-    </div>
+          </tbody>
+        </table>
+      </div>
+    }
   }
 
 </div>

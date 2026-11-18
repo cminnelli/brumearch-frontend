@@ -1,5 +1,5 @@
 import { fileUrl } from './shared/utils/file-url';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, NavigationEnd, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
@@ -19,13 +19,16 @@ export class AppComponent implements OnInit {
   private router = inject(Router);
 
   showNav = false;
+  menuOpen = signal(false);
   avatarSrc() { return fileUrl(this.auth.currentUser()?.avatar); }
 
   ngOnInit() {
     this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe((e: any) => {
-        const hiddenRoutes = ['/login', '/auth/callback', '/profile-setup'];
+        this.menuOpen.set(false);
+        // el portal de cliente (/client) trae su propio encabezado
+        const hiddenRoutes = ['/login', '/auth/callback', '/profile-setup', '/client'];
         this.showNav = !hiddenRoutes.some((r) => e.urlAfterRedirects.startsWith(r));
       });
 

@@ -1,41 +1,16 @@
 @if (loading()) {
   <div class="loader">Cargando...</div>
 } @else if (project()) {
-  <div class="detail">
+  <div class="detail" [class.detail--readonly]="myRole() === 'lector'">
 
-    <!-- ═══════════════════════════════════════════════════
-         COVER (opcional, banner separado)
-    ════════════════════════════════════════════════════ -->
-    @if (project()!.coverImage) {
-      <div class="proj-cover" [style.background-image]="'url(' + coverUrl(project()!.coverImage!) + ')'">
-        @if (canEdit()) {
-        <label class="proj-cover__btn" [class.proj-cover__btn--loading]="coverUploading()" title="Cambiar foto">
-          @if (coverUploading()) { Subiendo... } @else { Cambiar foto }
-          <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
-        </label>
-        }
-      </div>
-    } @else {
-      <div class="proj-cover proj-cover--placeholder">
-        @if (canEdit()) {
-        <label class="proj-cover__add" title="Agregar foto de portada">
-          @if (coverUploading()) { Subiendo... } @else { + Agregar foto de portada }
-          <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
-        </label>
-        }
-      </div>
-    }
-
-    <!-- ═══════════════════════════════════════════════════
-         HEADER
-    ════════════════════════════════════════════════════ -->
-    <div class="proj-header">
-      <div class="proj-header__top">
+    <!-- ═══ ENCABEZADO: identidad + salud de la obra, siempre visible ═══ -->
+    <header class="proj-head">
+      <div class="proj-head__top">
         <a routerLink="/projects" class="back-link">← Proyectos</a>
         <div class="proj-header__actions">
           @if (myRole() === 'lector') { <span class="role-badge" title="Podés ver el proyecto pero no modificarlo">Solo lectura</span> }
           @if (!editing()) {
-            @if (canEdit()) { <button class="btn btn--ghost btn--sm" (click)="startEdit(project()!)">Editar</button> }
+            @if (canEdit()) { <button class="btn btn--ghost btn--sm" (click)="startEdit(project()!); setTab('info')">Editar</button> }
             @if (isSuper()) { <button class="btn btn--ghost btn--sm btn--del" (click)="deleteProject()">Eliminar</button> }
           } @else {
             <button class="btn btn--primary btn--sm" (click)="save()">Guardar cambios</button>
@@ -44,48 +19,42 @@
         </div>
       </div>
 
-      <div class="proj-header__body">
-        <div class="proj-header__title-row">
-          <h1 class="proj-header__name">{{ project()!.name }}</h1>
-          <span class="status-badge status-badge--{{ project()!.status }}">{{ statusLabel(project()!.status) }}</span>
-        </div>
-        <div class="proj-header__meta">
-          <span class="proj-meta">{{ typeLabel(project()!.type) }}</span>
-          @if (project()!.location?.city) {
-            <span class="proj-meta-sep">·</span>
-            <span class="proj-meta">{{ project()!.location!.city }}</span>
-          }
-          @if (project()!.startDate) {
-            <span class="proj-meta-sep">·</span>
-            <span class="proj-meta">Inicio {{ project()!.startDate | date:'MMM yyyy' }}</span>
-          }
-          @if (project()!.budget?.estimated) {
-            <span class="proj-meta-sep">·</span>
-            <span class="proj-meta proj-meta--budget">{{ project()!.budget!.currency }} {{ project()!.budget!.estimated | arsNum }}</span>
-          }
-        </div>
+      <div class="proj-head__title">
+        <h1 class="proj-head__name">{{ project()!.name }}</h1>
+        <span class="pill" [class.pill--good]="project()!.status === 'active'" [class.pill--dark]="project()!.status === 'completed'">{{ statusLabel(project()!.status) }}</span>
       </div>
-    </div>
+      <p class="proj-head__meta">
+        {{ typeLabel(project()!.type) }}
+        @if (project()!.location?.city) { · {{ project()!.location!.city }} }
+        @if (project()!.owner?.name) { · {{ project()!.owner!.name }} }
+        @if (project()!.startDate) { · Inicio {{ project()!.startDate | date:'MMM yyyy' }} }
+      </p>
 
-    <!-- ═══════════════════════════════════════════════════
-         TABS
-    ════════════════════════════════════════════════════ -->
-    <nav class="proj-tabs">
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'info'" (click)="setTab('info')">Información</button>
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'obra'" (click)="setTab('obra')">Obra</button>
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'resumen'" (click)="setTab('resumen')">Finanzas</button>
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'caja'" (click)="setTab('caja')">Reservas</button>
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'documentos'" (click)="setTab('documentos')">
-        Documentos
-        @if (docs().length) { <span class="proj-tab__badge">{{ docs().length }}</span> }
-      </button>
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'planificacion'" (click)="setTab('planificacion')">Planificación</button>
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'selecciones'" (click)="setTab('selecciones')">Selecciones</button>
-      <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'config'" (click)="setTab('config')">Configuración</button>
-      @if (canEdit()) {
-        <button class="proj-tab" [class.proj-tab--active]="activeTab() === 'equipo'" (click)="setTab('equipo')">Equipo</button>
+      @if (kpis(); as k) {
+        <div class="proj-kpis" aria-label="Estado de la obra">
+          <div class="pk"><span>Presupuesto aprobado</span><strong class="num">{{ k.aprobado }}</strong></div>
+          <div class="pk"><span>Ejecutado</span><strong class="num">{{ k.gastado }}</strong>
+            @if (k.pctEjec !== null) { <div class="progress" [class.progress--warn]="k.pctEjec >= 85" [class.progress--bad]="k.pctEjec > 100" [style.--v]="k.pctEjec > 100 ? 100 : k.pctEjec"><i></i></div> }</div>
+          <div class="pk"><span>Pagado / pendiente</span><strong class="num">{{ k.pagado }}</strong><small>Pendiente {{ k.pendiente }}</small></div>
+          <div class="pk"><span>Avance de etapas</span><strong class="num">{{ k.avance }}%</strong><div class="progress progress--dark" [style.--v]="k.avance"><i></i></div></div>
+        </div>
+      }
+    </header>
+
+    <!-- ═══ NAVEGACIÓN: 7 secciones; las relacionadas se agrupan con una sub-barra ═══ -->
+    <nav class="pnav" aria-label="Secciones del proyecto">
+      @for (t of navTabs(); track t.id) {
+        <button class="pnav__item" type="button" [class.pnav__item--on]="isGroupActive(t)" [attr.aria-current]="isGroupActive(t) ? 'page' : null" (click)="setTab(t.id)">
+          {{ t.label }}@if (t.id === 'documentos' && docs().length) { <span class="pnav__badge">{{ docs().length }}</span> }
+        </button>
       }
     </nav>
+    @if (activeSub(); as sub) {
+      <div class="seg psub" role="group" aria-label="Subsección">
+        @for (s of sub; track s.id) { <button type="button" [attr.aria-pressed]="activeTab() === s.id" (click)="setTab(s.id)">{{ s.label }}</button> }
+      </div>
+    }
+
 
     @if (activeTab() === 'equipo' && canEdit()) {
       <div class="tab-content">
@@ -397,6 +366,25 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'info') {
       <div class="tab-content">
+            @if (project()!.coverImage) {
+              <div class="proj-cover" [style.background-image]="'url(' + coverUrl(project()!.coverImage!) + ')'">
+                @if (canEdit()) {
+                <label class="proj-cover__btn" [class.proj-cover__btn--loading]="coverUploading()" title="Cambiar foto">
+                  @if (coverUploading()) { Subiendo... } @else { Cambiar foto }
+                  <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
+                </label>
+                }
+              </div>
+            } @else {
+              <div class="proj-cover proj-cover--placeholder">
+                @if (canEdit()) {
+                <label class="proj-cover__add" title="Agregar foto de portada">
+                  @if (coverUploading()) { Subiendo... } @else { + Agregar foto de portada }
+                  <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
+                </label>
+                }
+              </div>
+            }
         <div class="info-layout">
 
           <!-- COL PRINCIPAL -->

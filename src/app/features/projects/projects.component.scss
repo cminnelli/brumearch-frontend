@@ -267,3 +267,35 @@
   &__new-icon  { font-size: 1.8rem; color: var(--c-text-muted); line-height: 1; }
   &__new-label { font-size: var(--text-sm); font-weight: 600; color: var(--c-text-muted); }
 }
+
+
+/* Plano Suizo — listado */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-bottom: var(--sp-3);
+  &__view { margin-left: auto; } }
+.seg__n { margin-left: .4rem; font-size: var(--text-xs); opacity: .6; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-3); }
+.card { display: flex; flex-direction: column; border: 1px solid var(--c-border); border-radius: var(--radius-md); background: var(--c-bg); overflow: hidden; transition: border-color var(--t-fast), transform var(--t-fast);
+  &:hover { border-color: var(--c-text); }
+  &__cover { position: relative; height: 130px; background: var(--c-surface) center/cover no-repeat; border-bottom: 1px solid var(--c-border);
+    background-image: repeating-linear-gradient(0deg, transparent 0 23px, var(--c-border) 23px 24px), repeating-linear-gradient(90deg, transparent 0 23px, var(--c-border) 23px 24px); }
+  &__cover[style*="url"] { background-size: cover; }
+  &__ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-head); font-size: 3rem; font-weight: 700; color: var(--c-border-strong); }
+  &__status { position: absolute; top: .7rem; left: .7rem; background: var(--c-bg); }
+  &__body { display: flex; flex-direction: column; gap: .6rem; padding: var(--sp-3); flex: 1; }
+  &__name { font-family: var(--font-head); font-size: var(--text-xl); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+  &__meta { font-size: var(--text-sm); color: var(--c-text-sub); }
+  &__bars { display: flex; flex-direction: column; gap: .6rem; margin-top: auto; padding-top: .4rem;
+    > div { display: flex; flex-direction: column; gap: .3rem; span { font-size: var(--text-sm); color: var(--c-text-sub); b { color: var(--c-text); font-weight: 600; } } } }
+  &__stage { font-size: var(--text-sm); color: var(--c-text-sub); }
+  .pill { align-self: flex-start; } }
+
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: var(--radius-md); }
+.tbl { width: 100%; min-width: 720px; border-collapse: collapse;
+  th { text-align: left; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--c-text-sub); font-weight: 600; padding: .7rem 1rem; background: var(--c-surface); }
+  td { padding: .85rem 1rem; border-top: 1px solid var(--c-border); vertical-align: middle; }
+  tr:hover td { background: var(--c-surface); }
+  td a { display: block; strong { display: block; font-weight: 600; } small { color: var(--c-text-sub); font-size: var(--text-sm); } }
+  &__prog { display: flex; align-items: center; gap: .6rem; min-width: 150px; .progress { flex: 1; } b { font-weight: 600; font-size: var(--text-sm); } }
+  &__ok { color: var(--c-good); font-size: var(--text-sm); font-weight: 600; } }

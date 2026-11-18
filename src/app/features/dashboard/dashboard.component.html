@@ -1,74 +1,107 @@
 <div class="dash">
-
-  <!-- Header -->
   <header class="page-header">
     <div class="page-header__left">
-      <h1 class="page-header__title">Dashboard</h1>
-      <p class="page-header__desc">Resumen de tu actividad en Brum Arch</p>
+      <p class="dash__date">{{ today | date:'EEEE d \'de\' MMMM':'':'es-AR' }}</p>
+      <h1 class="page-header__title">{{ saludo() }}@if (firstName()) {, {{ firstName() }}}</h1>
     </div>
-    <a routerLink="/projects" class="btn btn--primary">Ver proyectos</a>
+    @if (auth.isAdmin) { <a routerLink="/projects" [queryParams]="{ nuevo: 1 }" class="btn btn--primary">+ Nuevo proyecto</a> }
   </header>
 
-  <!-- Stats -->
-  <div class="dash-stats">
-    <div class="stat-card">
-      <span class="stat-card__label">Total</span>
-      @if (total() === 0 && active() === 0 && completed() === 0) {
-        <span class="stat-card__value skeleton" style="width:60px;height:3rem;display:block"></span>
-      } @else {
-        <span class="stat-card__value">{{ total() }}</span>
-        <span class="stat-card__sub">proyectos registrados</span>
-      }
+  @if (loading()) {
+    <div class="dash-kpis">
+      @for (i of [1,2,3,4]; track i) { <div class="kpi"><span class="skeleton" style="height:.8rem;width:50%"></span><span class="skeleton" style="height:2rem;width:70%"></span></div> }
     </div>
+  } @else if (error()) {
+    <div class="empty-state"><span class="empty-state__title">No se pudo cargar el panel</span><span class="empty-state__desc">Revisá tu conexión y volvé a intentar.</span></div>
+  } @else {
+   @if (data(); as d) {
 
-    <div class="stat-card">
-      <span class="stat-card__label">En curso</span>
-      @if (total() === 0 && active() === 0 && completed() === 0) {
-        <span class="stat-card__value skeleton" style="width:60px;height:3rem;display:block"></span>
-      } @else {
-        <span class="stat-card__value">{{ active() }}</span>
-        <span class="stat-card__sub">proyectos activos</span>
-      }
-    </div>
-
-    <div class="stat-card">
-      <span class="stat-card__label">Completados</span>
-      @if (total() === 0 && active() === 0 && completed() === 0) {
-        <span class="stat-card__value skeleton" style="width:60px;height:3rem;display:block"></span>
-      } @else {
-        <span class="stat-card__value">{{ completed() }}</span>
-        <span class="stat-card__sub">obras finalizadas</span>
-      }
-    </div>
-  </div>
-
-  <!-- Quick actions -->
-  @if (total() > 0) {
-    <div class="dash-actions">
-      <p class="section-label">Accesos rápidos</p>
-      <div class="dash-actions__grid">
-        <a routerLink="/projects" class="action-card">
-          <span class="action-card__title">Proyectos</span>
-          <span class="action-card__desc">Ver y gestionar todas las obras</span>
-          <span class="action-card__arrow">→</span>
-        </a>
-        <a routerLink="/config" class="action-card">
-          <span class="action-card__title">Configuración</span>
-          <span class="action-card__desc">Rubros, etapas y proveedores</span>
-          <span class="action-card__arrow">→</span>
-        </a>
-        <a routerLink="/entorno" class="action-card">
-          <span class="action-card__title">Entorno</span>
-          <span class="action-card__desc">Dólar, clima y aptitud de obra</span>
-          <span class="action-card__arrow">→</span>
-        </a>
+    @if (!d.proyectos.length) {
+      <div class="empty-state">
+        <span class="empty-state__title">Todavía no tenés proyectos</span>
+        <span class="empty-state__desc">{{ auth.isAdmin ? 'Creá el primero para empezar a cargar gastos y presupuestos.' : 'Pedile al superadmin de Brume Arch que te dé acceso a una obra.' }}</span>
+        @if (auth.isAdmin) { <a routerLink="/projects" [queryParams]="{ nuevo: 1 }" class="btn btn--primary">+ Nuevo proyecto</a> }
       </div>
-    </div>
-  }
+    } @else {
 
-  <!-- Empty state -->
-  @if (total() === 0 && active() === 0 && completed() === 0) {
-    <!-- skip — loading state handled in stat cards -->
-  }
+      <section class="dash-kpis" aria-label="Resumen">
+        <div class="kpi">
+          <span class="kpi__label">Obras activas</span>
+          <strong class="kpi__value num">{{ activos().length }}</strong>
+          <span class="kpi__sub">de {{ d.proyectos.length }} proyecto{{ d.proyectos.length !== 1 ? 's' : '' }}</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Avance promedio</span>
+          <strong class="kpi__value num">{{ avancePromedio() }}<small>%</small></strong>
+          <div class="progress progress--dark" [style.--v]="avancePromedio()"><i></i></div>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Gastado</span>
+          @if (monedasGasto().length) {
+            @for (m of monedasGasto(); track m) { <strong class="kpi__money num">{{ fmt(d.totales.gastado[m], m) }}</strong> }
+          } @else { <strong class="kpi__value num">—</strong> }
+          <span class="kpi__sub">en todas las obras</span>
+        </div>
+        <div class="kpi" [class.kpi--alert]="d.pagosVencidos > 0">
+          <span class="kpi__label">Pagos pendientes</span>
+          <strong class="kpi__value num">{{ pendientesTotal() }}</strong>
+          @if (d.pagosVencidos) { <span class="pill pill--bad">{{ d.pagosVencidos }} vencido{{ d.pagosVencidos !== 1 ? 's' : '' }}</span> }
+          @else { <span class="kpi__sub">sin vencidos</span> }
+        </div>
+      </section>
 
+      <div class="dash-cols">
+        <section class="dash-panel" aria-labelledby="h-obras">
+          <header class="dash-panel__head"><h2 id="h-obras">Obras en curso</h2><a routerLink="/projects" class="link">Ver todas →</a></header>
+          <ul class="obras">
+            @for (p of enCurso(); track p._id) {
+              <li>
+                <a class="obra" [routerLink]="['/projects', p._id]">
+                  <div class="obra__top">
+                    <strong class="obra__name">{{ p.name }}</strong>
+                    <span class="pill" [class.pill--good]="p.status === 'active'">{{ statusLabel(p.status) }}</span>
+                  </div>
+                  <span class="obra__meta">{{ typeLabel(p.type) }}@if (p.city) { · {{ p.city }} }@if (p.avance.activa) { · Etapa: {{ p.avance.activa }} }</span>
+                  <div class="obra__bars">
+                    <div class="obra__bar">
+                      <span>Avance <b class="num">{{ p.avance.pct }}%</b></span>
+                      <div class="progress progress--dark" [style.--v]="p.avance.pct"><i></i></div>
+                    </div>
+                    @if (ejecucion(p); as e) {
+                      <div class="obra__bar">
+                        <span>Ejecutado <b class="num">{{ fmt(e.gastado, e.moneda) }}</b>@if (e.aprobado) { <em> / {{ fmt(e.aprobado, e.moneda) }}</em> }</span>
+                        <div class="progress" [class]="'progress ' + (tono(e.pct) ? 'progress--' + tono(e.pct) : '')" [style.--v]="e.aprobado ? (e.pct > 100 ? 100 : e.pct) : 0"><i></i></div>
+                      </div>
+                    }
+                  </div>
+                  @if (p.vencidos) { <span class="pill pill--bad">{{ p.vencidos }} pago{{ p.vencidos !== 1 ? 's' : '' }} vencido{{ p.vencidos !== 1 ? 's' : '' }}</span> }
+                </a>
+              </li>
+            } @empty { <li class="dash-empty">No hay obras en curso.</li> }
+          </ul>
+        </section>
+
+        <section class="dash-panel" aria-labelledby="h-pagos">
+          <header class="dash-panel__head"><h2 id="h-pagos">Próximos pagos</h2></header>
+          <ul class="pagos">
+            @for (pg of d.pagosPendientes.slice(0, 8); track pg.pagoId) {
+              <li>
+                <a [routerLink]="['/projects', pg.projectId]" [queryParams]="{ tab: 'obra' }" class="pago">
+                  <div class="pago__main">
+                    <strong>{{ pg.proveedor ?? pg.concepto ?? 'Pago' }}</strong>
+                    <small>{{ pg.projectName }}</small>
+                  </div>
+                  <div class="pago__side">
+                    <b class="num">{{ fmt(pg.monto, pg.moneda) }}</b>
+                    <span class="pill" [class.pill--bad]="pg.vencido" [class.pill--warn]="!pg.vencido && dias(pg.fecha).startsWith('Hoy')">{{ dias(pg.fecha) }}</span>
+                  </div>
+                </a>
+              </li>
+            } @empty { <li class="dash-empty">No hay pagos pendientes. Todo al día.</li> }
+          </ul>
+        </section>
+      </div>
+    }
+  }
+  }
 </div>

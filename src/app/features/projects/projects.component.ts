@@ -1,7 +1,11 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
+import { DashboardService, ProjectSummary, fmtMoney } from '../../core/services/dashboard.service';
+import { AuthService } from '../../core/services/auth.service';
+import { fileUrl } from '../../shared/utils/file-url';
 import { ProjectService } from '../../core/services/project.service';
 import { DocumentService, ProjectDocument } from '../../core/services/document.service';
 import {
@@ -23,8 +27,41 @@ import { AddressSearchComponent, ParsedAddress } from '../../shared/components/a
 export class ProjectsComponent implements OnInit {
   private projectService = inject(ProjectService);
   private documentService = inject(DocumentService);
+  private dashboard = inject(DashboardService);
+  private route = inject(ActivatedRoute);
+  auth = inject(AuthService);
 
-  projects = signal<Project[]>([]);
+  projects = signal<ProjectSummary[]>([]);
+  loading  = signal(true);
+  query    = signal('');
+  filtro   = signal<'todos' | ProjectStatus>('todos');
+  vista    = signal<'tarjetas' | 'tabla'>((localStorage.getItem('proj_vista') as 'tarjetas' | 'tabla') || 'tarjetas');
+  fmt = fmtMoney;
+  fileUrl = fileUrl;
+
+  conteo = computed(() => {
+    const c: Record<string, number> = { todos: this.projects().length };
+    for (const p of this.projects()) c[p.status] = (c[p.status] ?? 0) + 1;
+    return c;
+  });
+  visibles = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    const f = this.filtro();
+    return this.projects().filter(p =>
+      (f === 'todos' || p.status === f) &&
+      (!q || [p.name, p.client, p.city].some(v => v?.toLowerCase().includes(q))));
+  });
+  filtros: { id: 'todos' | ProjectStatus; label: string }[] = [
+    { id: 'todos', label: 'Todos' }, { id: 'active', label: 'Activos' }, { id: 'draft', label: 'Borradores' },
+    { id: 'completed', label: 'Completados' }, { id: 'archived', label: 'Archivados' },
+  ];
+  setVista(v: 'tarjetas' | 'tabla') { this.vista.set(v); try { localStorage.setItem('proj_vista', v); } catch { /* sin storage */ } }
+  ejecucion(p: ProjectSummary) {
+    const mon = (['USD', 'ARS', 'EUR'] as const).find(m => p.aprobado[m] > 0 || p.gastado[m] > 0);
+    if (!mon) return null;
+    const aprobado = p.aprobado[mon], gastado = p.gastado[mon];
+    return { moneda: mon, gastado, aprobado, pct: aprobado ? Math.min(100, Math.round(gastado / aprobado * 100)) : 0 };
+  }
   showForm = signal(false);
   docsMap = signal<Record<string, ProjectDocument[] | undefined>>({});
   uploadingFor = signal<string | null>(null);
@@ -35,12 +72,15 @@ export class ProjectsComponent implements OnInit {
 
   form = this.emptyForm();
 
-  ngOnInit() { this.load(); }
+  ngOnInit() {
+    this.load();
+    if (this.route.snapshot.queryParamMap.get('nuevo') && this.auth.isAdmin) this.showForm.set(true);
+  }
 
   load() {
-    this.projectService.getAll().subscribe((data) => {
-      this.projects.set(data);
-      data.forEach((p) => this.loadDocs(p._id));
+    this.dashboard.get().subscribe({
+      next: (d) => { this.projects.set(d.proyectos); this.loading.set(false); },
+      error: () => this.loading.set(false),
     });
   }
 
@@ -145,9 +185,7 @@ export class ProjectsComponent implements OnInit {
 
   typeLabel(type: ProjectType) { return PROJECT_TYPE_LABELS[type] ?? type; }
   statusLabel(status: ProjectStatus) { return PROJECT_STATUS_LABELS[status] ?? status; }
-  locationStr(p: Project) {
-    return [p.location?.neighborhood, p.location?.city].filter(Boolean).join(', ');
-  }
+  locationStr(p: ProjectSummary) { return p.city ?? ''; }
 
   private emptyForm() {
     return {
