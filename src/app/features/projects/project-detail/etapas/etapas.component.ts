@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ConfigService, EtapaPlantilla } from '../../../../core/services/config.service';
 import { avanceObra } from '../../../../shared/utils/avance';
-import { analizarCronograma, fmtCorta, fmtLarga, diasEntre } from '../../../../shared/utils/desvios';
+import { analizarCronograma, fmtCorta, fmtLarga, diasEntre, parseDia } from '../../../../shared/utils/desvios';
 import { environment } from '../../../../../environments/environment';
 
 type EstadoEtapa = 'pendiente' | 'activa' | 'completada';
@@ -20,6 +20,7 @@ interface ProyectoEtapa {
   avance?:      number | null;
   fechaInicioReal?: string | null;
   fechaFinReal?:    string | null;
+  fechaFinEstimada?: string | null;
 }
 
 const ESTADO_NEXT: Record<EstadoEtapa, EstadoEtapa> = {
@@ -80,12 +81,13 @@ export class EtapasComponent implements OnInit {
         avance: estado === 'activa' ? (a.avance ?? null) : null,
         fechaInicioReal: estado === 'pendiente' ? null : inicio,
         fechaFinReal: estado === 'completada' ? (a.fechaFinReal || hoy) : null,
+        fechaFinEstimada: estado === 'completada' ? null : (a.fechaFinEstimada ?? null),
       };
     }));
     this.save();
   }
   /** Corrige a mano una fecha real (la fecha en que se marcó puede no ser la fecha en que ocurrió). */
-  setReal(id: string, campo: 'fechaInicioReal' | 'fechaFinReal', valor: string) {
+  setReal(id: string, campo: 'fechaInicioReal' | 'fechaFinReal' | 'fechaFinEstimada', valor: string) {
     this.assigned.update(list => list.map(a => a._id !== id ? a : { ...a, [campo]: valor || null }));
     this.save();
   }
@@ -95,10 +97,12 @@ export class EtapasComponent implements OnInit {
     this.save();
   }
   // ── Plan vs. real ──
-  fmtCorta = fmtCorta; fmtLarga = fmtLarga;
+  fmtCorta = fmtCorta; fmtLarga = fmtLarga; parse = parseDia;
+  /** Abre el calendario nativo del campo de fecha (con respaldo si el navegador no lo soporta). */
+  abrir(i: HTMLInputElement) { try { i.showPicker(); } catch { i.focus(); i.click(); } }
   analisis = computed(() => analizarCronograma(this.assigned().map(a => ({
     id: a._id!, nombre: a.nombre, orden: a.orden, estado: a.estado, avance: a.avance, fechaInicio: a.fechaInicio, duracion: a.duracion,
-    fechaInicioReal: a.fechaInicioReal, fechaFinReal: a.fechaFinReal,
+    fechaInicioReal: a.fechaInicioReal, fechaFinReal: a.fechaFinReal, fechaFinEstimada: a.fechaFinEstimada,
   }))));
   analisisPorId = computed(() => Object.fromEntries(this.analisis().etapas.map(x => [x.id, x])));
   readonly TONO_PILL = { ok: 'pill--good', warn: 'pill--warn', bad: 'pill--bad', none: '' } as const;
@@ -143,6 +147,7 @@ export class EtapasComponent implements OnInit {
           avance:      d.avance ?? null,
           fechaInicioReal: d.fechaInicioReal ? new Date(d.fechaInicioReal).toISOString().split('T')[0] : null,
           fechaFinReal:    d.fechaFinReal ? new Date(d.fechaFinReal).toISOString().split('T')[0] : null,
+          fechaFinEstimada: d.fechaFinEstimada ? new Date(d.fechaFinEstimada).toISOString().split('T')[0] : null,
         })));
         if (data.length === 0) this.catalogOpen.set(true);
         this.loading.set(false);
@@ -278,6 +283,7 @@ export class EtapasComponent implements OnInit {
       avance:      a.estado === 'activa' ? (a.avance ?? null) : null,
       fechaInicioReal: a.fechaInicioReal || null,
       fechaFinReal:    a.fechaFinReal || null,
+      fechaFinEstimada: a.estado === 'completada' ? null : (a.fechaFinEstimada || null),
     }));
     this.http.put<any[]>(`${this.base}/projects/${this.projectId}/etapas`, body).subscribe({
       next: data => {

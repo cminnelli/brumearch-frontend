@@ -14,6 +14,8 @@ export interface EtapaIn {
   duracion?: number | null;        // semanas planificadas
   fechaInicioReal?: string | null;
   fechaFinReal?: string | null;
+  /** Fin que estima una persona para una etapa en curso o pendiente. */
+  fechaFinEstimada?: string | null;
 }
 
 export type Tono = 'ok' | 'warn' | 'bad' | 'none';
@@ -31,6 +33,8 @@ export interface EtapaAnalisis {
   /** Días de desvío del fin: positivo = tarde, negativo = antes. */
   desvioDias: number | null;
   texto: string;
+  /** Para la etiqueta chica: "+30 d", "-3 d" o "En plazo". */
+  corto: string;
   tono: Tono;
 }
 
@@ -69,6 +73,7 @@ export function analizarCronograma(entrada: EtapaIn[], hoy: Date = new Date()): 
     const planFin = planInicio && e.duracion ? sumar(planInicio, e.duracion * 7) : null;
     const realInicio = parseDia(e.fechaInicioReal) ?? (e.estado !== 'pendiente' ? planInicio : null);
     const realFin = parseDia(e.fechaFinReal);
+    const estimada = parseDia(e.fechaFinEstimada);
     let proyFin: Date | null = null, desvio: number | null = null, texto = '', tono: Tono = 'none';
 
     if (e.estado === 'completada') {
@@ -81,18 +86,24 @@ export function analizarCronograma(entrada: EtapaIn[], hoy: Date = new Date()): 
     } else if (e.estado === 'activa') {
       const base = realInicio ?? planInicio;
       const av = e.avance;                         // solo se proyecta con un % que cargó una persona
-      if (base && av && av > 0) {
+      if (estimada) proyFin = estimada;            // la fecha que cargó una persona manda sobre el cálculo
+      else if (base && av && av > 0) {
         const transcurrido = Math.max(1, diasEntre(base, h));
         proyFin = sumar(base, transcurrido / (av / 100));
       } else if (planFin) proyFin = planFin;       // sin avance cargado: como mínimo, el plan
-      if (proyFin && proyFin < h) proyFin = h;
+      if (proyFin && proyFin < h && !estimada) proyFin = h;
       if (proyFin && planFin) {
         desvio = diasEntre(planFin, proyFin);
-        texto = desvio > 0 ? `Va ${plural(desvio)} tarde` : 'En plazo';
+        texto = desvio > 0 ? `${estimada ? 'Estimás' : 'Va'} ${plural(desvio)} tarde` : desvio < 0 ? `Estimás terminar ${plural(desvio)} antes` : 'En plazo';
         carry = Math.max(0, desvio);
       } else texto = 'Sin fechas planificadas';
     } else {
-      if (planInicio && planFin) {
+      if (planInicio && planFin && estimada) {
+        proyFin = estimada;
+        desvio = diasEntre(planFin, estimada);
+        texto = desvio > 0 ? `Estimás ${plural(desvio)} tarde` : desvio < 0 ? `Estimás terminar ${plural(desvio)} antes` : 'En plazo';
+        carry = Math.max(carry, desvio);
+      } else if (planInicio && planFin) {
         if (diasEntre(planInicio, h) > carry) carry = diasEntre(planInicio, h);   // ya debería haber empezado
         const c = Math.max(0, carry);
         proyFin = sumar(planFin, c);
@@ -101,7 +112,8 @@ export function analizarCronograma(entrada: EtapaIn[], hoy: Date = new Date()): 
       } else texto = 'Sin fechas planificadas';
     }
     tono = tonoDe(desvio);
-    return { id: e.id, nombre: e.nombre, estado: e.estado, planInicio, planFin, realInicio, realFin, proyFin, desvioDias: desvio, texto, tono };
+    const corto = desvio === null ? '' : desvio > 0 ? `+${desvio} d` : desvio < 0 ? `${desvio} d` : 'En plazo';
+    return { id: e.id, nombre: e.nombre, estado: e.estado, planInicio, planFin, realInicio, realFin, proyFin, desvioDias: desvio, texto, corto, tono };
   });
 
   const conPlan = etapas.filter(x => x.planFin);
@@ -118,22 +130,22 @@ export function analizarCronograma(entrada: EtapaIn[], hoy: Date = new Date()): 
     if (etapas.every(x => x.estado === 'completada')) {
       insights.push({ tono: tonoDe(desvioDias), texto: desvioDias > 0 ? `La obra terminó ${plural(desvioDias)} después de lo planificado (${fmtLarga(planFin)}).` : desvioDias < 0 ? `La obra terminó ${plural(desvioDias)} antes de lo planificado.` : 'La obra terminó en la fecha planificada.' });
     } else insights.push({ tono: tonoDe(desvioDias), texto: desvioDias > 0
-      ? `Al ritmo actual la obra terminaría el ${fmtLarga(proyFin)}: ${plural(desvioDias)} más tarde que el plan (${fmtLarga(planFin)}).`
+      ? `Con lo cargado hasta hoy la obra terminaría el ${fmtLarga(proyFin)}, ${plural(desvioDias)} después del plan (${fmtLarga(planFin)}).`
       : `La obra va en fecha: fin previsto el ${fmtLarga(planFin)}.` });
     const act = lista.find(e => e.estado === 'activa' && e.avance);
-    if (desvioDias > 0 && act) insights[insights.length - 1].texto += ` Se calcula con el ${act.avance}% de avance cargado en ${act.nombre}: ajustalo si no refleja la realidad.`;
+    if (desvioDias > 0 && act && !act.fechaFinEstimada) insights[insights.length - 1].texto += ` Estimado con el ${act.avance}% de avance de ${act.nombre}: cargá su fin estimado para ajustarlo.`;
   }
   const activa = etapas.find(x => x.estado === 'activa');
   if (activa?.planFin && activa.desvioDias && activa.desvioDias > 0 && activa.planFin < h) {
-    insights.push({ tono: activa.tono, texto: `${activa.nombre} debía terminar el ${fmtLarga(activa.planFin)} y sigue en curso: acumula ${plural(diasEntre(activa.planFin, h))} de atraso.` });
+    insights.push({ tono: activa.tono, texto: `${activa.nombre} debía terminar el ${fmtLarga(activa.planFin)} y sigue en curso (${plural(diasEntre(activa.planFin, h))} de atraso).` });
   }
   const terminadas = etapas.filter(x => x.estado === 'completada' && x.desvioDias !== null);
   const peor = [...terminadas].sort((a, b) => b.desvioDias! - a.desvioDias!)[0];
   if (peor && peor.desvioDias! > 0) insights.push({ tono: peor.tono, texto: `${peor.nombre} fue la etapa con más desvío: terminó ${plural(peor.desvioDias!)} tarde.` });
   const mejor = [...terminadas].sort((a, b) => a.desvioDias! - b.desvioDias!)[0];
   if (mejor && mejor.desvioDias! < 0) insights.push({ tono: 'ok', texto: `${mejor.nombre} se adelantó ${plural(mejor.desvioDias!)}.` });
-  const sinAvance = lista.find(e => e.estado === 'activa' && (e.avance === null || e.avance === undefined));
-  if (sinAvance) insights.push({ tono: 'none', texto: `Cargá el % de avance de ${sinAvance.nombre} para proyectar con más precisión cuándo termina.` });
+  const sinAvance = lista.find(e => e.estado === 'activa' && !e.avance && !e.fechaFinEstimada);
+  if (sinAvance) insights.push({ tono: 'none', texto: `Cargá la fecha de fin estimada de ${sinAvance.nombre} (o su % de avance) para proyectar cuándo termina.` });
   const sinFecha = etapas.filter(x => x.estado === 'completada' && !x.realFin);
   if (sinFecha.length) insights.push({ tono: 'none', texto: sinFecha.length > 2 ? `Faltan las fechas reales de fin de ${sinFecha.length} etapas completadas para medir su desvío.` : `Falta la fecha real de fin de ${sinFecha.map(x => x.nombre).join(' y ')} para medir su desvío.` });
 

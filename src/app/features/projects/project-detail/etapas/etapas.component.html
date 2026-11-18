@@ -19,63 +19,26 @@
   </div>
 
   @if (!loading() && assigned().length && !catalogOpen()) {
-    <div class="avance-card">
-      <div class="avance-card__top">
-        <div><span class="avance-card__label">Avance de obra</span><strong class="avance-card__pct num">{{ completedPct() }}%</strong></div>
-        <p class="avance-card__how">
-          Sale del avance de cada etapa que cargás acá abajo, {{ ponderado() ? 'ponderado por su duración en semanas' : 'con el mismo peso para cada etapa (cargá la duración de todas para ponderar)' }}.
-          Completada cuenta 100%, pendiente 0% y en curso el porcentaje que indiques (50% si no lo cargás).
-        </p>
-      </div>
-      <div class="progress" [style.--v]="completedPct()"><i></i></div>
-    </div>
-  }
-
-  @if (!loading() && assigned().length && !catalogOpen()) {
-    <section class="pv" aria-label="Plan contra real">
-      <header class="pv__head">
-        <h3>Plan contra real</h3>
-        <div class="pv__kpis">
-          <div><span>Fin planificado</span><strong class="num">{{ fmtLarga(analisis().planFin) }}</strong></div>
-          <div><span>Fin proyectado</span><strong class="num">{{ fmtLarga(analisis().proyFin) }}</strong></div>
-          <div><span>Desvío</span>
-            @if (analisis().desvioDias !== null) {
-              <strong class="pv__dev pv__dev--{{ analisis().tono }}">{{ analisis().desvioDias! > 0 ? '+' : '' }}{{ analisis().desvioDias }} días</strong>
-            } @else { <strong class="num">—</strong> }
-          </div>
+    <section class="pv" aria-label="Planificado, real y hoy">
+      <div class="pv__top">
+        <div class="pv__avance">
+          <span class="pv__lbl">Avance de obra</span>
+          <strong class="pv__pct num">{{ completedPct() }}%</strong>
+          <div class="progress progress--dark" [style.--v]="completedPct()"><i></i></div>
+          <small>Promedio del avance de cada etapa{{ ponderado() ? ', según su duración' : '' }}.</small>
         </div>
-      </header>
-
+        <dl class="pv__trio">
+          <div><dt>Planificado</dt><dd class="num">{{ fmtLarga(analisis().planFin) }}</dd><small>fin de obra</small></div>
+          <div><dt>Real / proyectado</dt><dd class="num">{{ fmtLarga(analisis().proyFin) }}</dd><small>fin de obra</small></div>
+          <div><dt>Hoy</dt><dd class="num">{{ fmtLarga(hoy()) }}</dd>
+            <small>@if (analisis().desvioDias === null) { Sin datos para comparar }
+              @else { <span class="pill {{ TONO_PILL[analisis().tono] }}">{{ analisis().desvioDias! > 0 ? '+' + analisis().desvioDias + ' días de atraso' : analisis().desvioDias! < 0 ? -analisis().desvioDias! + ' días adelantada' : 'En fecha' }}</span> }</small></div>
+        </dl>
+      </div>
       @if (analisis().insights.length) {
         <ul class="pv__ins">
-          @for (i of analisis().insights; track $index) { <li class="pv__ins--{{ i.tono }}">{{ i.texto }}</li> }
+          @for (i of analisis().insights.slice(0, 2); track $index) { <li class="pv__ins--{{ i.tono }}">{{ i.texto }}</li> }
         </ul>
-      }
-
-      @if (analisis().desde) {
-        <div class="gx" role="img" aria-label="Gráfico de plan contra real por etapa">
-          <div class="gx__axis"><span class="gx__lbl"></span><div class="gx__track">
-            @for (m of meses(); track m.left) { <i class="gx__tick" [style.left.%]="m.left"><span>{{ m.label }}</span></i> }
-          </div></div>
-          @for (x of analisis().etapas; track x.id) {
-            <div class="gx__row">
-              <span class="gx__lbl" [title]="x.nombre">{{ x.nombre }}</span>
-              <div class="gx__track">
-                @if (x.planInicio && x.planFin) { <i class="gx__plan" [style.left.%]="pos(x.planInicio)" [style.width.%]="ancho(x.planInicio, x.planFin)" [title]="'Plan: ' + fmtCorta(x.planInicio) + ' → ' + fmtCorta(x.planFin)"></i> }
-                @if (x.realInicio) {
-                  <i class="gx__real" [class.gx__real--late]="x.tono === 'bad'" [style.left.%]="pos(x.realInicio)"
-                     [style.width.%]="ancho(x.realInicio, x.realFin ?? (x.estado === 'activa' ? hoy() : x.planFin ?? x.realInicio))"
-                     [title]="'Real: ' + fmtCorta(x.realInicio) + ' → ' + (x.realFin ? fmtCorta(x.realFin) : 'hoy')"></i>
-                }
-                @if (x.estado === 'activa' && x.proyFin && x.proyFin > hoy()) {
-                  <i class="gx__proy" [style.left.%]="hoyPos()" [style.width.%]="ancho(hoy(), x.proyFin)" [title]="'Proyectado: termina ' + fmtCorta(x.proyFin)"></i>
-                }
-                <i class="gx__now" [style.left.%]="hoyPos()"></i>
-              </div>
-            </div>
-          }
-          <div class="gx__legend"><span><i class="gx__plan"></i>Planificado</span><span><i class="gx__real"></i>Real</span><span><i class="gx__proy"></i>Proyectado</span><span><i class="gx__now"></i>Hoy</span></div>
-        </div>
       }
     </section>
   }
@@ -199,72 +162,85 @@
           Sin etapas asignadas. Usá "Editar etapas" para comenzar.
         </div>
       } @else {
-        <div class="cr-head" aria-hidden="true"><span>Etapa</span><span>Planificado</span><span>Real</span><span>Estado y avance</span></div>
-        <div class="etapas-assigned">
+        <div class="cr" role="table" aria-label="Etapas: planificado, real y hoy">
+          <div class="cr-head" role="row">
+            <span role="columnheader">Etapa</span>
+            <span role="columnheader">Planificado</span>
+            <span role="columnheader">Real</span>
+            <span role="columnheader" class="cr-tl-col">
+              <span class="tl-head">@for (m of meses(); track m.left; let k = $index) { @if (meses().length < 8 || k % 2 === 0) { <i [style.left.%]="m.left">{{ m.label }}</i> } }</span>
+            </span>
+            <span role="columnheader">Hoy</span>
+          </div>
+
           @for (a of assigned(); track a._id) {
-            <div class="assigned-row assigned-row--view">
-              <div class="assigned-row__main">
-                <span class="assigned-row__orden">{{ a.orden }}</span>
-                <div class="assigned-row__body">
-                  @if (editingId() === a._id) {
-                    <input class="assigned-row__edit-input" aria-label="Nombre de la etapa"
-                           [value]="editingNombre()" (input)="editingNombre.set($any($event.target).value)"
-                           (keydown.enter)="commitEditNombre(a)" (keydown.escape)="cancelEditNombre()" (blur)="commitEditNombre(a)" autofocus />
-                  } @else if (canEdit) {
-                    <button type="button" class="etapa-name" (click)="startEditNombre(a)" title="Cambiar el nombre de esta etapa en este proyecto">
-                      {{ a.nombre }}
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-                    </button>
-                  } @else {
-                    <span class="assigned-row__nombre">{{ a.nombre }}</span>
-                  }
-                  @if (a.etapaId.descripcion && a.nombre === a.etapaId.nombre) {
-                    <span class="assigned-row__desc">{{ a.etapaId.descripcion }}</span>
-                  }
-                </div>
+            @if (analisisPorId()[a._id!]; as an) {
+            <div class="cr-row" role="row">
+              <div class="cr-c cr-name" role="cell">
+                <span class="cr-n">{{ a.orden }}</span>
+                @if (editingId() === a._id) {
+                  <input class="assigned-row__edit-input" aria-label="Nombre de la etapa" [value]="editingNombre()" (input)="editingNombre.set($any($event.target).value)"
+                         (keydown.enter)="commitEditNombre(a)" (keydown.escape)="cancelEditNombre()" (blur)="commitEditNombre(a)" />
+                } @else if (canEdit) {
+                  <button type="button" class="etapa-name" (click)="startEditNombre(a)" title="Cambiar el nombre de esta etapa en este proyecto">
+                    {{ a.nombre }}
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                  </button>
+                } @else { <span class="etapa-name etapa-name--ro">{{ a.nombre }}</span> }
               </div>
-              <div class="etapa-estado">
-                @if (canEdit) {
-                  <div class="seg" role="group" [attr.aria-label]="'Estado de ' + a.nombre">
-                    @for (s of ESTADOS; track s.id) {
-                      <button type="button" [attr.aria-pressed]="a.estado === s.id" [disabled]="saving()" (click)="setEstado(a._id!, s.id)">{{ s.label }}</button>
+
+              <div class="cr-c cr-plan" role="cell" data-l="Planificado">
+                @if (an.planInicio && an.planFin) { <span>{{ fmtCorta(an.planInicio) }} → {{ fmtCorta(an.planFin) }}</span><small>{{ a.duracion }} sem</small> }
+                @else { <span class="cr-dash">Sin fechas</span> }
+              </div>
+
+              <div class="cr-c cr-real" role="cell" data-l="Real">
+                @if (a.estado === 'pendiente') { <span class="cr-dash">—</span> }
+                @else {
+                  <span class="cr-dates">
+                    @if (canEdit) {
+                      <button type="button" class="dt" (click)="abrir(i1)" [disabled]="saving()" title="Fecha real de inicio">{{ fmtCorta(an.realInicio) }}</button>
+                      <input #i1 type="date" class="dt__in" tabindex="-1" aria-label="Inicio real" [value]="a.fechaInicioReal || ''" (change)="setReal(a._id!, 'fechaInicioReal', $any($event.target).value)" />
+                    } @else { <span>{{ fmtCorta(an.realInicio) }}</span> }
+                    <span class="cr-arrow">→</span>
+                    @if (a.estado === 'completada') {
+                      @if (canEdit) {
+                        <button type="button" class="dt" [class.dt--falta]="!a.fechaFinReal" (click)="abrir(i2)" [disabled]="saving()" title="Fecha real de finalización">{{ a.fechaFinReal ? fmtCorta(an.realFin) : 'Cargar fin' }}</button>
+                        <input #i2 type="date" class="dt__in" tabindex="-1" aria-label="Fin real" [value]="a.fechaFinReal || ''" (change)="setReal(a._id!, 'fechaFinReal', $any($event.target).value)" />
+                      } @else { <span>{{ a.fechaFinReal ? fmtCorta(an.realFin) : '—' }}</span> }
+                    } @else {
+                      @if (canEdit) {
+                        <button type="button" class="dt dt--est" (click)="abrir(i3)" [disabled]="saving()" title="Fecha en que estimás terminar">{{ a.fechaFinEstimada ? 'est. ' + fmtCorta(parse(a.fechaFinEstimada)) : 'Cargar fin estimado' }}</button>
+                        <input #i3 type="date" class="dt__in" tabindex="-1" aria-label="Fin estimado" [value]="a.fechaFinEstimada || ''" (change)="setReal(a._id!, 'fechaFinEstimada', $any($event.target).value)" />
+                      } @else { <span>{{ a.fechaFinEstimada ? 'est. ' + fmtCorta(parse(a.fechaFinEstimada)) : 'en curso' }}</span> }
                     }
-                  </div>
-                  @if (a.estado === 'activa') {
-                    <label class="etapa-pct">
-                      <span>Avance</span>
-                      <input type="number" min="0" max="100" step="5" [value]="a.avance ?? ''" placeholder="—" (change)="setAvance(a._id!, +$any($event.target).value)" />
-                      <span>%</span>
-                    </label>
-                  }
-                } @else {
-                  <span class="pill" [class.pill--good]="a.estado === 'completada'" [class.pill--brand]="a.estado === 'activa'">{{ a.estado === 'activa' ? 'En curso · ' + pctEtapa(a) + '%' : a.estado === 'completada' ? 'Completada' : 'Pendiente' }}</span>
+                  </span>
                 }
-                <div class="progress progress--dark etapa-bar" [style.--v]="pctEtapa(a)"><i></i></div>
               </div>
-              <div class="etapa-real">
-                @if (a.estado !== 'pendiente') {
-                  <label>Inicio real <input type="date" [value]="a.fechaInicioReal || ''" [disabled]="!canEdit || saving()" (change)="setReal(a._id!, 'fechaInicioReal', $any($event.target).value)" /></label>
-                }
-                @if (a.estado === 'completada') {
-                  <label>Fin real <input type="date" [value]="a.fechaFinReal || ''" [disabled]="!canEdit || saving()" (change)="setReal(a._id!, 'fechaFinReal', $any($event.target).value)" /></label>
-                }
-                @if (analisisPorId()[a._id!]; as an) { <span class="pill {{ TONO_PILL[an.tono] }}">{{ an.texto }}</span> }
-              </div>
-              @if (a.fechaInicio || a.duracion) {
-                <div class="assigned-row__sched assigned-row__sched--view">
-                  @if (a.fechaInicio) {
-                    <span class="assigned-row__date-chip">{{ a.fechaInicio | date:'dd/MM/yy' }}</span>
-                  }
-                  @if (a.duracion) {
-                    <span class="assigned-row__date-chip">{{ a.duracion }} sem</span>
-                  }
-                  @if (fechaFin(a)) {
-                    <span class="assigned-row__date-chip assigned-row__date-chip--end">→ {{ fechaFin(a) | date:'dd/MM/yy' }}</span>
-                  }
+
+              <div class="cr-c cr-tl-col" role="cell" aria-hidden="true">
+                <div class="tl">
+                  @for (m of meses(); track m.left) { <i class="tl__tick" [style.left.%]="m.left"></i> }
+                  @if (an.planInicio && an.planFin) { <i class="tl__plan" [style.left.%]="pos(an.planInicio)" [style.width.%]="ancho(an.planInicio, an.planFin)"></i> }
+                  @if (an.realInicio) { <i class="tl__real" [class.tl__real--late]="an.tono === 'bad'" [style.left.%]="pos(an.realInicio)" [style.width.%]="ancho(an.realInicio, an.realFin ?? (a.estado === 'activa' ? hoy() : an.planFin ?? an.realInicio))"></i> }
+                  <i class="tl__now" [style.left.%]="hoyPos()"></i>
                 </div>
-              }
+              </div>
+
+              <div class="cr-c cr-hoy" role="cell" data-l="Hoy">
+                @if (canEdit) {
+                  <select class="st st--{{ a.estado }}" [disabled]="saving()" [attr.aria-label]="'Estado de ' + a.nombre" (change)="setEstado(a._id!, $any($event.target).value)">
+                    @for (s of ESTADOS; track s.id) { <option [value]="s.id" [selected]="a.estado === s.id">{{ s.label }}</option> }
+                  </select>
+                } @else { <span class="pill">{{ a.estado === 'activa' ? 'En curso' : a.estado === 'completada' ? 'Completada' : 'Pendiente' }}</span> }
+                @if (a.estado === 'activa') {
+                  @if (canEdit) { <label class="av" title="Porcentaje completado de esta etapa"><input type="number" min="0" max="100" step="5" [value]="a.avance ?? ''" placeholder="—" (change)="setAvance(a._id!, +$any($event.target).value)" />%</label> }
+                  @else { <span class="cr-dash">{{ pctEtapa(a) }}%</span> }
+                }
+                @if (an.corto) { <span class="pill {{ TONO_PILL[an.tono] }}" [title]="an.texto">{{ an.corto }}</span> }
+              </div>
             </div>
+            }
           }
         </div>
       }
