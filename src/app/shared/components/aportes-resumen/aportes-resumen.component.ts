@@ -2,11 +2,8 @@ import { Component, Input, computed, inject, signal } from '@angular/core';
 import { MonedaService } from '../../../core/services/moneda.service';
 import { ResumenAportes } from '../../models/gasto-vario.model';
 
-const COLORES = ['#ff4f00', '#111111', '#3a6a99', '#17803d', '#b45309', '#7a7a7a', '#c0261c', '#9aa0a6'];
-
 /**
- * Resumen de aportes del propietario: cuánto puso, en qué se usó y cuánto queda.
- * Lo usan el equipo y el propio propietario (portal del cliente).
+ * Cuánto pagó el propietario hasta hoy. No cruza con gastos: el propietario no ve costos ni margen.
  */
 @Component({
   selector: 'app-aportes-resumen',
@@ -31,14 +28,6 @@ export class AportesResumenComponent {
   principal(e: { ARS: number; USD: number }) { return this.vista() === 'USD' && this.sinConversion() ? '—' : this.m.fmt(e[this.vista()], this.vista()); }
   secundario(e: { ARS: number; USD: number }) { return this.sinConversion() ? '—' : this.m.fmt(e[this.otra()], this.otra()); }
 
-  rubros = computed(() => {
-    const r = this._r(); if (!r) return [];
-    const v = this.vista();
-    return r.porRubro.filter(x => x[v] > 0).sort((a, b) => b[v] - a[v]).map((x, i) => ({ ...x, valor: x[v], color: COLORES[i % COLORES.length] }));
-  });
-  totalRubros = computed(() => this.rubros().reduce((s, x) => s + x.valor, 0));
-  pct(x: { valor: number }) { const t = this.totalRubros(); return t ? Math.round(x.valor / t * 100) : 0; }
-  ancho(x: { valor: number }) { const t = this.totalRubros(); return t ? x.valor / t * 100 : 0; }
-  saldoNegativo = computed(() => { const r = this._r(); return !!r && r.saldo[this.vista()] < 0; });
+  ultimo() { const f = this._r()?.aportes?.[0]?.fecha; return f ? new Date(f).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
   sinAportes = computed(() => (this._r()?.aportes.length ?? 0) === 0);
 }

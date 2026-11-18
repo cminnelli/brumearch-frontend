@@ -9,7 +9,7 @@ export class AporteService {
   private http = inject(HttpClient);
   private api = environment.apiUrl;
 
-  /** Equipo: lista + resumen (aportado, aplicado, saldo, reparto por rubro). */
+  /** Equipo: lista de pagos del propietario y total cobrado. */
   resumen(projectId: string): Observable<ResumenAportes> { return this.http.get<ResumenAportes>(`${this.api}/projects/${projectId}/aportes`); }
   create(projectId: string, fd: FormData): Observable<Aporte> { return this.http.post<Aporte>(`${this.api}/projects/${projectId}/aportes`, fd); }
   update(projectId: string, id: string, fd: FormData): Observable<Aporte> { return this.http.put<Aporte>(`${this.api}/projects/${projectId}/aportes/${id}`, fd); }

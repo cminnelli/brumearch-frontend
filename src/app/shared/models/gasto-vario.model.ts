@@ -33,10 +33,6 @@ export interface Aporte {
 export interface ResumenAportes {
   aportes: Aporte[];
   aportado: Equiv;
-  aplicado: Equiv;
-  saldo: Equiv;
-  pctAplicado: number;
-  porRubro: { rubro: string; ARS: number; USD: number; pct: number; gastosVarios: boolean }[];
   tcReferencia: number | null;
   sinTC: number;
   proyecto?: { name: string };

@@ -14,7 +14,7 @@ import { fileUrl } from '../../../../shared/utils/file-url';
   template: `
     <div class="ca">
       <header class="ca-head">
-        <div><h2>Tus aportes</h2><p>Lo que aportaste a la obra y en qué se fue usando.</p></div>
+        <div><h2>Tus pagos</h2><p>Lo que fuiste pagando de la obra.</p></div>
         <app-moneda-toggle />
       </header>
 
@@ -23,7 +23,7 @@ import { fileUrl } from '../../../../shared/utils/file-url';
       @else {
         <app-aportes-resumen [resumen]="resumen()" [paraPropietario]="true" />
 
-        <h3 class="ca-sub">Tus aportes</h3>
+        <h3 class="ca-sub">Detalle</h3>
         @if (resumen()?.aportes?.length) {
           <ul class="ca-list">
             @for (a of resumen()!.aportes; track a._id) {
@@ -37,7 +37,7 @@ import { fileUrl } from '../../../../shared/utils/file-url';
               </li>
             }
           </ul>
-        } @else { <p class="ca-vacio">Todavía no hay aportes registrados.</p> }
+        } @else { <p class="ca-vacio">Todavía no hay pagos registrados.</p> }
       }
     </div>
   `,

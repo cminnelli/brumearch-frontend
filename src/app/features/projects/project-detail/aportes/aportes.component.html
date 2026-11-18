@@ -5,13 +5,13 @@
     <app-aportes-resumen [resumen]="resumen()" />
 
     <div class="ap-head">
-      <h3>Aportes del propietario <span class="ap-n">{{ resumen()?.aportes?.length ?? 0 }}</span></h3>
-      @if (canEdit && !abierto()) { <button class="btn btn--primary btn--sm" type="button" (click)="nuevo()">+ Registrar aporte</button> }
+      <h3>Pagos del propietario <span class="ap-n">{{ resumen()?.aportes?.length ?? 0 }}</span></h3>
+      @if (canEdit && !abierto()) { <button class="btn btn--primary btn--sm" type="button" (click)="nuevo()">+ Registrar pago</button> }
     </div>
 
     @if (abierto()) {
       <form class="ap-form" (ngSubmit)="guardar()">
-        <div class="ap-form__title">{{ editandoId() ? 'Editar aporte' : 'Nuevo aporte' }}</div>
+        <div class="ap-form__title">{{ editandoId() ? 'Editar pago' : 'Nuevo pago' }}</div>
         <div class="ap-form__grid">
           <div class="ap-f"><label for="ap-fecha">Fecha</label><input id="ap-fecha" type="date" [(ngModel)]="form.fecha" name="fecha" required /></div>
           <div class="ap-f"><label for="ap-monto">Monto</label>
