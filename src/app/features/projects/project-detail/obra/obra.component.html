@@ -329,7 +329,7 @@
             } @else if (r.type === 'gasto') {
               <span class="cp-ok">✓ Pagado completo</span>
             } @else if (r.estado === 'elegida') {
-              <span class="cp-dash">Todavía sin gasto</span>
+              <span class="cp-dash">Sin pagos todavía</span>
             } @else { <span class="cp-dash">—</span> }
           </div>
           <div class="cp-c cp-c--st"><span class="pill {{ COMPRA_PILL[r.estado] }}">{{ COMPRA_LABEL[r.estado] }}</span></div>
@@ -447,6 +447,49 @@
             </div>
           }
 
+          <!-- Presupuesto elegido: registrar pagos directamente -->
+          @if (p.estado === 'aprobado' && editingPresId() !== p._id) {
+            <div class="dp-form">
+              <div class="dp-form__title">Registrar pago</div>
+              <form (ngSubmit)="pagarPresupuesto(p)" class="pago-simple">
+                <div class="pago-simple__main">
+                  <div class="field">
+                    <label for="pp_fecha">Fecha del pago</label>
+                    <input id="pp_fecha" type="date" [(ngModel)]="pagoForm.fecha" name="pp_fecha" required />
+                  </div>
+                  <div class="field">
+                    <label for="pp_monto">Monto</label>
+                    <div class="input-group"><span class="input-prefix-static">{{ p.moneda }}</span>
+                      <input id="pp_monto" type="number" [(ngModel)]="pagoForm.monto" name="pp_monto" placeholder="0" min="0" required (ngModelChange)="pagoError.set(null)" /></div>
+                  </div>
+                  <div class="field">
+                    <label for="pp_metodo">Cómo se pagó</label>
+                    <select id="pp_metodo" [(ngModel)]="pagoForm.metodoPago" name="pp_metodo">
+                      @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="pp_ref">Referencia</label>
+                    <input id="pp_ref" [(ngModel)]="pagoForm.referencia" name="pp_ref" placeholder="Opcional" />
+                  </div>
+                  @if (reservas().length) {
+                    <div class="field">
+                      <label for="pp_reserva">Pagar con</label>
+                      <select id="pp_reserva" [(ngModel)]="pagoForm.reservaId" name="pp_reserva" (ngModelChange)="pagoForm.fuente = $event ? 'reserva' : 'cliente'; pagoError.set(null)">
+                        <option value="">Fondos del cliente</option>
+                        @for (rv of reservas(); track rv._id) { <option [value]="rv._id">Reserva {{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option> }
+                      </select>
+                    </div>
+                  }
+                </div>
+                @if (pagoError()) { <div class="pago-error"><span>⚠</span> {{ pagoError() }}</div> }
+                <div class="form-actions">
+                  <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingPago() || !pagoForm.monto">{{ savingPago() ? 'Guardando…' : 'Registrar pago' }}</button>
+                </div>
+              </form>
+            </div>
+          }
+
           <!-- Acciones -->
           @if (editingPresId() !== p._id) {
             <div class="dp-actions">
@@ -458,31 +501,17 @@
                 @if (p.estado === 'rechazado') {
                   <button class="btn btn--ghost btn--sm" (click)="reactivar(p)">Reactivar</button>
                 }
-                @if (p.estado === 'aprobado' && !tieneGasto(p._id)) {
-                  <button class="btn btn--primary btn--sm" type="button" [disabled]="savingGenerar()" (click)="sumarPresupuestoAGastos(p)">{{ savingGenerar() ? 'Sumando…' : 'Sumar a gastos' }}</button>
-                }
-                @if (p.estado === 'aprobado' && tieneGasto(p._id)) {
-                  <span class="dp-linked">✓ Gasto generado</span>
-                }
                 @if (p.estado === 'aprobado') {
                   <button class="btn btn--ghost btn--sm" (click)="rechazar(p)">Rechazar</button>
                 }
               </div>
               <div class="dp-actions__utility">
-                <button class="btn-icon btn-icon--edit" (click)="startEditPres(p)" title="Editar">✎</button>
-                <button class="btn btn--delete btn--sm" (click)="removePres(p)">🗑 Eliminar</button>
+                <button class="btn btn--ghost btn--sm" type="button" (click)="startEditPres(p)">Editar</button>
+                <button class="btn btn--ghost btn--sm btn--del" type="button" (click)="removePres(p)">Eliminar</button>
               </div>
             </div>
           }
 
-          <!-- Zona de Peligro -->
-          <div class="dp-danger">
-            <div class="dp-danger__label">Zona de peligro</div>
-            <div class="dp-danger__row">
-              <span class="dp-danger__desc">Eliminar este presupuesto es permanente e irreversible.</span>
-              <button class="dp-danger__btn" (click)="removePres(p)">Eliminar presupuesto</button>
-            </div>
-          </div>
         }
 
         <!-- ── GASTO DETAIL ── -->
@@ -500,7 +529,18 @@
                 @if (estadoG(g) === 'parcial')  { Parcial }
                 @if (estadoG(g) === 'pagado')   { Pagado }
               </span>
-              <button class="dp-close" (click)="deselect()">×</button>
+              <details class="menu">
+                <summary class="menu__btn" aria-label="Más acciones del gasto" title="Más acciones">⋯</summary>
+                <div class="menu__list" (click)="cerrarMenu($event)">
+                  <button type="button" (click)="startEditGasto(g)">Editar gasto</button>
+                  <button type="button" (click)="visualizarComprobante(g)">Ver comprobante</button>
+                  <button type="button" (click)="imprimirComprobante(g)">Descargar PDF</button>
+                  @if (tienePagosSinCompletar(g)) { <button type="button" (click)="pagarYFirmarTodos(g)">Marcar todo pagado y firmado</button> }
+                  <hr />
+                  <button type="button" class="menu__danger" (click)="removeGasto(g)">Eliminar gasto</button>
+                </div>
+              </details>
+              <button class="dp-close" (click)="deselect()" aria-label="Cerrar">×</button>
             </div>
           </div>
 
@@ -594,85 +634,67 @@
                 Pagos
                 @if (g.pagos.length) { <span class="dp-section__count">{{ g.pagos.length }}</span> }
               </span>
-              @if (tienePagosSinCompletar(g)) {
-                <button class="pagar-firmar-btn" (click)="pagarYFirmarTodos(g)">✓ Pagar y firmar todos</button>
+              @if (estadoG(g) !== 'pagado' && activePagoGastoId() !== g._id) {
+                <button class="btn btn--primary btn--sm" type="button" (click)="openPagoForm(g)">+ Registrar pago</button>
               }
             </div>
+
             @if (g.pagos.length) {
-              <div class="pagos-list">
+              <div class="pg" role="table" aria-label="Pagos del gasto">
+                <div class="pg-head" role="row"><span>Fecha</span><span class="r">Monto</span><span>Detalle</span><span>Pagado</span><span>Firmado</span><span></span></div>
                 @for (pago of pagosVisibles(); track pago._id) {
-                  <div class="pago-row" [class.pago-row--first]="$first">
-                    @if (editingPagoId() === pago._id) {
-                      <span class="pago-fecha">{{ fmtFecha(pago.fecha) }}</span>
-                      <span class="pago-monto">{{ fmt(pago.monto, g.moneda) }}</span>
-                      <div class="pago-edit-inline">
-                        <select class="pago-edit-select" [(ngModel)]="editPagoForm.metodoPago" name="ep_metodo">
+                  <div class="pg-row" role="row">
+                    <span class="pg-fecha" role="cell">{{ fmtFecha(pago.fecha) }}</span>
+                    <b class="pg-monto num" role="cell">{{ fmt(pago.monto, g.moneda) }}</b>
+
+                    <div class="pg-det" role="cell">
+                      @if (editingPagoId() === pago._id) {
+                        <select class="pago-edit-select" [(ngModel)]="editPagoForm.metodoPago" name="ep_metodo" aria-label="Método">
                           @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
                         </select>
-                        <input class="pago-edit-input" [(ngModel)]="editPagoForm.referencia" name="ep_ref" placeholder="Referencia" />
-                        <input class="pago-edit-input" [(ngModel)]="editPagoForm.notas"      name="ep_notas" placeholder="Notas" />
-                      </div>
-                      <div class="pago-row__icons">
-                        <button class="btn-icon btn-icon--ok" (click)="saveEditPago(g, pago)" [disabled]="savingEditPago()" title="Guardar">{{ savingEditPago() ? '…' : '✓' }}</button>
-                        <button class="btn-icon" (click)="cancelEditPago()" title="Cancelar">✕</button>
-                      </div>
-                    } @else {
-                      <span class="pago-fecha">{{ fmtFecha(pago.fecha) }}</span>
-                      <span class="pago-monto">{{ fmt(pago.monto, g.moneda) }}</span>
-                      <div class="pago-row__info">
-                        @if (pago.referencia) { <span class="pago-ref">{{ pago.referencia }}</span> }
-                        @if (pago.notas)      { <span class="pago-nota">{{ pago.notas }}</span> }
-                        @if (pago.reservaId)  { <span class="pago-reserva-tag">↳ {{ reservaNombre(pago.reservaId) }}</span> }
-                        @if (pagoStatusLabel(pago)) {
-                          <span class="pago-status-pill {{ pagoStatusClass(pago) }}">{{ pagoStatusLabel(pago) }}</span>
-                        }
-                      </div>
-                      <div class="pago-row__icons">
-                        <button class="btn-icon btn-icon--print" (click)="visualizarPago(g, pago)" title="Visualizar comprobante">👁</button>
-                        <button class="btn-icon btn-icon--print" (click)="descargarPago(g, pago)" title="Descargar PDF">⬇</button>
-                        <button class="btn-icon btn-icon--edit"
-                                [style.visibility]="canEditPago(pago) ? 'visible' : 'hidden'"
-                                [attr.tabindex]="canEditPago(pago) ? null : -1"
-                                (click)="startEditPago(pago)"
-                                title="Editar (hasta 7 días)">✎</button>
-                        <button class="btn-icon btn-icon--del" (click)="deletePago(g, pago._id)" title="Eliminar">×</button>
-                      </div>
-                    }
-                    <!-- Pagado / Firmado flags — siempre visibles -->
-                    <div class="pago-flags">
-                      <label class="pago-flag" [class.pago-flag--on]="pago.pagado?.valor">
-                        <input type="checkbox" [checked]="pago.pagado?.valor" (change)="togglePagado(g, pago)" />
-                        <span class="pago-flag__label">Pagado</span>
-                        @if (pago.pagado?.valor) {
-                          <input class="pago-flag-date" type="date"
-                                 [ngModel]="getPagadoFecha(pago)"
-                                 (ngModelChange)="setPagadoFecha(pago._id, $event)"
-                                 (blur)="savePagadoFecha(g, pago)"
-                                 [name]="'pf_pagado_' + pago._id" />
-                        }
-                      </label>
-                      <label class="pago-flag" [class.pago-flag--on]="pago.firmado?.valor">
-                        <input type="checkbox" [checked]="pago.firmado?.valor" (change)="toggleFirmado(g, pago)" />
-                        <span class="pago-flag__label">Firmado</span>
-                        @if (pago.firmado?.valor) {
-                          <input class="pago-flag-date" type="date"
-                                 [ngModel]="getFirmadoFecha(pago)"
-                                 (ngModelChange)="setFirmadoFecha(pago._id, $event)"
-                                 (blur)="saveFirmadoFecha(g, pago)"
-                                 [name]="'pf_firmado_' + pago._id" />
-                          @if (pago.firmado?.comprobante) {
-                            <a class="pago-flag-file" [href]="fileUrl(pago.firmado?.comprobante?.filename ?? '')" target="_blank">
-                              {{ fileIcon(pago.firmado?.comprobante?.mimetype ?? '') }} {{ pago.firmado?.comprobante?.originalName }}
-                            </a>
-                          }
-                          <label class="pago-flag-upload" [class.pago-flag-upload--loading]="uploadingFirmadoId() === pago._id">
-                            {{ uploadingFirmadoId() === pago._id ? 'Subiendo…' : (pago.firmado?.comprobante ? '↑ Reemplazar' : '↑ Adjuntar') }}
-                            <input type="file" hidden (change)="onFirmadoComprobante(g, pago, $event)"
-                                   accept=".pdf,.jpg,.jpeg,.png"
-                                   [disabled]="uploadingFirmadoId() === pago._id" />
-                          </label>
-                        }
-                      </label>
+                        <input class="pago-edit-input" [(ngModel)]="editPagoForm.referencia" name="ep_ref" placeholder="Referencia" aria-label="Referencia" />
+                        <input class="pago-edit-input" [(ngModel)]="editPagoForm.notas" name="ep_notas" placeholder="Notas" aria-label="Notas" />
+                      } @else {
+                        <span>{{ metodoLabel(pago.metodoPago) }}@if (pago.referencia) { · {{ pago.referencia }} }</span>
+                        @if (pago.notas) { <small>{{ pago.notas }}</small> }
+                        @if (pago.reservaId) { <small class="pago-reserva-tag">↳ Reserva {{ reservaNombre(pago.reservaId) }}</small> }
+                      }
+                    </div>
+
+                    <div class="pg-c" role="cell">
+                      <button type="button" class="chip-sw" [class.chip-sw--on]="pago.pagado?.valor" [attr.aria-pressed]="!!pago.pagado?.valor" (click)="togglePagado(g, pago)"
+                              [title]="pago.pagado?.valor ? 'Pagado' + (pago.pagado?.fecha ? ' el ' + fmtFecha(pago.pagado!.fecha!) : '') + '. Tocá para desmarcar' : 'Tocá para marcar como pagado'">
+                        {{ pago.pagado?.valor ? '✓ Pagado' : 'Pagado' }}
+                      </button>
+                    </div>
+                    <div class="pg-c" role="cell">
+                      <button type="button" class="chip-sw" [class.chip-sw--on]="pago.firmado?.valor" [attr.aria-pressed]="!!pago.firmado?.valor" (click)="toggleFirmado(g, pago)"
+                              [title]="pago.firmado?.valor ? 'Firmado. Tocá para desmarcar' : 'Tocá para marcar como firmado'">
+                        {{ pago.firmado?.valor ? '✓ Firmado' : 'Firmado' }}
+                      </button>
+                      @if (pago.firmado?.comprobante) { <a class="pg-clip" [href]="fileUrl(pago.firmado?.comprobante?.filename ?? '')" target="_blank" title="Ver comprobante firmado" aria-label="Ver comprobante firmado">📎</a> }
+                    </div>
+
+                    <div class="pg-act" role="cell">
+                      @if (editingPagoId() === pago._id) {
+                        <button class="btn-icon btn-icon--ok" (click)="saveEditPago(g, pago)" [disabled]="savingEditPago()" title="Guardar" aria-label="Guardar">{{ savingEditPago() ? '…' : '✓' }}</button>
+                        <button class="btn-icon" (click)="cancelEditPago()" title="Cancelar" aria-label="Cancelar">✕</button>
+                      } @else {
+                        <details class="menu menu--sm">
+                          <summary class="menu__btn" aria-label="Más acciones del pago" title="Más acciones">⋯</summary>
+                          <div class="menu__list" (click)="cerrarMenu($event)">
+                            <button type="button" (click)="visualizarPago(g, pago)">Ver comprobante</button>
+                            <button type="button" (click)="descargarPago(g, pago)">Descargar PDF</button>
+                            <label class="menu__file">
+                              {{ pago.firmado?.comprobante ? 'Reemplazar firmado' : 'Adjuntar firmado' }}
+                              <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" [disabled]="uploadingFirmadoId() === pago._id" (change)="onFirmadoComprobante(g, pago, $event)" />
+                            </label>
+                            @if (canEditPago(pago)) { <button type="button" (click)="startEditPago(pago)">Editar</button> }
+                            <hr />
+                            <button type="button" class="menu__danger" (click)="deletePago(g, pago._id)">Eliminar pago</button>
+                          </div>
+                        </details>
+                      }
                     </div>
                   </div>
                 }
@@ -681,7 +703,7 @@
                 <button class="ver-mas-btn" (click)="loadMorePagos()">Ver {{ pagosRestantes() }} más</button>
               }
             } @else {
-              <span class="dp-empty">Sin pagos registrados</span>
+              <span class="dp-empty">Todavía no hay pagos. Registrá el primero.</span>
             }
           </div>
 
@@ -692,11 +714,13 @@
               <form (ngSubmit)="savePago(g)" class="pago-simple">
                 <div class="pago-simple__main">
                   <div class="field">
+                    <label for="pf_fecha">Fecha del pago</label>
+                    <input id="pf_fecha" type="date" [(ngModel)]="pagoForm.fecha" name="pf_fecha" required />
+                  </div>
+                  <div class="field">
                     <label for="pf_monto">Monto</label>
-                    <div class="input-group">
-                      <span class="input-prefix-static">{{ g.moneda }}</span>
-                      <input id="pf_monto" type="number" [(ngModel)]="pagoForm.monto" name="pf_monto" placeholder="0" min="0" required (ngModelChange)="pagoError.set(null)" />
-                    </div>
+                    <div class="input-group"><span class="input-prefix-static">{{ g.moneda }}</span>
+                      <input id="pf_monto" type="number" [(ngModel)]="pagoForm.monto" name="pf_monto" placeholder="0" min="0" required (ngModelChange)="pagoError.set(null)" /></div>
                   </div>
                   <div class="field">
                     <label for="pf_metodo">Cómo se pagó</label>
@@ -704,25 +728,20 @@
                       @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
                     </select>
                   </div>
-                </div>
-
-                <details class="pago-simple__more">
-                  <summary>Más opciones: fecha, referencia{{ reservas().length ? ', reserva' : '' }}</summary>
-                  <div class="form-grid">
-                    <div class="field"><label for="pf_fecha">Fecha del pago (hoy por defecto)</label><input id="pf_fecha" type="date" [(ngModel)]="pagoForm.fecha" name="pf_fecha" /></div>
-                    <div class="field"><label for="pf_ref">Referencia</label><input id="pf_ref" [(ngModel)]="pagoForm.referencia" name="pf_ref" placeholder="Nro. transferencia, cheque…" /></div>
-                    <div class="field"><label for="pf_notas">Notas</label><input id="pf_notas" [(ngModel)]="pagoForm.notas" name="pf_notas" placeholder="Opcional" /></div>
-                    @if (reservas().length) {
-                      <div class="field">
-                        <label for="pf_reserva">Pagar con</label>
-                        <select id="pf_reserva" [(ngModel)]="pagoForm.reservaId" name="pf_reserva" (ngModelChange)="pagoForm.fuente = $event ? 'reserva' : 'cliente'; pagoError.set(null)">
-                          <option value="">Fondos del cliente</option>
-                          @for (rv of reservas(); track rv._id) { <option [value]="rv._id">Reserva {{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option> }
-                        </select>
-                      </div>
-                    }
+                  <div class="field">
+                    <label for="pf_ref">Referencia</label>
+                    <input id="pf_ref" [(ngModel)]="pagoForm.referencia" name="pf_ref" placeholder="Opcional" />
                   </div>
-                </details>
+                  @if (reservas().length) {
+                    <div class="field">
+                      <label for="pf_reserva">Pagar con</label>
+                      <select id="pf_reserva" [(ngModel)]="pagoForm.reservaId" name="pf_reserva" (ngModelChange)="pagoForm.fuente = $event ? 'reserva' : 'cliente'; pagoError.set(null)">
+                        <option value="">Fondos del cliente</option>
+                        @for (rv of reservas(); track rv._id) { <option [value]="rv._id">Reserva {{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option> }
+                      </select>
+                    </div>
+                  }
+                </div>
 
                 @if (pagoError()) { <div class="pago-error"><span>⚠</span> {{ pagoError() }}</div> }
                 <div class="form-actions">
@@ -771,23 +790,6 @@
             </div>
           }
 
-          <!-- Acciones -->
-          @if (activePagoGastoId() !== g._id && editingGastoId() !== g._id) {
-            <div class="dp-actions">
-              <div class="dp-actions__primary">
-                @if (estadoG(g) !== 'pagado') {
-                  <button class="btn btn--primary btn--sm" (click)="openPagoForm(g)">+ Registrar pago</button>
-                }
-                <button class="btn btn--ghost btn--sm" (click)="visualizarComprobante(g)">👁 Visualizar</button>
-                <button class="btn btn--ghost btn--sm" (click)="imprimirComprobante(g)">⬇ Descargar PDF</button>
-              </div>
-              <div class="dp-actions__utility">
-                <button class="btn-icon btn-icon--edit" (click)="startEditGasto(g)" title="Editar">✎</button>
-              </div>
-            </div>
-
-            <button class="gasto-borrar-btn" (click)="removeGasto(g)">🗑 Borrar gasto</button>
-          }
         }
 
         <!-- ── SOLICITUD DETAIL ── -->
@@ -855,19 +857,8 @@
 
                     <div class="cot-card__actions">
                       @if (s.estado === 'abierta' && !c.seleccionada) {
-                        @if (confirmandoCotId() === c._id) {
-                          <div class="cot-ask" role="group" aria-label="Elegir cotización">
-                            <p>Elegís esta cotización. ¿Querés sumarla ya a los gastos?</p>
-                            <div class="cot-ask__btns">
-                              <button class="btn btn--primary btn--sm" type="button" [disabled]="eligiendo()" (click)="elegirCotizacion(s, c._id, true)">Sí, sumar a gastos</button>
-                              <button class="btn btn--ghost btn--sm" type="button" [disabled]="eligiendo()" (click)="elegirCotizacion(s, c._id, false)">No, solo elegirla</button>
-                              <button class="cot-ask__x" type="button" [disabled]="eligiendo()" (click)="confirmandoCotId.set(null)">Cancelar</button>
-                            </div>
-                          </div>
-                        } @else {
-                          <button class="btn btn--primary btn--sm" type="button" (click)="confirmandoCotId.set(c._id)">Elegir esta cotización</button>
-                          <button class="btn-icon btn-icon--del" (click)="removeCotizacion(s, c._id)" title="Eliminar">×</button>
-                        }
+                        <button class="btn btn--primary btn--sm" type="button" [disabled]="eligiendo()" (click)="elegirCotizacion(s, c._id)">{{ eligiendo() ? 'Eligiendo…' : 'Elegir esta cotización' }}</button>
+                        <button class="btn-icon btn-icon--del" (click)="removeCotizacion(s, c._id)" title="Eliminar">×</button>
                       }
                     </div>
                   </div>

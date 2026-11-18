@@ -280,7 +280,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     { id: 'config',      label: 'Cronograma',   group: ['config'],
       hint: 'Las etapas de la obra y su avance. De acá sale el porcentaje de avance del proyecto.' },
     { id: 'compras',     label: 'Compras',      group: ['compras'],
-      hint: 'Cada compra, de la cotización al pago: pedí precios, elegí proveedor, registrá el gasto y sus pagos.' },
+      hint: 'Cada compra, de la cotización al pago: pedí precios, elegí proveedor y registrá los pagos.' },
     { id: 'resumen',     label: 'Plan',         group: ['resumen', 'planificacion', 'caja'],
       sub: [{ id: 'resumen', label: 'Plan vs. real' }, { id: 'planificacion', label: 'Plan semanal' }, { id: 'caja', label: 'Reservas de fondos' }],
       hint: 'Cuánto se planeó gastar, cuánto se gastó y cuánto falta, por rubro. También el plan semanal y los fondos reservados.' },

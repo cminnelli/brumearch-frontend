@@ -252,6 +252,11 @@ export class ObraComponent implements OnInit {
     if (this.selectedId() === id) { this.selectedId.set(null); this.selectedType.set(null); return; }
     this.selectedId.set(id);
     this.selectedType.set(type);
+    if (type === 'pres') {
+      const pr = this.presupuestos().find(x => x._id === id);
+      if (pr?.estado === 'aprobado') this.pagoForm = { ...this.emptyPagoForm(), monto: pr.monto };
+      this.pagoError.set(null);
+    }
     this.editingPresId.set(null);
     this.generandoGastoPresId.set(null);
     this.activePagoGastoId.set(null);
@@ -566,12 +571,10 @@ export class ObraComponent implements OnInit {
     });
   }
 
-  /** Suma un presupuesto a gastos en un clic (fecha de hoy). Los pagos se registran después. */
-  sumarPresupuestoAGastos(p: Presupuesto) {
-    if (this.savingGenerar()) return;
-    this.savingGenerar.set(true);
-    this.sumarAGastos(p, () => this.savingGenerar.set(false));
-  }
+  metodoLabel(m?: string | null) { return (this.metodoLabels as Record<string, string>)[m ?? ''] ?? m ?? ''; }
+
+  /** Cierra el menú ⋯ después de elegir una opción. */
+  cerrarMenu(e: Event) { (e.currentTarget as HTMLElement).closest('details')?.removeAttribute('open'); }
 
   // ── Pagos ────────────────────────────────────────────────
   openPagoForm(g: Gasto) {
@@ -903,35 +906,25 @@ export class ObraComponent implements OnInit {
     );
   }
 
-  /** Cotización a la que se le está preguntando "¿sumar a gastos?". */
-  confirmandoCotId = signal<string | null>(null);
-  eligiendo        = signal(false);
+  eligiendo = signal(false);
 
-  /**
-   * Elige la cotización. Con sumar=true además registra el gasto en el momento (sin formulario);
-   * con sumar=false queda "Elegida" y se puede sumar a gastos más tarde.
-   */
-  elegirCotizacion(s: Solicitud, cotId: string, sumar: boolean) {
+  /** Elige la cotización: queda "Elegida" y se abre con el formulario de pago a la vista. */
+  elegirCotizacion(s: Solicitud, cotId: string) {
     if (this.eligiendo()) return;
     this.eligiendo.set(true);
     this.solicitudSvc.seleccionar(this.projectId, s._id, cotId).subscribe({
       next: res => {
         this.solicitudes.update(l => l.map(x => x._id === s._id ? res.solicitud : x));
-        this.confirmandoCotId.set(null);
-        if (!sumar) {
-          this.presupuestos.update(l => [res.presupuesto, ...l]);
-          this.eligiendo.set(false);
-          this.select('pres', res.presupuesto._id);
-          return;
-        }
-        this.sumarAGastos(res.presupuesto, () => this.eligiendo.set(false));
+        this.presupuestos.update(l => [res.presupuesto, ...l]);
+        this.eligiendo.set(false);
+        this.select('pres', res.presupuesto._id);
       },
       error: () => this.eligiendo.set(false),
     });
   }
 
   /** Crea el gasto de un presupuesto con los datos que ya tiene (fecha de hoy). Pagos y comprobante se cargan después. */
-  private sumarAGastos(p: Presupuesto, fin: () => void) {
+  private sumarAGastos(p: Presupuesto, ok: (g: Gasto) => void, fallo: () => void) {
     const fd = new FormData();
     fd.append('subrubroId',    p.subrubroId._id);
     fd.append('presupuestoId', p._id);
@@ -946,14 +939,37 @@ export class ObraComponent implements OnInit {
         this.gastos.update(l => [item, ...l]);
         this.presupuestos.update(l => l.filter(x => x._id !== p._id));
         this.select('gasto', item._id);
-        fin();
+        ok(item);
       },
-      error: () => {
-        // Si falló el gasto, la cotización igual quedó elegida: se muestra como presupuesto aprobado.
-        this.presupuestos.update(l => [p, ...l]);
-        fin();
-      },
+      error: fallo,
     });
+  }
+
+  /**
+   * Registra un pago directamente sobre un presupuesto elegido.
+   * Por debajo se crea el gasto la primera vez; para quien usa la pantalla es un solo paso.
+   */
+  pagarPresupuesto(p: Presupuesto) {
+    const f = this.pagoForm;
+    if (!f.monto || this.savingPago()) return;
+    if (f.reservaId) {
+      const rv = this.reservas().find(r => r._id === f.reservaId);
+      if (rv && saldoReserva(rv) < f.monto) { this.pagoError.set(`Saldo insuficiente en "${rv.nombre}": disponible ${this.fmt(saldoReserva(rv), rv.moneda)}`); return; }
+    }
+    this.pagoError.set(null);
+    this.savingPago.set(true);
+    const fecha = f.fecha || this.todayISO();
+    this.sumarAGastos(p, gasto => {
+      this.gastoSvc.addPago(this.projectId, gasto._id, { ...f, fecha, pagado: { valor: true, fecha } }).subscribe({
+        next: upd => {
+          this.gastos.update(l => l.map(g => g._id === gasto._id ? upd : g));
+          if (f.reservaId) this.reservaSvc.list(this.projectId).subscribe(d => this.reservas.set(d));
+          this.pagoForm = this.emptyPagoForm();
+          this.savingPago.set(false);
+        },
+        error: () => { this.savingPago.set(false); this.pagoError.set('Se creó el gasto pero no se pudo registrar el pago. Probá de nuevo desde el gasto.'); },
+      });
+    }, () => { this.savingPago.set(false); this.pagoError.set('No se pudo registrar el pago. Probá de nuevo.'); });
   }
 
   // ── Plan de Obra: edición inline ─────────────────────────
