@@ -1,18 +1,13 @@
-import { Component, Input, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SeleccionService } from '../../../../core/services/seleccion.service';
-import {
-  Seleccion,
-  EstadoSeleccion,
-  ESTADO_SELECCION_LABELS,
-  ESTADO_SELECCION_NEXT,
-} from '../../../../shared/models/seleccion.model';
+import { Seleccion, EstadoSeleccion, agruparSel, nombreSel, unidadSel, urgenciaSel } from '../../../../shared/models/seleccion.model';
 
+/** Vista del propietario: todo lo que tiene que comprar por su cuenta, con fecha y su avance. */
 @Component({
   selector: 'app-client-selecciones',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './client-selecciones.component.html',
   styleUrl: './client-selecciones.component.scss',
 })
@@ -21,89 +16,51 @@ export class ClientSeleccionesComponent implements OnInit {
 
   private svc = inject(SeleccionService);
 
-  items   = signal<Seleccion[]>([]);
+  items = signal<Seleccion[]>([]);
   loading = signal(true);
-
+  error = signal(false);
   editingNotasId = signal<string | null>(null);
-  editingNotas   = signal('');
+  editingNotas = signal('');
 
-  readonly ESTADO_LABELS = ESTADO_SELECCION_LABELS;
+  nombre = nombreSel; unidad = unidadSel; urgencia = (s: Seleccion) => urgenciaSel(s);
+  readonly OPCIONES: { id: EstadoSeleccion; label: string }[] = [
+    { id: 'buscando', label: 'Buscando' }, { id: 'seleccionado', label: 'Elegido' }, { id: 'comprado', label: 'Comprado' },
+  ];
 
-  // Grouped by rubro → subrubro
-  rubroGroups = computed(() => {
-    const map = new Map<string, { rubroNombre: string; subrubroGroups: Map<string, { subrubroNombre: string; items: Seleccion[] }> }>();
-    for (const s of this.items()) {
-      const rId  = s.itemId?.subrubroId?.rubroId?._id   ?? 'otros';
-      const rNom = s.itemId?.subrubroId?.rubroId?.nombre ?? 'Otros';
-      const sId  = s.itemId?.subrubroId?._id   ?? 'otros';
-      const sNom = s.itemId?.subrubroId?.nombre ?? 'Otros';
-      if (!map.has(rId)) map.set(rId, { rubroNombre: rNom, subrubroGroups: new Map() });
-      const rGroup = map.get(rId)!;
-      if (!rGroup.subrubroGroups.has(sId)) rGroup.subrubroGroups.set(sId, { subrubroNombre: sNom, items: [] });
-      rGroup.subrubroGroups.get(sId)!.items.push(s);
-    }
-    return Array.from(map.entries()).map(([rId, g]) => ({
-      rubroId: rId,
-      rubroNombre: g.rubroNombre,
-      subrubroGroups: Array.from(g.subrubroGroups.entries()).map(([sId, sg]) => ({
-        subrubroId: sId,
-        subrubroNombre: sg.subrubroNombre,
-        items: sg.items,
-      })),
-    }));
-  });
-
-  total     = computed(() => this.items().length);
+  grupos = computed(() => agruparSel(this.items()));
+  total = computed(() => this.items().length);
   comprados = computed(() => this.items().filter(i => i.estadoCliente === 'comprado').length);
-  progreso  = computed(() => {
-    const t = this.total();
-    return t ? Math.round(this.comprados() / t * 100) : 0;
-  });
+  faltan = computed(() => this.total() - this.comprados());
+  progreso = computed(() => (this.total() ? Math.round(this.comprados() / this.total() * 100) : 0));
+  /** Lo que hay que comprar primero: vencido o con fecha en los próximos 14 días. */
+  urgentes = computed(() => this.items().filter(i => { const u = urgenciaSel(i); return u && u.tono !== 'ok'; }).length);
 
   ngOnInit() {
     this.svc.listCliente(this.projectId).subscribe({
-      next: data => { this.items.set(data); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      next: d => { this.items.set(d); this.loading.set(false); },
+      error: () => { this.error.set(true); this.loading.set(false); },
     });
   }
 
-  ciclarEstado(item: Seleccion) {
-    const siguiente = ESTADO_SELECCION_NEXT[item.estadoCliente];
-    this.items.update(list =>
-      list.map(i => i._id === item._id ? { ...i, estadoCliente: siguiente } : i)
-    );
-    this.svc.updateEstado(this.projectId, item._id, siguiente, item.notasCliente).subscribe({
-      next: updated => {
-        this.items.update(list => list.map(i => i._id === updated._id ? updated : i));
-      },
-      error: () => {
-        this.items.update(list =>
-          list.map(i => i._id === item._id ? { ...i, estadoCliente: item.estadoCliente } : i)
-        );
-      },
+  /** Marca el estado; tocar el que ya está marcado lo vuelve a "pendiente". */
+  poner(item: Seleccion, estado: EstadoSeleccion) {
+    const nuevo: EstadoSeleccion = item.estadoCliente === estado ? 'pendiente' : estado;
+    const anterior = item.estadoCliente;
+    this.items.update(l => l.map(i => (i._id === item._id ? { ...i, estadoCliente: nuevo } : i)));
+    this.svc.updateEstado(this.projectId, item._id, nuevo, item.notasCliente).subscribe({
+      next: u => this.items.update(l => l.map(i => (i._id === u._id ? u : i))),
+      error: () => this.items.update(l => l.map(i => (i._id === item._id ? { ...i, estadoCliente: anterior } : i))),
     });
   }
+  /** El círculo: comprado / no comprado, en un toque. */
+  tildar(item: Seleccion) { this.poner(item, 'comprado'); }
 
-  startEditNotas(item: Seleccion) {
-    this.editingNotasId.set(item._id);
-    this.editingNotas.set(item.notasCliente ?? '');
-  }
-
-  commitNotas(item: Seleccion) {
+  editarNota(item: Seleccion) { this.editingNotasId.set(item._id); this.editingNotas.set(item.notasCliente ?? ''); }
+  guardarNota(item: Seleccion) {
     if (this.editingNotasId() !== item._id) return;
     const notas = this.editingNotas().trim() || undefined;
-    this.items.update(list =>
-      list.map(i => i._id === item._id ? { ...i, notasCliente: notas } : i)
-    );
+    this.items.update(l => l.map(i => (i._id === item._id ? { ...i, notasCliente: notas } : i)));
     this.svc.updateEstado(this.projectId, item._id, item.estadoCliente, notas).subscribe();
     this.editingNotasId.set(null);
-  }
-
-  cancelNotas() { this.editingNotasId.set(null); }
-
-  estadoClass(estado: EstadoSeleccion) { return `estado-chip--${estado}`; }
-
-  unidadEfectiva(s: Seleccion): string {
-    return s.unidad || s.itemId?.unidad || '';
   }
 }

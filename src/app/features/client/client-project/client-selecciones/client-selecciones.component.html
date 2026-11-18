@@ -1,90 +1,60 @@
 <div class="cs">
+  <header class="cs-head">
+    <h2>Lo que tenés que comprar</h2>
+    <p>Esta es la lista de cosas que elegís y comprás vos. Marcá en qué estás con cada una y avisale al estudio.</p>
+  </header>
 
-  <!-- Barra de progreso -->
   @if (!loading() && total() > 0) {
-    <div class="cs-progress">
-      <div class="cs-progress__info">
-        <span class="cs-progress__label">Tu progreso</span>
-        <span class="cs-progress__pct">{{ comprados() }}/{{ total() }} comprados</span>
+    <div class="cs-prog">
+      <div class="cs-prog__t"><b class="num">{{ comprados() }}</b> de <b class="num">{{ total() }}</b> comprados
+        @if (faltan()) { <span> · faltan {{ faltan() }}</span> }
+        @if (urgentes()) { <span class="cs-prog__u"> · {{ urgentes() }} con fecha cerca</span> }
       </div>
-      <div class="cs-progress__bar">
-        <div class="cs-progress__fill" [style.width.%]="progreso()"></div>
-      </div>
+      <div class="cs-prog__bar"><i [style.width.%]="progreso()"></i></div>
     </div>
   }
 
   @if (loading()) {
-    <div class="skeleton" style="height:200px; border-radius: var(--radius-lg)"></div>
-  } @else if (items().length === 0) {
-    <div class="cs-empty">
-      Tu arquitecto aún no definió ítems de compra para este proyecto.
-    </div>
+    <div class="skeleton" style="height:200px;border-radius:12px"></div>
+  } @else if (error()) {
+    <p class="cs-vacio">No se pudo cargar la lista. Probá de nuevo en un momento.</p>
+  } @else if (!total()) {
+    <p class="cs-vacio">Tu arquitecto todavía no cargó nada para que compres.</p>
   } @else {
-
-    @for (rGroup of rubroGroups(); track rGroup.rubroId) {
-      <div class="cs-rubro-group">
-
-        <div class="cs-rubro-group__header">{{ rGroup.rubroNombre }}</div>
-
-        @for (sGroup of rGroup.subrubroGroups; track sGroup.subrubroId) {
-          <div class="cs-sub-group">
-            <div class="cs-sub-group__header">{{ sGroup.subrubroNombre }}</div>
-
-            <div class="cs-list">
-              @for (item of sGroup.items; track item._id) {
-                <div class="cs-item" [class.cs-item--comprado]="item.estadoCliente === 'comprado'">
-
-                  <div class="cs-item__body">
-                    <div class="cs-item__main">
-                      <span class="cs-item__nombre">{{ item.itemId?.nombre }}</span>
-                      @if (item.cantidad) {
-                        <span class="cs-item__qty">{{ item.cantidad }} {{ unidadEfectiva(item) }}</span>
-                      } @else {
-                        <code class="cs-item__unit">{{ unidadEfectiva(item) }}</code>
-                      }
-                    </div>
-
-                    @if (item.observacion) {
-                      <p class="cs-item__obs">{{ item.observacion }}</p>
-                    }
-
-                    <!-- Notas propias del cliente -->
-                    @if (editingNotasId() === item._id) {
-                      <div class="cs-item__notas-edit">
-                        <input class="input input--xs"
-                               placeholder="Tu nota..."
-                               [value]="editingNotas()"
-                               (input)="editingNotas.set($any($event.target).value)"
-                               (keydown.enter)="commitNotas(item)"
-                               (keydown.escape)="cancelNotas()"
-                               autofocus />
-                        <div class="cs-item__notas-actions">
-                          <button class="btn btn--ghost btn--xs" (click)="commitNotas(item)">Guardar</button>
-                          <button class="btn btn--ghost btn--xs" (click)="cancelNotas()">✕</button>
-                        </div>
-                      </div>
-                    } @else {
-                      <button class="cs-item__notas-btn" (click)="startEditNotas(item)">
-                        {{ item.notasCliente ? '📝 ' + item.notasCliente : '+ Agregar nota' }}
-                      </button>
-                    }
-                  </div>
-
-                  <!-- Estado cíclico interactivo -->
-                  <button class="estado-chip estado-chip--interactive {{ estadoClass(item.estadoCliente) }}"
-                          (click)="ciclarEstado(item)"
-                          title="Tocá para avanzar estado">
-                    {{ ESTADO_LABELS[item.estadoCliente] }}
-                  </button>
-
-                </div>
-              }
-            </div>
-          </div>
-        }
-      </div>
+    @for (g of grupos(); track g.categoria) {
+      <section class="cs-grupo">
+        <h3>{{ g.categoria }} <span>{{ g.comprados }}/{{ g.items.length }}</span></h3>
+        <ul>
+          @for (s of g.items; track s._id) {
+            <li class="cs-item" [class.cs-item--ok]="s.estadoCliente === 'comprado'">
+              <button type="button" class="cs-check" [class.cs-check--on]="s.estadoCliente === 'comprado'" (click)="tildar(s)" [attr.aria-pressed]="s.estadoCliente === 'comprado'" [attr.aria-label]="'Marcar ' + nombre(s) + ' como comprado'">
+                @if (s.estadoCliente === 'comprado') { <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg> }
+              </button>
+              <div class="cs-body">
+                <strong>{{ nombre(s) }}@if (s.cantidad) { <small> · {{ s.cantidad }} {{ unidad(s) }}</small> }</strong>
+                @if (s.observacion) { <span class="cs-nota">{{ s.observacion }}</span> }
+                <span class="cs-meta">
+                  @if (urgencia(s); as u) { <em [class]="'cs-f cs-f--' + u.tono">{{ u.texto }}</em> }
+                  @if (s.link) { <a [href]="s.link" target="_blank" rel="noopener">Ver referencia</a> }
+                </span>
+                @if (editingNotasId() === s._id) {
+                  <span class="cs-edit">
+                    <input [value]="editingNotas()" (input)="editingNotas.set($any($event.target).value)" (keydown.enter)="guardarNota(s)" (keydown.escape)="editingNotasId.set(null)" placeholder="Tu nota (modelo, tienda, precio…)" aria-label="Tu nota" />
+                    <button type="button" (click)="guardarNota(s)">Guardar</button>
+                  </span>
+                } @else {
+                  <button type="button" class="cs-nbtn" (click)="editarNota(s)">{{ s.notasCliente ? 'Tu nota: ' + s.notasCliente : '+ Agregar una nota' }}</button>
+                }
+              </div>
+              <div class="cs-seg" role="group" [attr.aria-label]="'Estado de ' + nombre(s)">
+                @for (o of OPCIONES; track o.id) {
+                  <button type="button" [class.on]="s.estadoCliente === o.id" [attr.aria-pressed]="s.estadoCliente === o.id" (click)="poner(s, o.id)">{{ o.label }}</button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
     }
-
   }
-
 </div>
