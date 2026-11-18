@@ -3,18 +3,21 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DashboardService, DashboardData, ProjectSummary, fmtMoney, monedasUsadas } from '../../core/services/dashboard.service';
 import { AuthService } from '../../core/services/auth.service';
+import { MonedaService } from '../../core/services/moneda.service';
+import { MonedaToggleComponent } from '../../shared/components/moneda-toggle/moneda-toggle.component';
 import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS } from '../../shared/models/project.model';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, MonedaToggleComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit {
   private svc = inject(DashboardService);
   auth = inject(AuthService);
+  m = inject(MonedaService);
 
   data    = signal<DashboardData | null>(null);
   loading = signal(true);
@@ -40,6 +43,20 @@ export class DashboardComponent implements OnInit {
   });
   monedasPorPagar = computed(() => { const t = this.data()?.totales; return t ? monedasUsadas(t.porPagar, t.gastado) : []; });
   pendientesTotal = computed(() => (this.data()?.proyectos ?? []).reduce((s, p) => s + p.pendientes, 0));
+
+  /** Costo por m² de cada obra con superficie cargada, en la moneda elegida (cada movimiento con su propio tipo de cambio). */
+  m2 = computed(() => {
+    const v = this.m.vista();
+    const filas = (this.data()?.proyectos ?? []).filter(p => p.status !== 'archived' && p.superficie && p.gastadoEq[v] > 0)
+      .map(p => ({ p, gasto: p.gastadoEq[v], costo: p.gastadoEq[v] / p.superficie!, faltaTC: p.sinTC > 0 }))
+      .sort((a, b) => b.costo - a.costo);
+    const max = filas[0]?.costo ?? 0;
+    const sup = filas.reduce((s, f) => s + f.p.superficie!, 0);
+    const gasto = filas.reduce((s, f) => s + f.gasto, 0);
+    return { filas: filas.map(f => ({ ...f, ancho: max ? f.costo / max * 100 : 0 })), promedio: sup ? gasto / sup : 0, sup, gasto, faltanTC: filas.some(f => f.faltaTC) };
+  });
+  sinSuperficie = computed(() => (this.data()?.proyectos ?? []).filter(p => p.status !== 'archived' && !p.superficie));
+  fmtM = (n: number) => `${this.m.vista() === 'USD' ? 'US$' : '$'} ${Math.round(n).toLocaleString('es-AR')}`;
 
   ngOnInit() {
     this.svc.get().subscribe({

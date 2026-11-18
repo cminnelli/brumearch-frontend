@@ -50,6 +50,39 @@
         </div>
       </section>
 
+      <section class="dash-panel" aria-labelledby="h-m2">
+        <header class="dash-panel__head">
+          <h2 id="h-m2">Costo por m²</h2>
+          <app-moneda-toggle />
+        </header>
+        @if (m2().filas.length) {
+          <div class="m2">
+            <div class="m2__hero">
+              <span class="kpi__label">Promedio de las obras</span>
+              <strong class="kpi__value num">{{ fmtM(m2().promedio) }}<small>/m²</small></strong>
+              <span class="kpi__sub">{{ fmtM(m2().gasto) }} gastados en {{ m2().sup.toLocaleString('es-AR') }} m²</span>
+            </div>
+            <ul class="m2__list">
+              @for (f of m2().filas; track f.p._id) {
+                <li>
+                  <a [routerLink]="['/projects', f.p._id]" class="m2__row">
+                    <div class="m2__top"><strong>{{ f.p.name }}</strong><b class="num">{{ fmtM(f.costo) }}<small>/m²</small></b></div>
+                    <div class="progress progress--dark" [style.--v]="f.ancho"><i></i></div>
+                    <span class="m2__sub">{{ f.p.superficie }} m² · {{ fmtM(f.gasto) }} gastados</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
+          @if (m2().faltanTC) { <p class="m2__nota">Algunos movimientos no tienen tipo de cambio: el valor puede estar incompleto.</p> }
+        } @else {
+          <p class="dash-empty">Cargá los m² construidos de una obra y aparece cuánto va gastado por metro cuadrado.</p>
+        }
+        @if (sinSuperficie().length) {
+          <p class="m2__nota">Sin m² cargados: @for (p of sinSuperficie(); track p._id; let l = $last) { <a class="link" [routerLink]="['/projects', p._id]">{{ p.name }}</a>@if (!l) {, } }</p>
+        }
+      </section>
+
       <div class="dash-cols">
         <section class="dash-panel" aria-labelledby="h-obras">
           <header class="dash-panel__head"><h2 id="h-obras">Obras en curso</h2><a routerLink="/projects" class="link">Ver todas →</a></header>

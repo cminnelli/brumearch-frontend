@@ -33,3 +33,11 @@ ul { list-style: none; }
   &__side { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; b { font-weight: 600; white-space: nowrap; } } }
 
 .kpi__money--ok { color: var(--c-good); }
+
+.m2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: var(--sp-3); padding: var(--sp-3); @media (max-width: 800px) { grid-template-columns: 1fr; }
+  &__hero { display: flex; flex-direction: column; gap: .35rem; }
+  &__list { display: flex; flex-direction: column; gap: var(--sp-2); }
+  &__row { display: flex; flex-direction: column; gap: .35rem; &:hover strong { color: var(--c-brand); } }
+  &__top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); strong { font-weight: 600; } b { font-family: var(--font-head); white-space: nowrap; small { font-size: var(--text-xs); color: var(--c-text-muted); font-weight: 400; } } }
+  &__sub { font-size: var(--text-xs); color: var(--c-text-muted); }
+  &__nota { padding: 0 var(--sp-3) var(--sp-2); font-size: var(--text-sm); color: var(--c-text-sub); } }

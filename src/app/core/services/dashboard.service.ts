@@ -25,6 +25,9 @@ export interface ProjectSummary {
   porPagar: PorMoneda;
   pendientes: number;
   vencidos: number;
+  superficie: number | null;
+  gastadoEq: { ARS: number; USD: number };
+  sinTC: number;
 }
 
 export interface PagoPendiente {
