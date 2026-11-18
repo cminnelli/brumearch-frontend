@@ -56,6 +56,69 @@
       }
     </section>
 
+    <div class="seg vista-crono" role="group" aria-label="Vista del cronograma">
+      <button type="button" [attr.aria-pressed]="vistaCrono() === 'tiempo'" (click)="setVistaCrono('tiempo')">Línea de tiempo</button>
+      <button type="button" [attr.aria-pressed]="vistaCrono() === 'pert'" (click)="setVistaCrono('pert')">Red de etapas (PERT)</button>
+    </div>
+
+    @if (vistaCrono() === 'pert') {
+    <section class="pt" aria-label="Red de etapas PERT">
+      <header class="pt__head">
+        <h3>Red de etapas</h3>
+        <p>Cada etapa empieza cuando termina la anterior: si una se atrasa, <b>arrastra</b> a las que siguen. Se ve cuánto atrasó cada una y de dónde viene.</p>
+      </header>
+      <div class="pt__total" [class.pt__total--ok]="(analisis().desvioDias ?? 0) <= 0">
+        <div class="pt__total-main">
+          <span class="pt__total-lbl">Desvío total de la obra</span>
+          <strong class="num">{{ analisis().desvioDias === null ? '—' : analisis().desvioDias! > 0 ? '+' + analisis().desvioDias + ' días' : analisis().desvioDias! < 0 ? -analisis().desvioDias! + ' días adelantada' : 'En fecha' }}</strong>
+        </div>
+        <div class="pt__total-sum">
+          <span class="pt__total-lbl">Suma del atraso de cada etapa</span>
+          @if (pert().origenes.length) {
+            <p>
+              @for (o of pert().origenes; track o.id; let l = $last) { <span class="pt__term"><b>{{ o.nombre }}</b> +{{ o.retrasoPropio }} d</span>{{ l ? '' : ' + ' }} }
+              <span class="pt__eq">= <b>+{{ analisis().sumaPropios }} d</b></span>
+            </p>
+          } @else { <p>Ninguna etapa generó atraso.</p> }
+        </div>
+        <p class="pt__total-note">El atraso de una etapa se <b>arrastra</b> a las siguientes, pero se cuenta una sola vez: acá se suma solo lo que generó cada una.</p>
+      </div>
+      <div class="pt__scroll">
+        <div class="pert" [style.width.px]="pert().w" [style.height.px]="pert().h">
+          <svg class="pert__svg" [attr.width]="pert().w" [attr.height]="pert().h" aria-hidden="true">
+            <defs>
+              <marker id="pa-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#c9c9c9"/></marker>
+              <marker id="pa-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#b45309"/></marker>
+              <marker id="pa-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#c0261c"/></marker>
+            </defs>
+            @for (ed of pert().edges; track $index) {
+              <path [attr.d]="ed.d" class="pert__edge pert__edge--{{ ed.tono }}" fill="none" [attr.marker-end]="'url(#pa-' + ed.tono + ')'" />
+              @if (ed.label) { <text [attr.x]="ed.lx" [attr.y]="ed.ly" text-anchor="middle" class="pert__lab pert__lab--{{ ed.tono }}">{{ ed.label }}</text> }
+            }
+          </svg>
+          @for (n of pert().nodes; track n.x.id) {
+            <article class="pn pn--{{ n.x.tono }}" [class.pn--origen]="n.x.retrasoPropio > 0" [style.left.px]="n.left" [style.top.px]="n.top" [style.width.px]="PW" [style.height.px]="PH">
+              <header class="pn__head"><span class="pn__n">{{ n.x.orden }}</span><b [title]="n.x.nombre">{{ n.x.nombre }}</b>
+                <span class="pn__st pn__st--{{ n.x.estado }}" [title]="n.x.estado === 'completada' ? 'Completada' : n.x.estado === 'activa' ? 'En curso' : 'Pendiente'">{{ n.x.estado === 'completada' ? '✓' : n.x.estado === 'activa' ? '●' : '○' }}</span></header>
+              <dl class="pn__dates">
+                <div><dt>Plan</dt><dd>@if (n.x.planInicio && n.x.planFin) { {{ fmtCorta(n.x.planInicio) }} → {{ fmtCorta(n.x.planFin) }} <small>{{ n.x.planDias }} d</small> } @else { — }</dd></div>
+                <div><dt>Real</dt><dd>
+                  @if (n.x.estado === 'pendiente') { — }
+                  @else { {{ fmtCorta(n.x.realInicio) }} → {{ n.x.realFin ? fmtCorta(n.x.realFin) : (n.x.estado === 'activa' ? 'en curso' : '?') }} @if (n.x.realDias !== null) { <small>{{ n.x.realDias }} d</small> } }
+                </dd></div>
+              </dl>
+              <footer class="pn__foot">
+                @if (n.x.retrasoPropio > 0) { <span class="pn__chip pn__chip--bad" title="Días que esta etapa se extendió por sí misma">+{{ n.x.retrasoPropio }} d propio</span> }
+                @if (n.x.retrasoHeredado > 0) { <span class="pn__chip pn__chip--warn" title="Días con que empezó tarde por atrasos de etapas anteriores">+{{ n.x.retrasoHeredado }} d heredado</span> }
+                @if (n.x.estado === 'completada' && !n.x.realFin) { <span class="pn__chip pn__chip--none" title="Cargá cuándo terminó para medir su desvío">Falta fecha de fin</span> }
+                @else if (n.x.retrasoPropio === 0 && n.x.retrasoHeredado === 0) { <span class="pn__chip pn__chip--ok">{{ n.x.estado === 'pendiente' ? 'En plazo' : n.x.desvioDias !== null && n.x.desvioDias < 0 ? 'Adelantada ' + (-n.x.desvioDias) + ' d' : 'En plazo' }}</span> }
+              </footer>
+            </article>
+          }
+        </div>
+      </div>
+    </section>
+    } @else {
     <section class="tlc" aria-label="Línea de tiempo de la obra">
       <header class="tlc__head">
         <h3>Línea de tiempo</h3>
@@ -100,6 +163,7 @@
         </div>
       </div>
     </section>
+    }
   }
 
   @if (loading()) {

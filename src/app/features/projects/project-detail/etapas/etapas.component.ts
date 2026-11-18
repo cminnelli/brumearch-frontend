@@ -126,6 +126,30 @@ export class EtapasComponent implements OnInit {
     sacarPrimero();
     return out;
   });
+  // ── Vista PERT (red de etapas) ──
+  vistaCrono = signal<'tiempo' | 'pert'>((() => { try { return (localStorage.getItem('crono_vista') as 'tiempo' | 'pert') || 'tiempo'; } catch { return 'tiempo' as const; } })());
+  setVistaCrono(v: 'tiempo' | 'pert') { this.vistaCrono.set(v); try { localStorage.setItem('crono_vista', v); } catch { /* sin storage */ } }
+  readonly PW = 220; readonly PH = 138; readonly GX = 52; readonly GY = 54; readonly PCOLS = 4;
+  pert = computed(() => {
+    const et = this.analisis().etapas;
+    const nodes = et.map((x, i) => ({ x, left: (i % this.PCOLS) * (this.PW + this.GX), top: Math.floor(i / this.PCOLS) * (this.PH + this.GY), col: i % this.PCOLS, row: Math.floor(i / this.PCOLS) }));
+    const edges = nodes.slice(1).map((n, i) => {
+      const a = nodes[i];
+      const carry = Math.max(0, a.x.desvioDias ?? 0);
+      let d: string, lx: number, ly: number;
+      if (a.row === n.row) {
+        const y = a.top + this.PH / 2; d = `M${a.left + this.PW} ${y} H${n.left - 2}`; lx = a.left + this.PW + this.GX / 2; ly = y - 7;
+      } else {
+        const x1 = a.left + this.PW / 2, y1 = a.top + this.PH, mid = y1 + this.GY / 2, x2 = n.left + this.PW / 2;
+        d = `M${x1} ${y1} V${mid} H${x2} V${n.top - 2}`; lx = (x1 + x2) / 2; ly = mid - 6;
+      }
+      return { d, lx, ly, carry, tono: a.x.tono === 'none' ? 'ok' : a.x.tono, label: carry > 0 ? `arrastra +${carry} d` : '' };
+    });
+    const filas = Math.max(1, Math.ceil(et.length / this.PCOLS));
+    const cols = Math.min(this.PCOLS, Math.max(1, et.length));
+    const origenes = et.filter(x => x.retrasoPropio > 0);
+    return { nodes, edges, w: cols * this.PW + (cols - 1) * this.GX, h: filas * this.PH + (filas - 1) * this.GY, origenes };
+  });
   pctEtapa(a: ProyectoEtapa) { return a.estado === 'completada' ? 100 : a.estado === 'activa' ? (a.avance ?? 50) : 0; }
 
   private base = environment.apiUrl;
