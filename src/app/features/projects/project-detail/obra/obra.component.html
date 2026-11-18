@@ -447,108 +447,8 @@
             </div>
           }
 
-          <!-- Formulario: generar gasto -->
-          @if (generandoGastoPresId() === p._id) {
-            <div class="dp-form">
-              <div class="dp-form__title">Sumar a gastos · {{ fmt(p.monto, p.moneda) }}</div>
-              <form (ngSubmit)="confirmarGenerarGasto(p)">
-                <div class="form-grid">
-                  <div class="field">
-                    <label>Fecha del gasto *</label>
-                    <input type="date" [(ngModel)]="generarGastoForm.fecha" name="gf_fecha" required />
-                  </div>
-                  <div class="field">
-                    <label>Factura / comprobante</label>
-                    <label class="file-btn">
-                      ↑ {{ generarGastoForm.comprobante ? generarGastoForm.comprobante.name : 'Adjuntar (opcional)' }}
-                      <input type="file" hidden (change)="onGenerarComprobante($event)" accept=".pdf,.xlsx,.xls,.jpg,.png" />
-                    </label>
-                  </div>
-                </div>
-
-                <!-- Toggle: registrar pago ahora -->
-                <label class="dp-pay-toggle">
-                  <input type="checkbox" [(ngModel)]="generarGastoForm.registrarPago" name="gf_registrar" />
-                  <span class="dp-pay-toggle__text">Registrar pago ahora</span>
-                  <span class="dp-pay-toggle__hint">Podés cargarlo después si preferís</span>
-                </label>
-
-                @if (generarGastoForm.registrarPago) {
-                  <div class="dp-pay-form">
-                    <div class="form-grid">
-                      <div class="field">
-                        <label>Fecha del pago *</label>
-                        <input type="date" [(ngModel)]="generarGastoForm.pagoFecha" name="gf_pago_fecha" required />
-                      </div>
-                      <div class="field">
-                        <label>Monto *</label>
-                        <div class="input-group">
-                          <span class="input-prefix-static">{{ p.moneda }}</span>
-                          <input type="number" [(ngModel)]="generarGastoForm.pagoMonto" name="gf_pago_monto" placeholder="0" min="0" required (ngModelChange)="generarError.set(null)" />
-                        </div>
-                      </div>
-                      <div class="field">
-                        <label>Método</label>
-                        <select [(ngModel)]="generarGastoForm.pagoMetodo" name="gf_pago_metodo">
-                          @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
-                        </select>
-                      </div>
-                      <div class="field">
-                        <label>Referencia</label>
-                        <input [(ngModel)]="generarGastoForm.pagoReferencia" name="gf_pago_ref" placeholder="Nro. transferencia, cheque…" />
-                      </div>
-                      <div class="field field--full">
-                        <label>Notas</label>
-                        <input [(ngModel)]="generarGastoForm.pagoNotas" name="gf_pago_notas" placeholder="Opcional" />
-                      </div>
-                    </div>
-
-                    @if (reservas().length) {
-                      <div class="fuente-pago">
-                        <div class="fuente-pago__label">Origen del pago</div>
-                        <div class="fuente-pago__options">
-                          <label class="fuente-option" [class.fuente-option--active]="generarGastoForm.pagoFuente === ''">
-                            <input type="radio" [(ngModel)]="generarGastoForm.pagoFuente" name="gf_pago_fuente" value="" hidden />
-                            <span class="fuente-option__title">Pago del cliente</span>
-                            <span class="fuente-option__sub">Directo del propietario</span>
-                          </label>
-                          <label class="fuente-option" [class.fuente-option--active]="generarGastoForm.pagoFuente === 'reserva'">
-                            <input type="radio" [(ngModel)]="generarGastoForm.pagoFuente" name="gf_pago_fuente" value="reserva" hidden />
-                            <span class="fuente-option__title">Reserva de obra</span>
-                            <span class="fuente-option__sub">Desde un fondo reservado</span>
-                          </label>
-                        </div>
-                        @if (generarGastoForm.pagoFuente === 'reserva') {
-                          <div class="fuente-pago__detail">
-                            <div class="field">
-                              <label>Reserva *</label>
-                              <select [(ngModel)]="generarGastoForm.pagoReservaId" name="gf_pago_reserva" (ngModelChange)="generarError.set(null)">
-                                <option value="">Seleccioná reserva</option>
-                                @for (rv of reservas(); track rv._id) {
-                                  <option [value]="rv._id">{{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option>
-                                }
-                              </select>
-                            </div>
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-
-                @if (generarError()) { <div class="pago-error"><span>⚠</span> {{ generarError() }}</div> }
-                <div class="form-actions">
-                  <button type="button" class="btn btn--ghost btn--sm" (click)="cancelGenerarGasto()">Cancelar</button>
-                  <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingGenerar()">
-                    {{ savingGenerar() ? 'Generando…' : generarGastoForm.registrarPago ? 'Sumar y registrar pago' : 'Sumar a gastos' }}
-                  </button>
-                </div>
-              </form>
-            </div>
-          }
-
           <!-- Acciones -->
-          @if (editingPresId() !== p._id && generandoGastoPresId() !== p._id) {
+          @if (editingPresId() !== p._id) {
             <div class="dp-actions">
               <div class="dp-actions__primary">
                 @if (p.estado === 'pendiente') {
@@ -559,7 +459,7 @@
                   <button class="btn btn--ghost btn--sm" (click)="reactivar(p)">Reactivar</button>
                 }
                 @if (p.estado === 'aprobado' && !tieneGasto(p._id)) {
-                  <button class="btn btn--primary btn--sm" (click)="startGenerarGasto(p)">Sumar a gastos</button>
+                  <button class="btn btn--primary btn--sm" type="button" [disabled]="savingGenerar()" (click)="sumarPresupuestoAGastos(p)">{{ savingGenerar() ? 'Sumando…' : 'Sumar a gastos' }}</button>
                 }
                 @if (p.estado === 'aprobado' && tieneGasto(p._id)) {
                   <span class="dp-linked">✓ Gasto generado</span>
@@ -789,68 +689,45 @@
           @if (activePagoGastoId() === g._id) {
             <div class="dp-form">
               <div class="dp-form__title">Registrar pago</div>
-              <form (ngSubmit)="savePago(g)">
-                <div class="form-grid">
+              <form (ngSubmit)="savePago(g)" class="pago-simple">
+                <div class="pago-simple__main">
                   <div class="field">
-                    <label>Fecha *</label>
-                    <input type="date" [(ngModel)]="pagoForm.fecha" name="pf_fecha" required />
-                  </div>
-                  <div class="field">
-                    <label>Monto *</label>
+                    <label for="pf_monto">Monto</label>
                     <div class="input-group">
                       <span class="input-prefix-static">{{ g.moneda }}</span>
-                      <input type="number" [(ngModel)]="pagoForm.monto" name="pf_monto" placeholder="0" min="0" required (ngModelChange)="pagoError.set(null)" />
+                      <input id="pf_monto" type="number" [(ngModel)]="pagoForm.monto" name="pf_monto" placeholder="0" min="0" required (ngModelChange)="pagoError.set(null)" />
                     </div>
                   </div>
                   <div class="field">
-                    <label>Método</label>
-                    <select [(ngModel)]="pagoForm.metodoPago" name="pf_metodo">
+                    <label for="pf_metodo">Cómo se pagó</label>
+                    <select id="pf_metodo" [(ngModel)]="pagoForm.metodoPago" name="pf_metodo">
                       @for (m of metodos; track m) { <option [value]="m">{{ metodoLabels[m] }}</option> }
                     </select>
                   </div>
-                  <div class="field">
-                    <label>Referencia</label>
-                    <input [(ngModel)]="pagoForm.referencia" name="pf_ref" placeholder="Nro. transferencia, cheque…" />
-                  </div>
-                  <div class="field">
-                    <label>Notas</label>
-                    <input [(ngModel)]="pagoForm.notas" name="pf_notas" placeholder="Opcional" />
-                  </div>
                 </div>
-                @if (reservas().length) {
-                  <div class="fuente-pago">
-                    <div class="fuente-pago__label">Origen del pago</div>
-                    <div class="fuente-pago__options">
-                      <label class="fuente-option" [class.fuente-option--active]="pagoForm.fuente === 'cliente'">
-                        <input type="radio" [(ngModel)]="pagoForm.fuente" name="pf_fuente" value="cliente" hidden (ngModelChange)="onPagoFuenteChange()" />
-                        <span class="fuente-option__title">Cliente</span>
-                        <span class="fuente-option__sub">Del propietario</span>
-                      </label>
-                      <label class="fuente-option" [class.fuente-option--active]="pagoForm.fuente === 'reserva'">
-                        <input type="radio" [(ngModel)]="pagoForm.fuente" name="pf_fuente" value="reserva" hidden (ngModelChange)="onPagoFuenteChange()" />
-                        <span class="fuente-option__title">Reserva</span>
-                        <span class="fuente-option__sub">Desde un fondo</span>
-                      </label>
-                    </div>
-                    @if (pagoForm.fuente === 'reserva') {
-                      <div class="fuente-pago__detail">
-                        <div class="field">
-                          <label>Reserva *</label>
-                          <select [(ngModel)]="pagoForm.reservaId" name="pf_reserva" (ngModelChange)="pagoError.set(null)">
-                            <option value="">Seleccioná reserva</option>
-                            @for (rv of reservas(); track rv._id) {
-                              <option [value]="rv._id">{{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option>
-                            }
-                          </select>
-                        </div>
+
+                <details class="pago-simple__more">
+                  <summary>Más opciones: fecha, referencia{{ reservas().length ? ', reserva' : '' }}</summary>
+                  <div class="form-grid">
+                    <div class="field"><label for="pf_fecha">Fecha del pago (hoy por defecto)</label><input id="pf_fecha" type="date" [(ngModel)]="pagoForm.fecha" name="pf_fecha" /></div>
+                    <div class="field"><label for="pf_ref">Referencia</label><input id="pf_ref" [(ngModel)]="pagoForm.referencia" name="pf_ref" placeholder="Nro. transferencia, cheque…" /></div>
+                    <div class="field"><label for="pf_notas">Notas</label><input id="pf_notas" [(ngModel)]="pagoForm.notas" name="pf_notas" placeholder="Opcional" /></div>
+                    @if (reservas().length) {
+                      <div class="field">
+                        <label for="pf_reserva">Pagar con</label>
+                        <select id="pf_reserva" [(ngModel)]="pagoForm.reservaId" name="pf_reserva" (ngModelChange)="pagoForm.fuente = $event ? 'reserva' : 'cliente'; pagoError.set(null)">
+                          <option value="">Fondos del cliente</option>
+                          @for (rv of reservas(); track rv._id) { <option [value]="rv._id">Reserva {{ rv.nombre }} · {{ reservaSaldo(rv._id) }}</option> }
+                        </select>
                       </div>
                     }
                   </div>
-                }
+                </details>
+
                 @if (pagoError()) { <div class="pago-error"><span>⚠</span> {{ pagoError() }}</div> }
                 <div class="form-actions">
                   <button type="button" class="btn btn--ghost btn--sm" (click)="cancelPago()">Cancelar</button>
-                  <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingPago()">
+                  <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingPago() || !pagoForm.monto">
                     {{ savingPago() ? 'Guardando…' : 'Registrar pago' }}
                   </button>
                 </div>

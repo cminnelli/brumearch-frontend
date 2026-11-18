@@ -566,6 +566,13 @@ export class ObraComponent implements OnInit {
     });
   }
 
+  /** Suma un presupuesto a gastos en un clic (fecha de hoy). Los pagos se registran después. */
+  sumarPresupuestoAGastos(p: Presupuesto) {
+    if (this.savingGenerar()) return;
+    this.savingGenerar.set(true);
+    this.sumarAGastos(p, () => this.savingGenerar.set(false));
+  }
+
   // ── Pagos ────────────────────────────────────────────────
   openPagoForm(g: Gasto) {
     this.selectedId.set(g._id); this.selectedType.set('gasto');
@@ -577,7 +584,7 @@ export class ObraComponent implements OnInit {
   cancelPago() { this.activePagoGastoId.set(null); this.pagoError.set(null); }
 
   savePago(g: Gasto) {
-    if (!this.pagoForm.monto || !this.pagoForm.fecha) return;
+    if (!this.pagoForm.monto) return;
 
     if (this.pagoForm.reservaId) {
       const rv = this.reservas().find(r => r._id === this.pagoForm.reservaId);
@@ -589,7 +596,9 @@ export class ObraComponent implements OnInit {
 
     this.pagoError.set(null);
     this.savingPago.set(true);
-    this.gastoSvc.addPago(this.projectId, g._id, this.pagoForm).subscribe({
+    // Un pago que se registra ya está pagado: no queda pendiente de confirmar.
+    const fechaPago = this.pagoForm.fecha || this.todayISO();
+    this.gastoSvc.addPago(this.projectId, g._id, { ...this.pagoForm, fecha: fechaPago, pagado: { valor: true, fecha: fechaPago } }).subscribe({
       next: updated => {
         this.gastos.update(l => l.map(x => x._id === g._id ? updated : x));
         if (this.pagoForm.reservaId) {

@@ -2498,3 +2498,11 @@
   p { font-size: var(--text-sm); font-weight: 500; color: var(--c-text); }
   &__btns { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
   &__x { all: unset; cursor: pointer; font-size: var(--text-sm); color: var(--c-text-sub); padding: .3rem .4rem; &:hover { color: var(--c-text); text-decoration: underline; } &:focus-visible { outline: 2px solid var(--c-brand); } } }
+
+
+/* Registrar pago: lo mínimo a la vista */
+.pago-simple { display: flex; flex-direction: column; gap: var(--sp-2);
+  &__main { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--sp-2); }
+  &__more { border-top: 1px dashed var(--c-border-strong); padding-top: var(--sp-1);
+    summary { cursor: pointer; font-size: var(--text-sm); font-weight: 600; color: var(--c-text-sub); padding: .3rem 0; list-style: none; &::-webkit-details-marker { display: none; } &::before { content: '+ '; } &:hover { color: var(--c-text); } &:focus-visible { outline: 2px solid var(--c-brand); } }
+    &[open] summary::before { content: '− '; } .form-grid { margin-top: var(--sp-1); } } }
