@@ -46,39 +46,50 @@
               </div>
               <b class="ap-monto num">{{ m.fmt(a.monto, a.moneda) }}</b>
               <div class="ap-act">
-                @if (a.comprobante) { <a class="lnk" [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Comprobante</a> }
+                <button class="lnk" type="button" (click)="verDetalle(a)">Ver detalle</button>
+                <button class="lnk" type="button" (click)="detallePdf(a)">PDF</button>
+                @if (a.comprobante) { <a class="lnk" [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Comprobante del cliente</a> }
                 @if (canEdit) { <button class="lnk" type="button" (click)="editar(a)">Editar</button><button class="lnk lnk--del" type="button" (click)="eliminar(a)" aria-label="Eliminar pago">✕</button> }
               </div>
             </div>
 
-            <p class="ap-nums">
+            @if (!a.asignaciones?.length && !a.utilidades?.length) { <p class="ap-nums">
               Asignado <b class="num">{{ fm(a.asignado ?? 0, a.moneda) }}</b>
               <span>·</span> Utilidad <b class="num">{{ fm(a.utilidad ?? 0, a.moneda) }}</b>
               <span>·</span> Saldo <b class="num ap-nums__saldo">{{ fm(a.saldo ?? 0, a.moneda) }}</b>
-            </p>
+            </p> }
 
             @if (a.asignaciones?.length || a.utilidades?.length) {
-              <table class="ap-tabla">
-                <thead><tr><th>Asignado a</th><th class="r">Se pagó</th><th class="r">Descuenta</th><th></th></tr></thead>
+              <div class="ap-tabla-wrap"><table class="ap-tabla">
+                <thead><tr><th>Fecha</th><th>Proveedor / gasto</th><th>Rubro</th><th>Método</th><th class="r">Se pagó</th><th class="r">Descuenta</th><th></th></tr></thead>
                 <tbody>
                   @for (x of a.asignaciones; track x._id) {
                     <tr>
-                      <td data-l="Asignado a"><strong>{{ x.gasto?.proveedor || x.gasto?.descripcion || 'Gasto' }}</strong><small>{{ x.gasto?.rubro }}@if (x.gasto?.subrubro) { · {{ x.gasto?.subrubro }} } · {{ fmtFecha(x.fecha) }}@if (x.metodoPago) { · {{ metodoLabel(x.metodoPago) }} }</small></td>
+                      <td class="f" data-l="Fecha">{{ fechaCorta(x.fecha) }}</td>
+                      <td data-l="Proveedor / gasto" class="prov"><strong>{{ x.gasto?.proveedor || x.gasto?.descripcion || 'Gasto' }}</strong>@if (x.gasto?.proveedor && x.gasto?.descripcion) { <small>{{ x.gasto?.descripcion }}</small> }</td>
+                      <td data-l="Rubro">{{ x.gasto?.rubro }}@if (x.gasto?.subrubro) { <small>{{ x.gasto?.subrubro }}</small> }</td>
+                      <td data-l="Método">{{ metodoLabel(x.metodoPago) }}</td>
                       <td class="r num" data-l="Se pagó">{{ fm(x.montoOperacion, x.monedaOperacion) }}</td>
                       <td class="r num" data-l="Descuenta">{{ fm(x.descuenta, a.moneda) }}</td>
-                      <td class="r"><button type="button" class="lnk" (click)="comprobante(x)">Comprobante</button>@if (canEdit) { <button type="button" class="lnk lnk--del" (click)="quitarAsignacion(a, x)" aria-label="Quitar asignación">✕</button> }</td>
+                      <td class="r acc"><button type="button" class="lnk" (click)="comprobante(x)">Comprobante</button>@if (canEdit) { <button type="button" class="lnk lnk--del" (click)="quitarAsignacion(a, x)" aria-label="Quitar asignación">✕</button> }</td>
                     </tr>
                   }
                   @for (u of a.utilidades; track u._id) {
-                    <tr>
-                      <td data-l="Asignado a"><strong>Utilidad</strong><small>{{ fmtFecha(u.fecha) }}@if (u.nota) { · {{ u.nota }} }</small></td>
+                    <tr class="ap-tabla__u">
+                      <td class="f" data-l="Fecha">{{ fechaCorta(u.fecha) }}</td>
+                      <td class="prov" data-l="Proveedor / gasto" colspan="3"><strong>Utilidad</strong>@if (u.nota) { <small>{{ u.nota }}</small> }</td>
                       <td class="r"></td>
                       <td class="r num" data-l="Descuenta">{{ fm(u.monto, a.moneda) }}</td>
-                      <td class="r">@if (canEdit) { <button type="button" class="lnk lnk--del" (click)="quitarUtilidad(a, u._id)" aria-label="Deshacer utilidad">✕</button> }</td>
+                      <td class="r acc">@if (canEdit) { <button type="button" class="lnk lnk--del" (click)="quitarUtilidad(a, u._id)" aria-label="Deshacer utilidad">✕</button> }</td>
                     </tr>
                   }
                 </tbody>
-              </table>
+                <tfoot>
+                  <tr class="t"><td colspan="5" class="lab">Total asignado a gastos</td><td class="r num">{{ fm(a.asignado ?? 0, a.moneda) }}</td><td></td></tr>
+                  <tr><td colspan="5" class="lab">Utilidad</td><td class="r num">{{ fm(a.utilidad ?? 0, a.moneda) }}</td><td></td></tr>
+                  <tr><td colspan="5" class="lab">Saldo disponible</td><td class="r num ap-tabla__saldo">{{ fm(a.saldo ?? 0, a.moneda) }}</td><td></td></tr>
+                </tfoot>
+              </table></div>
             } @else {
               <p class="ap-sin">Todavía no se asignó a ningún gasto.</p>
             }

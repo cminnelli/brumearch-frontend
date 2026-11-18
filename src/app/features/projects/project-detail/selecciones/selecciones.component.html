@@ -1,176 +1,98 @@
-<div class="selec">
-
-  <!-- Header -->
-  <div class="selec-header">
-    <div class="selec-header__left">
-      <p class="section-label">Selecciones</p>
-      @if (total() > 0) {
-        <span class="selec-badge">{{ total() }} ítems · {{ comprados() }} comprados</span>
-      }
+<section class="sel">
+  <header class="sel-head">
+    <div>
+      <h2>Lo que compra el cliente</h2>
+      <p>Cargá todo lo que el propietario tiene que comprar por su cuenta. Él lo ve en su portal y lo va tildando.</p>
     </div>
-    <button class="btn btn--ghost btn--sm" (click)="catOpen.set(!catOpen())">
-      {{ catOpen() ? '✕ Cerrar catálogo' : '+ Agregar del catálogo' }}
-    </button>
-  </div>
+    @if (total()) { <button type="button" class="btn btn--ghost btn--sm" (click)="imprimir()">Imprimir / PDF</button> }
+  </header>
 
-  <!-- ── CATÁLOGO ── -->
-  @if (catOpen()) {
-    <div class="cat-panel">
-      <div class="cat-panel__head">
-        <span class="cat-panel__title">Catálogo de ítems</span>
-        <span class="cat-panel__hint">Hacé clic en un ítem para asignarlo al proyecto</span>
-      </div>
-
-      @if (catalogRubros().length === 0) {
-        <div class="cat-empty">
-          No hay ítems en el catálogo. Configuralos en <strong>Configuración → Rubros → Subrubros → Ítems</strong>.
-        </div>
-      }
-
-      @for (rubro of catalogRubros(); track rubro._id) {
-        <div class="cat-rubro">
-          <button class="cat-rubro__head" (click)="toggleCatRubro(rubro._id)">
-            <span class="tree-arrow" [class.tree-arrow--open]="isCatRubroOpen(rubro._id)">▶</span>
-            <span class="cat-rubro__nombre">{{ rubro.nombre }}</span>
-          </button>
-
-          @if (isCatRubroOpen(rubro._id)) {
-            @for (sub of subrubrosDe(rubro._id); track sub._id) {
-              @if (itemsDe(sub._id).length > 0) {
-                <div class="cat-sub">
-                  <button class="cat-sub__head" (click)="toggleCatSubrubro(sub._id)">
-                    <span class="tree-arrow tree-arrow--sm" [class.tree-arrow--open]="isCatSubrubroOpen(sub._id)">▶</span>
-                    <span class="cat-sub__nombre">{{ sub.nombre }}</span>
-                    <span class="cat-sub__count">{{ itemsDe(sub._id).length }}</span>
-                  </button>
-
-                  @if (isCatSubrubroOpen(sub._id)) {
-                    <div class="cat-items">
-                      @for (item of itemsDe(sub._id); track item._id) {
-                        <div class="cat-item" [class.cat-item--assigned]="isAssigned(item._id)">
-
-                          <div class="cat-item__info">
-                            <span class="cat-item__nombre">{{ item.nombre }}</span>
-                            <code class="chip chip--unit">{{ item.unidad }}</code>
-                            @if (item.descripcion) {
-                              <span class="cat-item__desc">{{ item.descripcion }}</span>
-                            }
-                          </div>
-
-                          @if (isAssigned(item._id)) {
-                            <span class="cat-item__assigned-badge">Ya asignado</span>
-                          } @else if (addingItemId() === item._id) {
-                            <!-- Quick-config before adding -->
-                            <div class="cat-item__add-form">
-                              <input class="input input--xs" type="number" min="0"
-                                     placeholder="Cantidad"
-                                     [ngModel]="addDraft().cantidad"
-                                     (ngModelChange)="setAddField('cantidad', $event)" />
-                              <input class="input input--xs"
-                                     placeholder="Unidad"
-                                     [ngModel]="addDraft().unidad"
-                                     (ngModelChange)="setAddField('unidad', $event)" />
-                              <input class="input input--sm"
-                                     placeholder="Observación (opcional)"
-                                     [ngModel]="addDraft().observacion"
-                                     (ngModelChange)="setAddField('observacion', $event)"
-                                     (keydown.enter)="confirmAdd()" />
-                              <button class="btn btn--primary btn--xs" (click)="confirmAdd()">Confirmar</button>
-                              <button class="btn btn--ghost btn--xs" (click)="cancelAdd()">✕</button>
-                            </div>
-                          } @else {
-                            <button class="cat-item__btn" (click)="startAdd(item)">+ Agregar</button>
-                          }
-
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-            }
-          }
-        </div>
-      }
+  @if (total()) {
+    <div class="sel-prog">
+      <div class="sel-prog__t"><b class="num">{{ comprados() }}</b> de <b class="num">{{ total() }}</b> comprados@if (vencidos()) { <span class="sel-prog__v"> · {{ vencidos() }} vencido{{ vencidos() !== 1 ? 's' : '' }}</span> }</div>
+      <div class="sel-prog__bar"><i [style.width.%]="pct()"></i></div>
     </div>
   }
 
-  <!-- ── LISTA ASIGNADA ── -->
-  @if (loading()) {
-    <div class="skeleton" style="height:160px; border-radius: var(--radius-lg)"></div>
-  } @else if (asignadas().length === 0) {
-    <div class="selec-empty">
-      Aún no hay ítems asignados. Usá "Agregar del catálogo" para comenzar.
-    </div>
-  } @else {
+  @if (canEdit) {
+    <form class="sel-add" (ngSubmit)="agregar()">
+      <div class="sel-add__row">
+        <input id="sel-nombre" class="sel-in sel-in--grow" [(ngModel)]="form.nombre" name="nombre" placeholder="¿Qué tiene que comprar? Ej: Grifería de cocina" autocomplete="off" aria-label="Qué tiene que comprar" />
+        <input class="sel-in" list="sel-cats" [(ngModel)]="form.categoria" name="categoria" placeholder="Categoría (Cocina, Baños…)" autocomplete="off" aria-label="Categoría" />
+        <datalist id="sel-cats">@for (c of categorias(); track c) { <option [value]="c"></option> }</datalist>
+        <label class="sel-fecha"><span>Para el</span><input type="date" [(ngModel)]="form.fechaLimite" name="fecha" aria-label="Para cuándo lo necesitás" /></label>
+        <button class="btn btn--primary" type="submit" [disabled]="guardando()">+ Agregar</button>
+      </div>
+      <div class="sel-add__links">
+        <button type="button" class="lnk" (click)="masCampos.set(!masCampos())">{{ masCampos() ? 'Menos opciones' : 'Cantidad, nota o link' }}</button>
+        <span>·</span>
+        <button type="button" class="lnk" (click)="abrirCatalogo()">{{ catAbierto() ? 'Cerrar catálogo' : 'Elegir del catálogo' }}</button>
+        @if (!total()) { <span>·</span><button type="button" class="lnk" (click)="cargarSugeridos()" [disabled]="guardando()">Cargar una lista típica</button> }
+      </div>
+      @if (masCampos()) {
+        <div class="sel-add__row">
+          <input class="sel-in sel-in--num" type="number" min="0" step="any" [(ngModel)]="form.cantidad" name="cantidad" placeholder="Cantidad" aria-label="Cantidad" />
+          <input class="sel-in sel-in--grow" [(ngModel)]="form.observacion" name="obs" placeholder="Nota para el cliente (medidas, modelo, color…)" aria-label="Nota" />
+          <input class="sel-in sel-in--grow" [(ngModel)]="form.link" name="link" placeholder="Link de referencia (opcional)" aria-label="Link" />
+        </div>
+      }
+      @if (categorias().length) {
+        <div class="sel-chips" aria-label="Categorías usadas">@for (c of categorias(); track c) { <button type="button" class="sel-chip" [class.sel-chip--on]="form.categoria === c" (click)="form.categoria = c">{{ c }}</button> }</div>
+      }
+      @if (error()) { <p class="sel-err" role="alert">{{ error() }}</p> }
+    </form>
 
-    @for (rGroup of rubroGroups(); track rGroup.rubroId) {
-      <div class="selec-group">
-
-        <div class="selec-group__rubro">{{ rGroup.rubroNombre }}</div>
-
-        @for (sGroup of rGroup.subrubroGroups; track sGroup.subrubroId) {
-          <div class="selec-subgroup">
-            <div class="selec-subgroup__head">{{ sGroup.subrubroNombre }}</div>
-
-            <div class="selec-list">
-              @for (s of sGroup.items; track s._id) {
-                <div class="selec-row">
-                  <div class="selec-row__body">
-
-                    @if (editingId() === s._id) {
-                      <!-- Modo edición -->
-                      <div class="selec-row__edit">
-                        <div class="selec-row__edit-fields">
-                          <input class="input input--xs" type="number" min="0" placeholder="Cantidad"
-                                 [ngModel]="editDraft().cantidad"
-                                 (ngModelChange)="setEditField('cantidad', $event)" />
-                          <input class="input input--xs" placeholder="Unidad"
-                                 [ngModel]="editDraft().unidad"
-                                 (ngModelChange)="setEditField('unidad', $event)" />
-                          <input class="input" placeholder="Observación"
-                                 [ngModel]="editDraft().observacion"
-                                 (ngModelChange)="setEditField('observacion', $event)"
-                                 (keydown.enter)="commitEdit(s)"
-                                 (keydown.escape)="cancelEdit()" />
-                        </div>
-                        <div class="selec-row__edit-actions">
-                          <button class="btn btn--ghost btn--xs" (click)="commitEdit(s)">Listo</button>
-                          <button class="btn btn--ghost btn--xs" (click)="cancelEdit()">Cancelar</button>
-                        </div>
-                      </div>
-                    } @else {
-                      <!-- Modo vista -->
-                      <div class="selec-row__info" (click)="startEdit(s)">
-                        <span class="selec-row__nombre">{{ s.itemId?.nombre }}</span>
-                        @if (s.cantidad) {
-                          <span class="selec-row__qty">{{ s.cantidad }} {{ unidadEfectiva(s) }}</span>
-                        } @else {
-                          <code class="chip chip--unit">{{ unidadEfectiva(s) }}</code>
-                        }
-                        @if (s.observacion) {
-                          <span class="selec-row__obs">{{ s.observacion }}</span>
-                        }
-                      </div>
-                    }
-
-                  </div>
-
-                  <!-- Estado cliente (readonly para admin) -->
-                  <span class="estado-chip {{ estadoClass(s.estadoCliente) }}">
-                    {{ ESTADO_LABELS[s.estadoCliente] }}
-                  </span>
-
-                  <button class="selec-row__del" (click)="remove(s._id)">×</button>
-                </div>
-              }
-            </div>
-
-          </div>
-        }
+    @if (catAbierto()) {
+      <div class="sel-cat">
+        <input class="sel-in" type="search" placeholder="Buscar en el catálogo" [value]="busca()" (input)="busca.set($any($event.target).value)" aria-label="Buscar en el catálogo" />
+        <ul>
+          @for (i of catalogoFiltrado(); track i._id) {
+            <li><label><input type="checkbox" [checked]="marcados().has(i._id)" (change)="marcar(i._id)" /><span><b>{{ i.nombre }}</b><small>{{ i.subrubroId?.rubroId?.nombre }} · {{ i.subrubroId?.nombre }}</small></span></label></li>
+          } @empty { <li class="sel-vacio">No hay ítems para mostrar.</li> }
+        </ul>
+        <div class="sel-cat__f"><button type="button" class="btn btn--primary btn--sm" [disabled]="!marcados().size || guardando()" (click)="agregarDelCatalogo()">Agregar {{ marcados().size || '' }} a la lista</button></div>
       </div>
     }
-
   }
 
-</div>
+  @if (loading()) {
+    <div class="skeleton" style="height:140px;border-radius:var(--radius-md)"></div>
+  } @else if (!total()) {
+    <div class="empty-state"><span class="empty-state__title">Todavía no cargaste nada</span><span class="empty-state__desc">Escribí lo primero que el cliente tiene que comprar (por ejemplo la grifería) o cargá una lista típica con un clic.</span></div>
+  } @else {
+    @for (g of grupos(); track g.categoria) {
+      <div class="sel-grupo">
+        <h3>{{ g.categoria }} <span>{{ g.comprados }}/{{ g.items.length }}</span></h3>
+        <ul class="sel-list">
+          @for (s of g.items; track s._id) {
+            <li class="sel-row" [class.sel-row--ok]="s.estadoCliente === 'comprado'">
+              @if (editId() === s._id) {
+                <form class="sel-edit" (ngSubmit)="guardarEdicion(s)">
+                  <input class="sel-in sel-in--grow" [(ngModel)]="draft.nombre" name="en" aria-label="Nombre" />
+                  <input class="sel-in" list="sel-cats" [(ngModel)]="draft.categoria" name="ec" aria-label="Categoría" />
+                  <input class="sel-in sel-in--num" type="number" min="0" step="any" [(ngModel)]="draft.cantidad" name="eq" placeholder="Cant." aria-label="Cantidad" />
+                  <input class="sel-in" type="date" [(ngModel)]="draft.fechaLimite" name="ef" aria-label="Para cuándo" />
+                  <input class="sel-in sel-in--grow" [(ngModel)]="draft.observacion" name="eo" placeholder="Nota para el cliente" aria-label="Nota" />
+                  <input class="sel-in sel-in--grow" [(ngModel)]="draft.link" name="el" placeholder="Link" aria-label="Link" />
+                  <span class="sel-edit__b"><button class="btn btn--primary btn--sm" type="submit">Guardar</button><button class="btn btn--ghost btn--sm" type="button" (click)="editId.set(null)">Cancelar</button></span>
+                </form>
+              } @else {
+                <div class="sel-main">
+                  <strong>{{ nombre(s) }}@if (s.cantidad) { <small> · {{ s.cantidad }} {{ unidad(s) }}</small> }</strong>
+                  @if (s.observacion) { <span class="sel-nota">{{ s.observacion }}</span> }
+                  @if (s.notasCliente) { <span class="sel-nota sel-nota--c">El cliente: {{ s.notasCliente }}</span> }
+                  <span class="sel-meta">
+                    @if (urgencia(s); as u) { <em [class]="'sel-f sel-f--' + u.tono">{{ u.texto }}</em> }
+                    @if (s.link) { <a [href]="s.link" target="_blank" rel="noopener">Ver referencia</a> }
+                  </span>
+                </div>
+                <span class="sel-est" [class]="'sel-est sel-est--' + s.estadoCliente">{{ ESTADO[s.estadoCliente] }}</span>
+                @if (canEdit) { <span class="sel-act"><button type="button" class="lnk" (click)="editar(s)">Editar</button><button type="button" class="lnk lnk--del" (click)="quitar(s)" aria-label="Quitar de la lista">✕</button></span> }
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    }
+  }
+</section>

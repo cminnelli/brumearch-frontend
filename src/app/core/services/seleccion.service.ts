@@ -14,8 +14,14 @@ export class SeleccionService {
     return this.http.get<Seleccion[]>(`${this.baseUrl}/projects/${projectId}/selecciones`);
   }
 
-  create(projectId: string, data: { itemId: string; cantidad?: number; unidad?: string; observacion?: string; orden?: number }): Observable<Seleccion> {
+  /** Un ítem escrito a mano (o uno del catálogo con itemId). */
+  create(projectId: string, data: Partial<Seleccion> & { itemId?: string }): Observable<Seleccion> {
     return this.http.post<Seleccion>(`${this.baseUrl}/projects/${projectId}/selecciones`, data);
+  }
+
+  /** Varios ítems del catálogo de una vez. */
+  createMany(projectId: string, itemIds: string[]): Observable<Seleccion[]> {
+    return this.http.post<Seleccion[]>(`${this.baseUrl}/projects/${projectId}/selecciones`, { itemIds });
   }
 
   update(projectId: string, id: string, data: Partial<Seleccion>): Observable<Seleccion> {

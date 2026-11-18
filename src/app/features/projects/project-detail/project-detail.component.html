@@ -214,7 +214,7 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'selecciones') {
       <div class="tab-content">
-        <app-selecciones [projectId]="project()!._id" />
+        <app-selecciones [projectId]="project()!._id" [projectName]="project()!.name" [canEdit]="canEdit()" />
       </div>
     }
 

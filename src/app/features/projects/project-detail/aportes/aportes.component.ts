@@ -8,6 +8,7 @@ import { Aporte, AsignacionAporte, ResumenAportes } from '../../../../shared/mod
 import { GastoService } from '../../../../core/services/gasto.service';
 import { Gasto } from '../../../../shared/models/obra.model';
 import { buildComprobanteHtml, descargarPdf } from '../../../../shared/utils/comprobante-pago';
+import { buildDetalleAporteHtml } from '../../../../shared/utils/comprobante-aporte';
 import { AportesResumenComponent } from '../../../../shared/components/aportes-resumen/aportes-resumen.component';
 import { TipoCambioComponent } from '../../../../shared/components/tipo-cambio/tipo-cambio.component';
 import { fileUrl } from '../../../../shared/utils/file-url';
@@ -166,6 +167,14 @@ export class AportesComponent implements OnInit {
     const pago = g.pagos.find(p => p._id === x.pagoId) ?? g.pagos[g.pagos.length - 1];
     descargarPdf(buildComprobanteHtml(g, this.projectName, pago));
   }
+
+  /** Detalle del pago (a qué gastos se asignó, utilidad y saldo): para ver en pantalla o bajar en PDF. Es interno. */
+  verDetalle(a: Aporte) {
+    const w = window.open('', '_blank'); if (!w) return;
+    w.document.write(buildDetalleAporteHtml(a, this.projectName)); w.document.close();
+  }
+  detallePdf(a: Aporte) { descargarPdf(buildDetalleAporteHtml(a, this.projectName)); }
+  fechaCorta(d: string) { return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' }); }
 
   guardarUtilidad(a: Aporte) {
     const m = this.formUtil.monto;

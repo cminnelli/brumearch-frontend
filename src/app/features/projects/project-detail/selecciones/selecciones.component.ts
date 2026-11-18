@@ -1,177 +1,142 @@
-import { Component, Input, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { SeleccionService } from '../../../../core/services/seleccion.service';
-import { ConfigService, Item, Rubro, Subrubro } from '../../../../core/services/config.service';
-import {
-  Seleccion,
-  EstadoSeleccion,
-  ESTADO_SELECCION_LABELS,
-} from '../../../../shared/models/seleccion.model';
+import { ConfigService, Item } from '../../../../core/services/config.service';
+import { ConfirmService } from '../../../../core/services/confirm.service';
+import { Seleccion, agruparSel, categoriaSel, nombreSel, unidadSel, urgenciaSel, ESTADO_SELECCION_LABELS } from '../../../../shared/models/seleccion.model';
 
-interface AsignacionDraft {
-  itemId: string;
-  cantidad: number | null;
-  unidad: string;
-  observacion: string;
-}
-
+/** Lista de lo que el cliente tiene que comprar por su cuenta. El cliente la ve y la va tildando desde su portal. */
 @Component({
   selector: 'app-selecciones',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './selecciones.component.html',
   styleUrl: './selecciones.component.scss',
 })
 export class SeleccionesComponent implements OnInit {
   @Input({ required: true }) projectId!: string;
+  @Input() canEdit = true;
+  @Input() projectName = '';
 
-  private svc    = inject(SeleccionService);
-  private cfgSvc = inject(ConfigService);
+  private svc = inject(SeleccionService);
+  private cfg = inject(ConfigService);
+  private confirmSvc = inject(ConfirmService);
 
-  asignadas = signal<Seleccion[]>([]);
-  rubros    = signal<Rubro[]>([]);
-  subrubros = signal<Subrubro[]>([]);
-  items     = signal<Item[]>([]);
+  items = signal<Seleccion[]>([]);
+  loading = signal(true);
+  guardando = signal(false);
+  error = signal('');
 
-  loading  = signal(true);
-  saving   = signal(false);
-  catOpen  = signal(false);
+  // alta rápida
+  form = { nombre: '', categoria: '', cantidad: null as number | null, fechaLimite: '', observacion: '', link: '' };
+  masCampos = signal(false);
 
-  // State for catalog browsing
-  expandedRubros    = signal<Set<string>>(new Set());
-  expandedSubrubros = signal<Set<string>>(new Set());
+  // catálogo (opcional)
+  catAbierto = signal(false);
+  catalogo = signal<Item[]>([]);
+  busca = signal('');
+  marcados = signal<Set<string>>(new Set());
 
-  // Inline edit for assigned items
-  editingId   = signal<string | null>(null);
-  editDraft   = signal<Partial<Seleccion>>({});
+  // edición en la misma fila
+  editId = signal<string | null>(null);
+  draft = { nombre: '', categoria: '', cantidad: null as number | null, fechaLimite: '', observacion: '', link: '' };
 
-  // Quick-add draft when clicking an item from catalog
-  addingItemId = signal<string | null>(null);
-  addDraft     = signal<AsignacionDraft>({ itemId: '', cantidad: null, unidad: '', observacion: '' });
+  readonly ESTADO = ESTADO_SELECCION_LABELS;
+  nombre = nombreSel; categoria = categoriaSel; unidad = unidadSel; urgencia = (s: Seleccion) => urgenciaSel(s);
 
-  readonly ESTADO_LABELS = ESTADO_SELECCION_LABELS;
+  grupos = computed(() => agruparSel(this.items()));
+  total = computed(() => this.items().length);
+  comprados = computed(() => this.items().filter(i => i.estadoCliente === 'comprado').length);
+  pct = computed(() => (this.total() ? Math.round(this.comprados() / this.total() * 100) : 0));
+  vencidos = computed(() => this.items().filter(i => urgenciaSel(i)?.tono === 'vencido').length);
+  categorias = computed(() => [...new Set(this.items().map(categoriaSel))].sort());
 
-  // Grouped view for the assigned list
-  rubroGroups = computed(() => {
-    const map = new Map<string, { rubroNombre: string; subrubroGroups: Map<string, { subrubroNombre: string; items: Seleccion[] }> }>();
-    for (const s of this.asignadas()) {
-      const rId  = s.itemId?.subrubroId?.rubroId?._id   ?? 'otros';
-      const rNom = s.itemId?.subrubroId?.rubroId?.nombre ?? 'Otros';
-      const sId  = s.itemId?.subrubroId?._id   ?? 'otros';
-      const sNom = s.itemId?.subrubroId?.nombre ?? 'Otros';
-      if (!map.has(rId)) map.set(rId, { rubroNombre: rNom, subrubroGroups: new Map() });
-      const rGroup = map.get(rId)!;
-      if (!rGroup.subrubroGroups.has(sId)) rGroup.subrubroGroups.set(sId, { subrubroNombre: sNom, items: [] });
-      rGroup.subrubroGroups.get(sId)!.items.push(s);
-    }
-    return Array.from(map.entries()).map(([rId, g]) => ({
-      rubroId: rId,
-      rubroNombre: g.rubroNombre,
-      subrubroGroups: Array.from(g.subrubroGroups.entries()).map(([sId, sg]) => ({
-        subrubroId: sId,
-        subrubroNombre: sg.subrubroNombre,
-        items: sg.items,
-      })),
-    }));
+  /** Ítems del catálogo que todavía no están en la lista, filtrados por la búsqueda. */
+  catalogoFiltrado = computed(() => {
+    const q = this.busca().trim().toLowerCase();
+    const yaEstan = new Set(this.items().map(i => i.itemId?._id).filter(Boolean));
+    return this.catalogo().filter(i => !yaEstan.has(i._id))
+      .filter(i => !q || `${i.nombre} ${i.subrubroId?.nombre ?? ''} ${i.subrubroId?.rubroId?.nombre ?? ''}`.toLowerCase().includes(q)).slice(0, 80);
   });
 
-  total     = computed(() => this.asignadas().length);
-  comprados = computed(() => this.asignadas().filter(s => s.estadoCliente === 'comprado').length);
-
-  // Catalog: rubros that have at least one item not yet assigned
-  catalogRubros = computed(() =>
-    this.rubros().filter(r =>
-      this.subrubrosDe(r._id).some(s => this.itemsDe(s._id).length > 0)
-    )
-  );
-
   ngOnInit() {
-    this.svc.list(this.projectId).subscribe({
-      next: data => { this.asignadas.set(data); this.loading.set(false); },
-      error: () => this.loading.set(false),
-    });
-    this.cfgSvc.getRubros().subscribe(d => this.rubros.set(d));
-    this.cfgSvc.getSubrubros().subscribe(d => this.subrubros.set(d));
-    this.cfgSvc.getItems().subscribe(d => this.items.set(d));
+    this.svc.list(this.projectId).subscribe({ next: d => { this.items.set(d); this.loading.set(false); }, error: () => this.loading.set(false) });
   }
 
-  // Catalog navigation
-  toggleCatRubro(id: string) {
-    this.expandedRubros.update(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
-  isCatRubroOpen(id: string) { return this.expandedRubros().has(id); }
-
-  toggleCatSubrubro(id: string) {
-    this.expandedSubrubros.update(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
-  isCatSubrubroOpen(id: string) { return this.expandedSubrubros().has(id); }
-
-  subrubrosDe(rubroId: string) { return this.subrubros().filter(s => s.rubroId?._id === rubroId); }
-  itemsDe(subrubroId: string)   { return this.items().filter(i => i.subrubroId?._id === subrubroId); }
-
-  isAssigned(itemId: string) { return this.asignadas().some(s => s.itemId?._id === itemId); }
-
-  startAdd(item: Item) {
-    this.addingItemId.set(item._id);
-    this.addDraft.set({ itemId: item._id, cantidad: null, unidad: item.unidad, observacion: '' });
-  }
-
-  cancelAdd() { this.addingItemId.set(null); }
-
-  setAddField(field: keyof AsignacionDraft, value: any) {
-    this.addDraft.update(d => ({ ...d, [field]: value }));
-  }
-
-  setEditField(field: 'cantidad' | 'unidad' | 'observacion', value: any) {
-    this.editDraft.update(d => ({ ...d, [field]: value }));
-  }
-
-  confirmAdd() {
-    const d = this.addDraft();
-    if (!d.itemId) return;
-    this.svc.create(this.projectId, {
-      itemId: d.itemId,
-      cantidad: d.cantidad ?? undefined,
-      unidad: d.unidad || undefined,
-      observacion: d.observacion || undefined,
-      orden: this.asignadas().length + 1,
-    }).subscribe({
-      next: item => {
-        this.asignadas.update(l => [...l, item]);
-        this.addingItemId.set(null);
+  // ── alta rápida ──
+  agregar() {
+    const f = this.form;
+    if (!f.nombre.trim()) { this.error.set('Escribí qué tiene que comprar el cliente.'); return; }
+    this.error.set(''); this.guardando.set(true);
+    this.svc.create(this.projectId, { nombre: f.nombre.trim(), categoria: f.categoria.trim() || undefined, cantidad: f.cantidad || undefined, fechaLimite: f.fechaLimite || null, observacion: f.observacion || undefined, link: f.link || undefined }).subscribe({
+      next: s => {
+        this.items.update(l => [...l, s]); this.guardando.set(false);
+        // se conserva la categoría y la fecha para cargar varios seguidos
+        this.form = { nombre: '', categoria: f.categoria, cantidad: null, fechaLimite: f.fechaLimite, observacion: '', link: '' };
+        setTimeout(() => document.getElementById('sel-nombre')?.focus());
       },
+      error: e => { this.guardando.set(false); this.error.set(e.error?.message ?? 'No se pudo agregar.'); },
     });
   }
 
-  remove(id: string) {
-    if (!confirm('¿Quitar este ítem del proyecto?')) return;
-    this.svc.remove(this.projectId, id).subscribe({
-      next: () => this.asignadas.update(l => l.filter(s => s._id !== id)),
+  // ── catálogo ──
+  abrirCatalogo() {
+    this.catAbierto.set(!this.catAbierto());
+    if (this.catAbierto() && !this.catalogo().length) this.cfg.getItems().subscribe(d => this.catalogo.set(d));
+  }
+  marcar(id: string) { this.marcados.update(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+  agregarDelCatalogo() {
+    const ids = [...this.marcados()]; if (!ids.length) return;
+    this.guardando.set(true);
+    this.svc.createMany(this.projectId, ids).subscribe({
+      next: l => { this.items.update(x => [...x, ...l]); this.marcados.set(new Set()); this.guardando.set(false); this.catAbierto.set(false); },
+      error: e => { this.guardando.set(false); this.error.set(e.error?.message ?? 'No se pudieron agregar.'); },
     });
   }
 
-  startEdit(s: Seleccion) {
-    this.editingId.set(s._id);
-    this.editDraft.set({ cantidad: s.cantidad, unidad: s.unidad ?? s.itemId?.unidad, observacion: s.observacion });
-  }
-
-  commitEdit(s: Seleccion) {
-    if (this.editingId() !== s._id) return;
-    const d = this.editDraft();
-    this.svc.update(this.projectId, s._id, d).subscribe({
-      next: updated => {
-        this.asignadas.update(l => l.map(i => i._id === updated._id ? updated : i));
-        this.editingId.set(null);
-      },
+  /** Lista típica de cosas que suele comprar el propietario. Se puede editar o quitar después. */
+  readonly SUGERIDOS: { nombre: string; categoria: string }[] = [
+    { nombre: 'Grifería de cocina', categoria: 'Cocina' }, { nombre: 'Bacha de cocina', categoria: 'Cocina' }, { nombre: 'Mesada de cocina', categoria: 'Cocina' }, { nombre: 'Electrodomésticos', categoria: 'Cocina' },
+    { nombre: 'Inodoro y bidet', categoria: 'Baños' }, { nombre: 'Grifería de baño', categoria: 'Baños' }, { nombre: 'Mesada y bacha de baño', categoria: 'Baños' }, { nombre: 'Accesorios de baño', categoria: 'Baños' },
+    { nombre: 'Pisos', categoria: 'Pisos y revestimientos' }, { nombre: 'Revestimientos de baños y cocina', categoria: 'Pisos y revestimientos' },
+    { nombre: 'Artefactos de iluminación', categoria: 'Iluminación' }, { nombre: 'Llaves y tomas', categoria: 'Iluminación' },
+    { nombre: 'Color de pintura', categoria: 'Terminaciones' }, { nombre: 'Manijas y cerraduras', categoria: 'Terminaciones' }, { nombre: 'Cortinas', categoria: 'Terminaciones' },
+  ];
+  cargarSugeridos() {
+    this.guardando.set(true);
+    forkJoin(this.SUGERIDOS.map(s => this.svc.create(this.projectId, s))).subscribe({
+      next: l => { this.items.update(x => [...x, ...l]); this.guardando.set(false); },
+      error: () => { this.guardando.set(false); this.error.set('No se pudo cargar la lista sugerida.'); },
     });
   }
 
-  cancelEdit() { this.editingId.set(null); }
+  // ── edición ──
+  editar(s: Seleccion) {
+    this.editId.set(s._id);
+    this.draft = { nombre: nombreSel(s), categoria: categoriaSel(s), cantidad: s.cantidad ?? null, fechaLimite: s.fechaLimite ? s.fechaLimite.substring(0, 10) : '', observacion: s.observacion ?? '', link: s.link ?? '' };
+  }
+  guardarEdicion(s: Seleccion) {
+    const d = this.draft; if (!d.nombre.trim()) return;
+    this.svc.update(this.projectId, s._id, { nombre: d.nombre.trim(), categoria: d.categoria.trim() || 'Otros', cantidad: d.cantidad ?? undefined, fechaLimite: d.fechaLimite || null, observacion: d.observacion, link: d.link } as Partial<Seleccion>).subscribe(u => {
+      this.items.update(l => l.map(i => (i._id === u._id ? u : i))); this.editId.set(null);
+    });
+  }
+  async quitar(s: Seleccion) {
+    if (!await this.confirmSvc.confirm('El cliente deja de verlo en su lista.', `¿Quitar "${nombreSel(s)}"?`)) return;
+    this.svc.remove(this.projectId, s._id).subscribe(() => this.items.update(l => l.filter(i => i._id !== s._id)));
+  }
 
-  estadoClass(estado: EstadoSeleccion) { return `estado-chip--${estado}`; }
-
-  unidadEfectiva(s: Seleccion): string {
-    return s.unidad || s.itemId?.unidad || '';
+  // ── lista para darle al cliente (se imprime o se guarda como PDF) ──
+  imprimir() {
+    const w = window.open('', '_blank'); if (!w) return;
+    const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+    const fecha = (s: Seleccion) => (s.fechaLimite ? new Date(s.fechaLimite).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', timeZone: 'UTC' }) : '');
+    const filas = this.grupos().map(g => `<h2>${esc(g.categoria)}</h2><table>${g.items.map(s => `<tr><td class="c">☐</td><td><b>${esc(nombreSel(s))}</b>${s.cantidad ? ` · ${s.cantidad} ${esc(unidadSel(s))}` : ''}${s.observacion ? `<br><small>${esc(s.observacion)}</small>` : ''}</td><td class="f">${fecha(s) ? 'Para el ' + fecha(s) : ''}</td></tr>`).join('')}</table>`).join('');
+    w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Lista de compras${this.projectName ? ' - ' + esc(this.projectName) : ''}</title>
+<style>body{font:14px/1.45 system-ui,sans-serif;color:#111;max-width:760px;margin:2rem auto;padding:0 1rem}h1{font-size:1.5rem;margin:0}p.s{color:#666;margin:.2rem 0 1.5rem}h2{font-size:1rem;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid #111;padding-bottom:.3rem;margin:1.6rem 0 .4rem}table{width:100%;border-collapse:collapse}td{padding:.55rem .3rem;border-bottom:1px solid #ddd;vertical-align:top}td.c{width:1.6rem;font-size:1.2rem}td.f{text-align:right;white-space:nowrap;color:#555}small{color:#666}.bar{margin-bottom:1rem}button{padding:.5rem 1rem;font:inherit;cursor:pointer}@media print{.bar{display:none}}</style></head><body>
+<div class="bar"><button onclick="window.print()">Imprimir / guardar como PDF</button></div>
+<h1>Lo que tenés que comprar${this.projectName ? ' — ' + esc(this.projectName) : ''}</h1><p class="s">Lista de compras a cargo del propietario. Emitida el ${new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}.</p>${filas}</body></html>`);
+    w.document.close();
   }
 }
