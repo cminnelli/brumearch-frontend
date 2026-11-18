@@ -1,4 +1,4 @@
-import { Component, Input, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, effect, inject, signal, computed, untracked, OnInit } from '@angular/core';
 import { CommonModule, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PresupuestoService } from '../../../../core/services/presupuesto.service';
@@ -35,6 +35,13 @@ interface CompraRow {
 })
 export class ObraComponent implements OnInit {
   @Input() projectId!: string;
+  /** Avisa al proyecto que cambió algo de la plata (gastos, pagos, presupuestos) para refrescar cabecera y "Plan vs. real". */
+  @Output() datosCambiaron = new EventEmitter<void>();
+  private primeraCarga = true;
+  private avisarCambios = effect(() => {
+    this.gastos(); this.presupuestos(); this.reservas(); this.solicitudes();
+    untracked(() => { if (this.primeraCarga) { this.primeraCarga = false; return; } this.datosCambiaron.emit(); });
+  });
   @Input() projectName = '';
 
   private presSvc      = inject(PresupuestoService);

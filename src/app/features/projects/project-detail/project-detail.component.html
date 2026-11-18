@@ -179,7 +179,7 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'compras') {
       <div class="tab-content">
-        <app-obra [projectId]="project()!._id" [projectName]="project()!.name" />
+        <app-obra [projectId]="project()!._id" [projectName]="project()!.name" (datosCambiaron)="refrescarDatos()" />
       </div>
     }
     <!-- ═══════════════════════════════════════════════════

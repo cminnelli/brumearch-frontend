@@ -533,8 +533,6 @@
                 <summary class="menu__btn" aria-label="Más acciones del gasto" title="Más acciones">⋯</summary>
                 <div class="menu__list" (click)="cerrarMenu($event)">
                   <button type="button" (click)="startEditGasto(g)">Editar gasto</button>
-                  <button type="button" (click)="visualizarComprobante(g)">Ver comprobante</button>
-                  <button type="button" (click)="imprimirComprobante(g)">Descargar PDF</button>
                   @if (tienePagosSinCompletar(g)) { <button type="button" (click)="pagarYFirmarTodos(g)">Marcar todo pagado y firmado</button> }
                   <hr />
                   <button type="button" class="menu__danger" (click)="removeGasto(g)">Eliminar gasto</button>
@@ -634,9 +632,13 @@
                 Pagos
                 @if (g.pagos.length) { <span class="dp-section__count">{{ g.pagos.length }}</span> }
               </span>
-              @if (estadoG(g) !== 'pagado' && activePagoGastoId() !== g._id) {
-                <button class="btn btn--primary btn--sm" type="button" (click)="openPagoForm(g)">+ Registrar pago</button>
-              }
+              <div class="pg-tools">
+                <button class="btn btn--ghost btn--sm" type="button" (click)="visualizarComprobante(g)">Ver comprobante</button>
+                <button class="btn btn--ghost btn--sm" type="button" (click)="imprimirComprobante(g)">Descargar PDF</button>
+                @if (estadoG(g) !== 'pagado' && activePagoGastoId() !== g._id) {
+                  <button class="btn btn--primary btn--sm" type="button" (click)="openPagoForm(g)">+ Registrar pago</button>
+                }
+              </div>
             </div>
 
             @if (g.pagos.length) {
@@ -680,11 +682,11 @@
                         <button class="btn-icon btn-icon--ok" (click)="saveEditPago(g, pago)" [disabled]="savingEditPago()" title="Guardar" aria-label="Guardar">{{ savingEditPago() ? '…' : '✓' }}</button>
                         <button class="btn-icon" (click)="cancelEditPago()" title="Cancelar" aria-label="Cancelar">✕</button>
                       } @else {
+                        <button type="button" class="lnk" (click)="visualizarPago(g, pago)" aria-label="Ver comprobante del pago">Ver</button>
+                        <button type="button" class="lnk" (click)="descargarPago(g, pago)" aria-label="Descargar comprobante del pago">PDF</button>
                         <details class="menu menu--sm">
                           <summary class="menu__btn" aria-label="Más acciones del pago" title="Más acciones">⋯</summary>
                           <div class="menu__list" (click)="cerrarMenu($event)">
-                            <button type="button" (click)="visualizarPago(g, pago)">Ver comprobante</button>
-                            <button type="button" (click)="descargarPago(g, pago)">Descargar PDF</button>
                             <label class="menu__file">
                               {{ pago.firmado?.comprobante ? 'Reemplazar firmado' : 'Adjuntar firmado' }}
                               <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" [disabled]="uploadingFirmadoId() === pago._id" (change)="onFirmadoComprobante(g, pago, $event)" />

@@ -257,6 +257,13 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  private refrescoTimer?: ReturnType<typeof setTimeout>;
+  /** Vuelve a cargar los números del proyecto (con un pequeño retardo para juntar varios cambios seguidos). */
+  refrescarDatos() {
+    clearTimeout(this.refrescoTimer);
+    this.refrescoTimer = setTimeout(() => { const p = this.project(); if (p) this.loadResumen(p._id); }, 500);
+  }
+
   loadResumen(projectId: string) {
     this.reservaSvc.list(projectId).subscribe(r => this.reservas.set(r));
     this.cfgSvc.getRubros().subscribe(d => this.rubros.set(d));
