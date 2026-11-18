@@ -894,11 +894,56 @@ export class ObraComponent implements OnInit {
     );
   }
 
-  seleccionar(s: Solicitud, cotId: string) {
-    this.solicitudSvc.seleccionar(this.projectId, s._id, cotId).subscribe(res => {
-      this.solicitudes.update(l => l.map(x => x._id === s._id ? res.solicitud : x));
-      this.presupuestos.update(l => [res.presupuesto, ...l]);
-      this.deselect();
+  /** Cotización a la que se le está preguntando "¿sumar a gastos?". */
+  confirmandoCotId = signal<string | null>(null);
+  eligiendo        = signal(false);
+
+  /**
+   * Elige la cotización. Con sumar=true además registra el gasto en el momento (sin formulario);
+   * con sumar=false queda "Elegida" y se puede sumar a gastos más tarde.
+   */
+  elegirCotizacion(s: Solicitud, cotId: string, sumar: boolean) {
+    if (this.eligiendo()) return;
+    this.eligiendo.set(true);
+    this.solicitudSvc.seleccionar(this.projectId, s._id, cotId).subscribe({
+      next: res => {
+        this.solicitudes.update(l => l.map(x => x._id === s._id ? res.solicitud : x));
+        this.confirmandoCotId.set(null);
+        if (!sumar) {
+          this.presupuestos.update(l => [res.presupuesto, ...l]);
+          this.eligiendo.set(false);
+          this.select('pres', res.presupuesto._id);
+          return;
+        }
+        this.sumarAGastos(res.presupuesto, () => this.eligiendo.set(false));
+      },
+      error: () => this.eligiendo.set(false),
+    });
+  }
+
+  /** Crea el gasto de un presupuesto con los datos que ya tiene (fecha de hoy). Pagos y comprobante se cargan después. */
+  private sumarAGastos(p: Presupuesto, fin: () => void) {
+    const fd = new FormData();
+    fd.append('subrubroId',    p.subrubroId._id);
+    fd.append('presupuestoId', p._id);
+    fd.append('monto',         String(p.monto));
+    fd.append('moneda',        p.moneda);
+    fd.append('fecha',         this.todayISO());
+    if (p.proveedorId) fd.append('proveedorId', p.proveedorId._id);
+    if (p.descripcion) fd.append('descripcion', p.descripcion);
+    if (p.notas)       fd.append('notas',       p.notas);
+    this.gastoSvc.create(this.projectId, fd).subscribe({
+      next: item => {
+        this.gastos.update(l => [item, ...l]);
+        this.presupuestos.update(l => l.filter(x => x._id !== p._id));
+        this.select('gasto', item._id);
+        fin();
+      },
+      error: () => {
+        // Si falló el gasto, la cotización igual quedó elegida: se muestra como presupuesto aprobado.
+        this.presupuestos.update(l => [p, ...l]);
+        fin();
+      },
     });
   }
 

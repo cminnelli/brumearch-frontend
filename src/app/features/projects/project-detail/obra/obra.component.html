@@ -450,7 +450,7 @@
           <!-- Formulario: generar gasto -->
           @if (generandoGastoPresId() === p._id) {
             <div class="dp-form">
-              <div class="dp-form__title">Generar gasto · {{ fmt(p.monto, p.moneda) }}</div>
+              <div class="dp-form__title">Sumar a gastos · {{ fmt(p.monto, p.moneda) }}</div>
               <form (ngSubmit)="confirmarGenerarGasto(p)">
                 <div class="form-grid">
                   <div class="field">
@@ -540,7 +540,7 @@
                 <div class="form-actions">
                   <button type="button" class="btn btn--ghost btn--sm" (click)="cancelGenerarGasto()">Cancelar</button>
                   <button type="submit" class="btn btn--primary btn--sm" [disabled]="savingGenerar()">
-                    {{ savingGenerar() ? 'Generando…' : generarGastoForm.registrarPago ? 'Generar y registrar pago' : 'Generar gasto' }}
+                    {{ savingGenerar() ? 'Generando…' : generarGastoForm.registrarPago ? 'Sumar y registrar pago' : 'Sumar a gastos' }}
                   </button>
                 </div>
               </form>
@@ -559,7 +559,7 @@
                   <button class="btn btn--ghost btn--sm" (click)="reactivar(p)">Reactivar</button>
                 }
                 @if (p.estado === 'aprobado' && !tieneGasto(p._id)) {
-                  <button class="btn btn--primary btn--sm" (click)="startGenerarGasto(p)">Generar gasto</button>
+                  <button class="btn btn--primary btn--sm" (click)="startGenerarGasto(p)">Sumar a gastos</button>
                 }
                 @if (p.estado === 'aprobado' && tieneGasto(p._id)) {
                   <span class="dp-linked">✓ Gasto generado</span>
@@ -978,8 +978,19 @@
 
                     <div class="cot-card__actions">
                       @if (s.estado === 'abierta' && !c.seleccionada) {
-                        <button class="btn btn--primary btn--sm" (click)="seleccionar(s, c._id)">Seleccionar</button>
-                        <button class="btn-icon btn-icon--del" (click)="removeCotizacion(s, c._id)" title="Eliminar">×</button>
+                        @if (confirmandoCotId() === c._id) {
+                          <div class="cot-ask" role="group" aria-label="Elegir cotización">
+                            <p>Elegís esta cotización. ¿Querés sumarla ya a los gastos?</p>
+                            <div class="cot-ask__btns">
+                              <button class="btn btn--primary btn--sm" type="button" [disabled]="eligiendo()" (click)="elegirCotizacion(s, c._id, true)">Sí, sumar a gastos</button>
+                              <button class="btn btn--ghost btn--sm" type="button" [disabled]="eligiendo()" (click)="elegirCotizacion(s, c._id, false)">No, solo elegirla</button>
+                              <button class="cot-ask__x" type="button" [disabled]="eligiendo()" (click)="confirmandoCotId.set(null)">Cancelar</button>
+                            </div>
+                          </div>
+                        } @else {
+                          <button class="btn btn--primary btn--sm" type="button" (click)="confirmandoCotId.set(c._id)">Elegir esta cotización</button>
+                          <button class="btn-icon btn-icon--del" (click)="removeCotizacion(s, c._id)" title="Eliminar">×</button>
+                        }
                       }
                     </div>
                   </div>

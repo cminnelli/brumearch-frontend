@@ -2491,3 +2491,10 @@
 }
 
 .cp-line { display: flex; flex-direction: column; gap: .4rem; & + .cp-line { padding-top: var(--sp-2); border-top: 1px solid var(--c-border); } }
+
+
+/* Elegir cotización: pregunta simple */
+.cot-ask { display: flex; flex-direction: column; gap: .6rem; padding: .75rem; border-radius: var(--radius-sm); background: var(--c-brand-soft); width: 100%;
+  p { font-size: var(--text-sm); font-weight: 500; color: var(--c-text); }
+  &__btns { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+  &__x { all: unset; cursor: pointer; font-size: var(--text-sm); color: var(--c-text-sub); padding: .3rem .4rem; &:hover { color: var(--c-text); text-decoration: underline; } &:focus-visible { outline: 2px solid var(--c-brand); } } }
