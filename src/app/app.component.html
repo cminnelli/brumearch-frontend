@@ -37,9 +37,7 @@
       @if (auth.currentUser(); as u) {
         <div class="side__me">
           <a routerLink="/profile" class="me" (click)="menuOpen.set(false)" [title]="'Mi perfil'">
-            <span class="me__av">
-              @if (u.avatar) { <img [src]="avatarSrc()" [alt]="u.name" /> } @else { {{ u.name[0].toUpperCase() }} }
-            </span>
+            <app-avatar [name]="u.name" [email]="u.email" [src]="u.avatar" />
             <span class="me__txt"><strong>{{ u.name }}</strong><small>{{ auth.isAdmin ? 'Superadmin' : 'Equipo' }}</small></span>
           </a>
           <button class="side__out" type="button" (click)="auth.logout()">Salir</button>

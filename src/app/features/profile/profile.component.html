@@ -4,8 +4,8 @@
 
     <div class="avatar-section">
       <div class="avatar-wrap">
-        @if (avatarUrl) {
-          <img class="avatar-img" [src]="avatarUrl" [alt]="auth.currentUser()?.name" />
+        @if (avatarUrl && !imgFailed) {
+          <img class="avatar-img" [src]="avatarUrl" [alt]="auth.currentUser()?.name" referrerpolicy="no-referrer" (error)="imgFailed = true" />
         } @else {
           <div class="avatar-initials">{{ initials }}</div>
         }

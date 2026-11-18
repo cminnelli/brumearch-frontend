@@ -24,11 +24,15 @@ import { SeleccionesComponent } from './selecciones/selecciones.component';
 import { SafePipe } from '../../../shared/pipes/safe.pipe';
 import { ArsNumPipe } from '../../../shared/pipes/ars-num.pipe';
 import { ChatContextService } from '../../../core/services/chat-context.service';
+import { avanceObra } from '../../../shared/utils/avance';
 import { fileUrl } from '../../../shared/utils/file-url';
-import { EquipoComponent } from './equipo/equipo.component';
+import { PersonasComponent } from './personas/personas.component';
 import { MembersService, ProjectRole } from '../../../core/services/members.service';
 
-export type DetailTab = 'info' | 'documentos' | 'resumen' | 'obra' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'equipo';
+export type DetailTab = 'info' | 'compras' | 'pagos' | 'resumen' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'documentos' | 'personas';
+
+/** Enlaces viejos (?tab=obra, ?tab=equipo) siguen funcionando. */
+const LEGACY_TABS: Record<string, DetailTab> = { obra: 'compras', equipo: 'personas' };
 
 const ALL_SERVICES = Object.entries(SERVICE_LABELS) as [ProjService, string][];
 
@@ -52,7 +56,7 @@ export interface RubroResumen {
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, EquipoComponent, SafePipe, ArsNumPipe],
+  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, PersonasComponent, SafePipe, ArsNumPipe],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.scss',
 })
@@ -122,7 +126,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   savingPlan       = signal(false);
 
   activeTab = toSignal(
-    this.route.queryParamMap.pipe(map(p => (p.get('tab') as DetailTab) || 'info')),
+    this.route.queryParamMap.pipe(map(p => { const t = p.get('tab') ?? 'info'; return (LEGACY_TABS[t] ?? t) as DetailTab; })),
     { initialValue: 'info' as DetailTab }
   );
   previewDoc = signal<ProjectDocument | null>(null);
@@ -268,16 +272,29 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   }
 
   // ── Navegación agrupada ──────────────────────────────────
-  private readonly NAV: { id: DetailTab; label: string; group: DetailTab[]; sub?: { id: DetailTab; label: string }[] }[] = [
-    { id: 'info',          label: 'Resumen',       group: ['info'] },
-    { id: 'obra',          label: 'Obra',          group: ['obra'] },
-    { id: 'resumen',       label: 'Finanzas',      group: ['resumen', 'caja'], sub: [{ id: 'resumen', label: 'Plan vs. real' }, { id: 'caja', label: 'Reservas' }] },
-    { id: 'planificacion', label: 'Planificación', group: ['planificacion', 'config'], sub: [{ id: 'planificacion', label: 'Cronograma' }, { id: 'config', label: 'Etapas' }] },
-    { id: 'documentos',    label: 'Documentos',    group: ['documentos'] },
-    { id: 'selecciones',   label: 'Selecciones',   group: ['selecciones'] },
-    { id: 'equipo',        label: 'Equipo',        group: ['equipo'] },
+  /** Secciones ordenadas como se usa una obra: planear → comprar → pagar → controlar. */
+  readonly NAV: { id: DetailTab; label: string; hint: string; group: DetailTab[]; sub?: { id: DetailTab; label: string }[] }[] = [
+    { id: 'info',        label: 'Resumen',      group: ['info'],
+      hint: 'Datos del proyecto, ubicación y servicios contratados.' },
+    { id: 'config',      label: 'Cronograma',   group: ['config', 'planificacion'],
+      sub: [{ id: 'config', label: 'Etapas y avance' }, { id: 'planificacion', label: 'Plan de costos' }],
+      hint: 'Definí las etapas de la obra y marcá su avance. Después distribuí el costo planificado semana a semana.' },
+    { id: 'compras',     label: 'Compras',      group: ['compras'],
+      hint: 'Pedí cotizaciones a proveedores, compará presupuestos y aprobá el que corresponda.' },
+    { id: 'pagos',       label: 'Gastos y pagos', group: ['pagos'],
+      hint: 'Lo que ya se gastó, sus pagos a proveedores y los comprobantes. Confirmá los pagos pendientes.' },
+    { id: 'resumen',     label: 'Finanzas',     group: ['resumen', 'caja'],
+      sub: [{ id: 'resumen', label: 'Presupuesto vs. real' }, { id: 'caja', label: 'Reservas de fondos' }],
+      hint: 'Cuánto se planeó, cuánto se gastó y cuánto falta por rubro. Y los fondos reservados para pagos.' },
+    { id: 'selecciones', label: 'Selecciones',  group: ['selecciones'],
+      hint: 'Lista de cosas que el cliente tiene que elegir o comprar (grifería, revestimientos…) y su estado.' },
+    { id: 'documentos',  label: 'Documentos',   group: ['documentos'],
+      hint: 'Planos, contratos y archivos del proyecto.' },
+    { id: 'personas',    label: 'Personas',     group: ['personas'],
+      hint: 'Propietarios, equipo del estudio y quién puede ver o modificar este proyecto.' },
   ];
-  navTabs = computed(() => this.NAV.filter(t => t.id !== 'equipo' || this.canEdit()));
+  navTabs = computed(() => this.NAV.filter(t => t.id !== 'personas' || this.canEdit()));
+  activeHint = computed(() => this.NAV.find(t => t.group.includes(this.activeTab()))?.hint ?? '');
   isGroupActive(t: { group: DetailTab[] }) { return t.group.includes(this.activeTab()); }
   activeSub = computed(() => this.NAV.find(t => t.sub && t.group.includes(this.activeTab()))?.sub ?? null);
 
@@ -291,15 +308,16 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     const aprobado = apr.filter(x => x.moneda === mon).reduce((s, x) => s + x.monto, 0);
     const gastado  = gst.filter(g => g.moneda === mon).reduce((s, g) => s + g.monto, 0);
     const pagado   = gst.filter(g => g.moneda === mon).reduce((s, g) => s + totalPagadoGasto(g), 0);
-    const et = p.etapas ?? [];
-    const comp = et.filter(e => e.estado === 'completada').length, act = et.some(e => e.estado === 'activa') ? 0.5 : 0;
     const f = (n: number) => `${mon} ${Math.round(n).toLocaleString('es-AR')}`;
     return {
       aprobado: aprobado ? f(aprobado) : '—', gastado: f(gastado), pagado: f(pagado), pendiente: f(Math.max(0, gastado - pagado)),
       pctEjec: aprobado ? Math.round(gastado / aprobado * 100) : null,
-      avance: et.length ? Math.round((comp + act) / et.length * 100) : 0,
+      avance: avanceObra(p.etapas),
     };
   });
+
+  onProjectChange(p: Project) { this.project.set(p); }
+  onEtapasChange(etapas: NonNullable<Project['etapas']>) { this.project.update(p => p ? { ...p, etapas } : p); }
 
   setTab(tab: DetailTab) {
     this.router.navigate([], { queryParams: { tab }, replaceUrl: false });
@@ -353,6 +371,8 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   }
 
   cancelEdit() { this.editing.set(false); this.form = {}; }
+
+  ownerNames(p: Project) { return this.allOwners(p).map(o => o.name || o.email).filter(Boolean).join(', '); }
 
   allOwners(p: Project): import('../../../shared/models/project.model').ProjectOwner[] {
     const merged = [

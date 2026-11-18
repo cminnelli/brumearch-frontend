@@ -29,6 +29,8 @@ import { fileUrl } from '../../../../shared/utils/file-url';
 export class ObraComponent implements OnInit {
   @Input() projectId!: string;
   @Input() projectName = '';
+  /** compras = cotizaciones y presupuestos · pagos = gastos y pagos a proveedores */
+  @Input() seccion: 'compras' | 'pagos' = 'compras';
 
   private presSvc      = inject(PresupuestoService);
   private gastoSvc     = inject(GastoService);
@@ -287,6 +289,7 @@ export class ObraComponent implements OnInit {
   readonly metodos = Object.keys(METODO_LABELS) as MetodoPago[];
 
   ngOnInit() {
+    this.obraFilter.set(this.seccion === 'pagos' ? 'gasto' : 'todos');
     this.cfgSvc.getRubros().subscribe(d => this.rubros.set(d));
     this.cfgSvc.getSubrubros().subscribe(d => this.allSubrubros.set(d));
     this.reservaSvc.list(this.projectId).subscribe(d => this.reservas.set(d));

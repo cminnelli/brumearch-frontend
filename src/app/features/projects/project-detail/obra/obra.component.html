@@ -3,34 +3,34 @@
   <!-- ─── TOOLBAR ──────────────────────────────────────── -->
   <div class="obra-toolbar">
     <div class="obra-filters">
-      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'todos'"       (click)="obraFilter.set('todos')">Todos</button>
-      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'cotizaciones'" (click)="obraFilter.set('cotizaciones')">
-        Cotizaciones @if (solicitudes().length) { <span class="obra-filter__badge">{{ solicitudes().length }}</span> }
-      </button>
-      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'pendiente'"   (click)="obraFilter.set('pendiente')">
-        Pendiente @if (presPendientes().length) { <span class="obra-filter__badge">{{ presPendientes().length }}</span> }
-      </button>
-      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'aprobado'"    (click)="obraFilter.set('aprobado')">
-        Aprobado @if (presAprobados().length) { <span class="obra-filter__badge">{{ presAprobados().length }}</span> }
-      </button>
-      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'rechazado'"   (click)="obraFilter.set('rechazado')">
-        Rechazado @if (presRechazados().length) { <span class="obra-filter__badge obra-filter__badge--muted">{{ presRechazados().length }}</span> }
-      </button>
-      <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'gasto'"       (click)="obraFilter.set('gasto')">
-        Gastos @if (gastos().length) { <span class="obra-filter__badge">{{ gastos().length }}</span> }
-      </button>
-      <button class="obra-filter obra-filter--fin" [class.obra-filter--active]="obraFilter() === 'finanzas'" (click)="obraFilter.set('finanzas')">
-        📊 Finanzas
-      </button>
-      <button class="obra-filter obra-filter--confirm" [class.obra-filter--active]="obraFilter() === 'por_confirmar'" (click)="obraFilter.set('por_confirmar')">
-        ✓ Por confirmar
-        @if (pagosPendientesView().length) {
-          <span class="obra-filter__badge obra-filter__badge--warn">{{ pagosPendientesView().length }}</span>
-        }
-      </button>
+      @if (seccion === 'compras') {
+        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'todos'"       (click)="obraFilter.set('todos')">Todos</button>
+        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'cotizaciones'" (click)="obraFilter.set('cotizaciones')">
+          Cotizaciones @if (solicitudes().length) { <span class="obra-filter__badge">{{ solicitudes().length }}</span> }
+        </button>
+        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'pendiente'"   (click)="obraFilter.set('pendiente')">
+          Presupuestos a revisar @if (presPendientes().length) { <span class="obra-filter__badge">{{ presPendientes().length }}</span> }
+        </button>
+        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'aprobado'"    (click)="obraFilter.set('aprobado')">
+          Aprobados @if (presAprobados().length) { <span class="obra-filter__badge">{{ presAprobados().length }}</span> }
+        </button>
+        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'rechazado'"   (click)="obraFilter.set('rechazado')">
+          Rechazados @if (presRechazados().length) { <span class="obra-filter__badge obra-filter__badge--muted">{{ presRechazados().length }}</span> }
+        </button>
+      } @else {
+        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'gasto'"       (click)="obraFilter.set('gasto')">
+          Gastos @if (gastos().length) { <span class="obra-filter__badge">{{ gastos().length }}</span> }
+        </button>
+        <button class="obra-filter obra-filter--confirm" [class.obra-filter--active]="obraFilter() === 'por_confirmar'" (click)="obraFilter.set('por_confirmar')">
+          Pagos por confirmar
+          @if (pagosPendientesView().length) {
+            <span class="obra-filter__badge obra-filter__badge--warn">{{ pagosPendientesView().length }}</span>
+          }
+        </button>
+      }
     </div>
     <div class="obra-toolbar__actions">
-      @if (obraFilter() !== 'gasto' && obraFilter() !== 'finanzas') {
+      @if (seccion === 'compras') {
         <button class="btn btn--ghost btn--sm" (click)="showSolicitudForm.set(!showSolicitudForm()); showPresForm.set(false)">
           {{ showSolicitudForm() ? '✕ Cancelar' : '+ Cotización' }}
         </button>

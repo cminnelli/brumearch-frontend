@@ -9,12 +9,27 @@
         </button>
       }
       @if (!loading()) {
-        <button class="btn btn--ghost btn--sm" (click)="catalogOpen.set(!catalogOpen())">
-          {{ catalogOpen() ? '✕ Cerrar' : 'Editar etapas' }}
-        </button>
+        @if (canEdit) {
+          <button class="btn btn--ghost btn--sm" (click)="catalogOpen.set(!catalogOpen())">
+            {{ catalogOpen() ? '✕ Cerrar' : 'Agregar o quitar etapas' }}
+          </button>
+        }
       }
     </div>
   </div>
+
+  @if (!loading() && assigned().length && !catalogOpen()) {
+    <div class="avance-card">
+      <div class="avance-card__top">
+        <div><span class="avance-card__label">Avance de obra</span><strong class="avance-card__pct num">{{ completedPct() }}%</strong></div>
+        <p class="avance-card__how">
+          Sale del avance de cada etapa que cargás acá abajo, {{ ponderado() ? 'ponderado por su duración en semanas' : 'con el mismo peso para cada etapa (cargá la duración de todas para ponderar)' }}.
+          Completada cuenta 100%, pendiente 0% y en curso el porcentaje que indiques.
+        </p>
+      </div>
+      <div class="progress" [style.--v]="completedPct()"><i></i></div>
+    </div>
+  }
 
   @if (loading()) {
     <div class="etapas-loading">
@@ -146,6 +161,25 @@
                     <span class="assigned-row__desc">{{ a.etapaId.descripcion }}</span>
                   }
                 </div>
+              </div>
+              <div class="etapa-estado">
+                @if (canEdit) {
+                  <div class="seg" role="group" [attr.aria-label]="'Estado de ' + a.nombre">
+                    @for (s of ESTADOS; track s.id) {
+                      <button type="button" [attr.aria-pressed]="a.estado === s.id" [disabled]="saving()" (click)="setEstado(a._id!, s.id)">{{ s.label }}</button>
+                    }
+                  </div>
+                  @if (a.estado === 'activa') {
+                    <label class="etapa-pct">
+                      <span>Avance</span>
+                      <input type="number" min="0" max="100" step="5" [value]="a.avance ?? 50" (change)="setAvance(a._id!, +$any($event.target).value)" />
+                      <span>%</span>
+                    </label>
+                  }
+                } @else {
+                  <span class="pill" [class.pill--good]="a.estado === 'completada'" [class.pill--brand]="a.estado === 'activa'">{{ a.estado === 'activa' ? 'En curso · ' + pctEtapa(a) + '%' : a.estado === 'completada' ? 'Completada' : 'Pendiente' }}</span>
+                }
+                <div class="progress progress--dark etapa-bar" [style.--v]="pctEtapa(a)"><i></i></div>
               </div>
               @if (a.fechaInicio || a.duracion) {
                 <div class="assigned-row__sched assigned-row__sched--view">

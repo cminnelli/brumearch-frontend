@@ -26,7 +26,7 @@ export interface PlatformUser {
   superadmin: boolean;
   superadminFijo: boolean;
   createdAt: string;
-  proyectos: { _id: string; name: string; role: MemberRole }[];
+  proyectos: { _id: string; name: string; role: MemberRole; memberId: string }[];
 }
 
 @Injectable({ providedIn: 'root' })

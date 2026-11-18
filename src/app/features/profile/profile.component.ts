@@ -30,6 +30,7 @@ export class ProfileComponent implements OnInit {
     }
   }
 
+  imgFailed = false;
   get avatarUrl(): string | null {
     return fileUrl(this.auth.currentUser()?.avatar) || null;
   }

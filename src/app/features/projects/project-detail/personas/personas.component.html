@@ -1,0 +1,104 @@
+<section class="ps">
+  <p class="ps__intro">
+    Todas las personas de esta obra en un solo lugar.
+    <strong>Propietario</strong> es el cliente: entra a su portal con el email que cargues.
+    <strong>Editor</strong> y <strong>Lector</strong> son gente del estudio o externos que ven este proyecto.
+  </p>
+
+  @if (canEdit) {
+    <form class="ps-add" (ngSubmit)="agregar()" autocomplete="off">
+      <div class="ps-f ps-f--grow">
+        <label for="ps-name">Nombre o email</label>
+        <div class="ps-combo">
+          <input id="ps-name" name="name" [(ngModel)]="form.name" (focus)="sugeridos.set(true)" (ngModelChange)="sugeridos.set(true)" placeholder="Buscá un usuario registrado o escribí un nombre" />
+          @if (sugeridos() && coincidencias.length) {
+            <ul class="ps-sug" role="listbox">
+              @for (u of coincidencias; track u._id) {
+                <li role="option"><button type="button" (mousedown)="elegir(u)"><app-avatar [name]="u.name" [email]="u.email" [src]="u.avatar" style="--av-size:28px" /><span><strong>{{ u.name }}</strong><small>{{ u.email }}</small></span></button></li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+      <div class="ps-f">
+        <label for="ps-email">Email</label>
+        <input id="ps-email" name="email" type="email" [(ngModel)]="form.email" placeholder="persona@email.com" />
+      </div>
+      <div class="ps-f">
+        <label for="ps-rol">Es</label>
+        <select id="ps-rol" name="rol" [(ngModel)]="form.rol">
+          <option value="propietario">Propietario (cliente)</option>
+          @if (canManage) {
+            <option value="editor">Editor (ve y modifica)</option>
+            <option value="lector">Lector (solo ve)</option>
+          }
+        </select>
+      </div>
+      @if (form.rol === 'propietario') {
+        <div class="ps-f"><label for="ps-tel">Teléfono (opcional)</label><input id="ps-tel" name="phone" [(ngModel)]="form.phone" /></div>
+      } @else {
+        <div class="ps-f"><label for="ps-cargo">Cargo (opcional)</label><input id="ps-cargo" name="cargo" [(ngModel)]="form.cargo" placeholder="Dirección de obra" /></div>
+      }
+      <button class="btn btn--primary" type="submit" [disabled]="saving()">{{ saving() ? 'Guardando...' : 'Agregar' }}</button>
+    </form>
+  }
+
+  @if (error()) { <p class="ps-error" role="alert">{{ error() }}</p> }
+
+  @if (loading()) {
+    <p class="ps-muted">Cargando personas...</p>
+  } @else if (!personas().length) {
+    <div class="empty-state">
+      <span class="empty-state__title">Todavía no hay personas en este proyecto</span>
+      <span class="empty-state__desc">Agregá al propietario para que pueda seguir su obra desde el portal del cliente.</span>
+    </div>
+  } @else {
+    <ul class="ps-list">
+      @for (p of personas(); track p.key) {
+        <li class="ps-row">
+          <app-avatar [name]="p.name" [email]="p.email" [src]="p.avatar" />
+          <div class="ps-info">
+            @if (editKey() === p.key) {
+              <div class="ps-edit">
+                <input [(ngModel)]="editForm.name" name="en" placeholder="Nombre" aria-label="Nombre" />
+                <input [(ngModel)]="editForm.email" name="ee" type="email" placeholder="Email" aria-label="Email" />
+                <input [(ngModel)]="editForm.phone" name="ep" placeholder="Teléfono" aria-label="Teléfono" />
+                <button class="btn btn--primary btn--sm" type="button" (click)="guardarEdicion(p)" [disabled]="saving()">Guardar</button>
+                <button class="btn btn--ghost btn--sm" type="button" (click)="editKey.set(null)">Cancelar</button>
+              </div>
+            } @else {
+              <strong>{{ p.name || p.email }}</strong>
+              <small>
+                @if (p.name && p.email) { {{ p.email }} }
+                @if (p.phone) { · {{ p.phone }} }
+                @if (p.cargo) { · {{ p.cargo }} }
+                @if (p.rol === 'propietario' && !p.email) { <span class="ps-warn">Sin email: no puede entrar al portal</span> }
+                @if (p.rol !== 'propietario' && p.registrado === false) { <span class="ps-warn">Todavía no se registró · el acceso se activa cuando entre</span> }
+              </small>
+            }
+          </div>
+
+          @if (editKey() !== p.key) {
+            <div class="ps-role">
+              @if (puedeGestionar(p) && canManage) {
+                <select [ngModel]="p.rol" (ngModelChange)="cambiarRol(p, $event)" [attr.aria-label]="'Rol de ' + (p.name || p.email)" name="r{{ p.key }}">
+                  <option value="propietario">Propietario</option>
+                  <option value="editor">Editor</option>
+                  <option value="lector">Lector</option>
+                </select>
+              } @else {
+                <span class="pill" [class.pill--brand]="p.rol === 'propietario'" [class.pill--dark]="p.rol === 'editor'">{{ p.rol === 'propietario' ? 'Propietario' : p.rol === 'editor' ? 'Editor' : 'Lector' }}</span>
+              }
+            </div>
+            @if (puedeGestionar(p)) {
+              <div class="ps-actions">
+                @if (p.rol === 'propietario') { <button class="btn btn--ghost btn--sm" type="button" (click)="editar(p)">Editar</button> }
+                <button class="btn btn--ghost btn--sm" type="button" (click)="quitar(p)">Quitar</button>
+              </div>
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+</section>

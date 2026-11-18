@@ -54,11 +54,12 @@
         @for (s of sub; track s.id) { <button type="button" [attr.aria-pressed]="activeTab() === s.id" (click)="setTab(s.id)">{{ s.label }}</button> }
       </div>
     }
+    @if (activeHint()) { <p class="phint">{{ activeHint() }}</p> }
 
 
-    @if (activeTab() === 'equipo' && canEdit()) {
+    @if (activeTab() === 'personas' && canEdit()) {
       <div class="tab-content">
-        <app-equipo [projectId]="project()!._id" [canManage]="isSuper()" />
+        <app-personas [project]="project()!" [canManage]="isSuper()" [canEdit]="canEdit()" (projectChange)="onProjectChange($event)" />
       </div>
     }
 
@@ -76,18 +77,7 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'config') {
       <div class="tab-content">
-        <div class="config-layout">
-          <nav class="config-nav">
-            <button class="config-nav__item" [class.config-nav__item--active]="configSection() === 'etapas'" (click)="configSection.set('etapas')">
-              Etapas de obra
-            </button>
-          </nav>
-          <div class="config-body">
-            @if (configSection() === 'etapas') {
-              <app-etapas [projectId]="project()!._id" />
-            }
-          </div>
-        </div>
+        <app-etapas [projectId]="project()!._id" [canEdit]="canEdit()" (etapasChange)="onEtapasChange($event)" />
       </div>
     }
 
@@ -184,9 +174,14 @@
     <!-- ═══════════════════════════════════════════════════
          TAB: OBRA
     ════════════════════════════════════════════════════ -->
-    @if (activeTab() === 'obra') {
+    @if (activeTab() === 'compras') {
       <div class="tab-content">
-        <app-obra [projectId]="project()!._id" [projectName]="project()!.name" />
+        <app-obra seccion="compras" [projectId]="project()!._id" [projectName]="project()!.name" />
+      </div>
+    }
+    @if (activeTab() === 'pagos') {
+      <div class="tab-content">
+        <app-obra seccion="pagos" [projectId]="project()!._id" [projectName]="project()!.name" />
       </div>
     }
 
@@ -404,54 +399,13 @@
               }
 
               <div class="icard">
-                <div class="icard__label">Propietarios</div>
-
-                @if (editing()) {
-                  <div class="owners-edit">
-                    @for (o of form.owners; track $index; let i = $index) {
-                      <div class="ow-edit-row">
-                        <div class="ow-edit-avatar">{{ (o.name?.[0] || '?').toUpperCase() }}</div>
-                        <div class="ow-edit-fields">
-                          <input [(ngModel)]="form.owners[i].name"  [name]="'on'+i" placeholder="Nombre completo" class="ow-input ow-input--name" />
-                          <div class="ow-edit-sub">
-                            <input type="email" [(ngModel)]="form.owners[i].email" [name]="'oe'+i" placeholder="Email" class="ow-input" />
-                            <input [(ngModel)]="form.owners[i].phone" [name]="'op'+i" placeholder="Teléfono" class="ow-input" />
-                          </div>
-                        </div>
-                        @if (form.owners.length > 1) {
-                          <button type="button" class="ow-del" (click)="form.owners.splice(i,1)" title="Eliminar">×</button>
-                        }
-                      </div>
-                    }
-                    <button type="button" class="ow-add" (click)="form.owners.push({name:'',email:'',phone:''})">
-                      <span class="ow-add__plus">+</span> Agregar propietario
-                    </button>
-                  </div>
-
-                } @else {
-                  @if (allOwners(project()!).length) {
-                    <div class="owners-view">
-                      @for (o of allOwners(project()!); track $index) {
-                        <div class="ow-card">
-                          <div class="ow-card__avatar">{{ (o.name?.[0] || '?').toUpperCase() }}</div>
-                          <div class="ow-card__info">
-                            <span class="ow-card__name">{{ o.name || '—' }}</span>
-                            <div class="ow-card__contacts">
-                              @if (o.email) {
-                                <a class="ow-card__link" [href]="'mailto:'+o.email">✉ {{ o.email }}</a>
-                              }
-                              @if (o.phone) {
-                                <a class="ow-card__link" [href]="'tel:'+o.phone">📞 {{ o.phone }}</a>
-                              }
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                  } @else {
-                    <span class="empty-text">Sin datos del propietario</span>
-                  }
-                }
+                <div class="icard__label">Personas</div>
+                <p class="icard__text">
+                  {{ allOwners(project()!).length }} propietario{{ allOwners(project()!).length !== 1 ? 's' : '' }}
+                  @if (allOwners(project()!).length) { ({{ ownerNames(project()!) }}) }.
+                  Los emails y accesos se manejan en un solo lugar.
+                </p>
+                @if (canEdit()) { <button type="button" class="btn btn--ghost btn--sm" (click)="setTab('personas')">Ver personas y accesos →</button> }
               </div>
 
               <div class="icard">

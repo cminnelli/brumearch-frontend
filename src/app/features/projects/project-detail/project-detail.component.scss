@@ -1432,3 +1432,5 @@ textarea { resize: vertical; }
     &--on { color: var(--c-text); font-weight: 700; border-bottom-color: var(--c-brand); } }
   &__badge { font-size: .65rem; font-weight: 700; padding: .05rem .4rem; border-radius: 999px; background: var(--c-surface); border: 1px solid var(--c-border); color: var(--c-text-sub); } }
 .psub { margin-bottom: var(--sp-3); }
+
+.phint { font-size: var(--text-sm); color: var(--c-text-sub); margin: calc(var(--sp-1) * -1) 0 var(--sp-3); max-width: 78ch; }

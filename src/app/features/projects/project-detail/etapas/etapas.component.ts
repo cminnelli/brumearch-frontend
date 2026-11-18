@@ -1,8 +1,9 @@
-import { Component, Input, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ConfigService, EtapaPlantilla } from '../../../../core/services/config.service';
+import { avanceObra } from '../../../../shared/utils/avance';
 import { environment } from '../../../../../environments/environment';
 
 type EstadoEtapa = 'pendiente' | 'activa' | 'completada';
@@ -15,6 +16,7 @@ interface ProyectoEtapa {
   estado: EstadoEtapa;
   fechaInicio?: string | null;
   duracion?:    number | null;
+  avance?:      number | null;
 }
 
 const ESTADO_NEXT: Record<EstadoEtapa, EstadoEtapa> = {
@@ -32,6 +34,9 @@ const ESTADO_NEXT: Record<EstadoEtapa, EstadoEtapa> = {
 })
 export class EtapasComponent implements OnInit {
   @Input({ required: true }) projectId!: string;
+  /** Solo editores y superadmin cambian el estado y el avance. */
+  @Input() canEdit = true;
+  @Output() etapasChange = new EventEmitter<{ nombre?: string; orden: number; estado: EstadoEtapa; fechaInicio?: string | null; duracion?: number | null; avance?: number | null }[]>();
 
   private http      = inject(HttpClient);
   private configSvc = inject(ConfigService);
@@ -51,10 +56,26 @@ export class EtapasComponent implements OnInit {
   dragOverIndex = signal<number | null>(null);
 
   completadas  = computed(() => this.assigned().filter(a => a.estado === 'completada').length);
-  completedPct = computed(() => {
-    const total = this.assigned().length;
-    return total ? Math.round(this.completadas() / total * 100) : 0;
-  });
+  /** Avance de obra: promedio del avance de cada etapa, ponderado por su duración. */
+  completedPct = computed(() => avanceObra(this.assigned()));
+  ponderado    = computed(() => this.assigned().length > 0 && this.assigned().every(a => (a.duracion ?? 0) > 0));
+  enCurso      = computed(() => this.assigned().filter(a => a.estado === 'activa').length);
+
+  readonly ESTADOS: { id: EstadoEtapa; label: string }[] = [
+    { id: 'pendiente', label: 'Pendiente' }, { id: 'activa', label: 'En curso' }, { id: 'completada', label: 'Completada' },
+  ];
+
+  /** Cambia el estado de una etapa y guarda en el momento. */
+  setEstado(id: string, estado: EstadoEtapa) {
+    this.assigned.update(list => list.map(a => a._id !== id ? a : { ...a, estado, avance: estado === 'activa' ? (a.avance ?? 50) : null }));
+    this.save();
+  }
+  setAvance(id: string, valor: number) {
+    const avance = Math.max(0, Math.min(100, Math.round(valor) || 0));
+    this.assigned.update(list => list.map(a => a._id !== id ? a : { ...a, avance }));
+    this.save();
+  }
+  pctEtapa(a: ProyectoEtapa) { return a.estado === 'completada' ? 100 : a.estado === 'activa' ? (a.avance ?? 50) : 0; }
 
   private base = environment.apiUrl;
 
@@ -74,6 +95,7 @@ export class EtapasComponent implements OnInit {
           estado:      (d.estado as EstadoEtapa) || 'pendiente',
           fechaInicio: d.fechaInicio ? new Date(d.fechaInicio).toISOString().split('T')[0] : null,
           duracion:    d.duracion ?? null,
+          avance:      d.avance ?? null,
         })));
         if (data.length === 0) this.catalogOpen.set(true);
         this.loading.set(false);
@@ -198,6 +220,7 @@ export class EtapasComponent implements OnInit {
       estado:      a.estado,
       fechaInicio: a.fechaInicio || null,
       duracion:    a.duracion    || null,
+      avance:      a.estado === 'activa' ? (a.avance ?? 50) : null,
     }));
     this.http.put<any[]>(`${this.base}/projects/${this.projectId}/etapas`, body).subscribe({
       next: data => {
@@ -206,6 +229,7 @@ export class EtapasComponent implements OnInit {
           nombre: d.nombre || d.etapaId.nombre,
           estado: (d.estado as EstadoEtapa) || 'pendiente',
         })));
+        this.etapasChange.emit(data);
         this.saving.set(false);
         this.dirty.set(false);
         this.catalogOpen.set(false);

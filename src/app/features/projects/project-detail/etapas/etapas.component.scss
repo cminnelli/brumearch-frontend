@@ -411,3 +411,14 @@
     }
   }
 }
+
+.avance-card { border: 1px solid var(--c-border); border-radius: var(--radius-md); padding: var(--sp-3); margin-bottom: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2);
+  &__top { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+  &__label { display: block; font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--c-text-muted); }
+  &__pct { font-family: var(--font-head); font-size: 2.6rem; line-height: 1; font-weight: 700; letter-spacing: -.03em; }
+  &__how { flex: 1 1 280px; font-size: var(--text-sm); color: var(--c-text-sub); max-width: 62ch; } }
+.etapa-estado { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: .25rem 1rem .75rem 3.2rem;
+  .seg > button { padding: .3rem .7rem; font-size: var(--text-xs); }
+  .etapa-bar { flex: 1 1 120px; max-width: 220px; } }
+.etapa-pct { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--text-sm); color: var(--c-text-sub);
+  input { width: 62px; font: inherit; padding: .25rem .4rem; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); background: var(--c-bg); color: var(--c-text); } }
