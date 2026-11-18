@@ -302,10 +302,12 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   kpis = computed(() => {
     const p = this.project();
     if (!p || !this.resumenLoaded()) return null;
-    const apr = this.presupuestos().filter(x => x.estado === 'aprobado');
+    // Referencia = plan de costos (los presupuestos aprobados se borran al pasar a gasto).
+    const plan = (p.planObra ?? []).map(x => ({ monto: x.monto, moneda: x.moneda as Moneda }));
+    if (!plan.length && p.budget?.estimated) plan.push({ monto: p.budget.estimated, moneda: p.budget.currency as Moneda });
     const gst = this.gastos();
-    const mon = (['USD', 'ARS', 'EUR'] as Moneda[]).find(m => apr.some(x => x.moneda === m) || gst.some(g => g.moneda === m)) ?? 'ARS';
-    const aprobado = apr.filter(x => x.moneda === mon).reduce((s, x) => s + x.monto, 0);
+    const mon = (['USD', 'ARS', 'EUR'] as Moneda[]).find(m => plan.some(x => x.moneda === m) || gst.some(g => g.moneda === m)) ?? 'ARS';
+    const aprobado = plan.filter(x => x.moneda === mon).reduce((s, x) => s + x.monto, 0);
     const gastado  = gst.filter(g => g.moneda === mon).reduce((s, g) => s + g.monto, 0);
     const pagado   = gst.filter(g => g.moneda === mon).reduce((s, g) => s + totalPagadoGasto(g), 0);
     const f = (n: number) => `${mon} ${Math.round(n).toLocaleString('es-AR')}`;
