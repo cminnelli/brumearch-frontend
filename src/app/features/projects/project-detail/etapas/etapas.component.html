@@ -206,7 +206,18 @@
               <div class="assigned-row__main">
                 <span class="assigned-row__orden">{{ a.orden }}</span>
                 <div class="assigned-row__body">
-                  <span class="assigned-row__nombre">{{ a.nombre }}</span>
+                  @if (editingId() === a._id) {
+                    <input class="assigned-row__edit-input" aria-label="Nombre de la etapa"
+                           [value]="editingNombre()" (input)="editingNombre.set($any($event.target).value)"
+                           (keydown.enter)="commitEditNombre(a)" (keydown.escape)="cancelEditNombre()" (blur)="commitEditNombre(a)" autofocus />
+                  } @else if (canEdit) {
+                    <button type="button" class="etapa-name" (click)="startEditNombre(a)" title="Cambiar el nombre de esta etapa en este proyecto">
+                      {{ a.nombre }}
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                    </button>
+                  } @else {
+                    <span class="assigned-row__nombre">{{ a.nombre }}</span>
+                  }
                   @if (a.etapaId.descripcion && a.nombre === a.etapaId.nombre) {
                     <span class="assigned-row__desc">{{ a.etapaId.descripcion }}</span>
                   }

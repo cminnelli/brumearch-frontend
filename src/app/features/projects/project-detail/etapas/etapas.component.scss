@@ -470,3 +470,10 @@ $cr-cols: minmax(150px, 1fr) 200px 270px minmax(290px, 1.1fr);
 .etapa-real { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: 0 0 .1rem 3.2rem;
   label { display: inline-flex; align-items: center; gap: .4rem; font-size: var(--text-xs); color: var(--c-text-sub);
     input { font: inherit; font-size: var(--text-xs); padding: .2rem .4rem; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); background: var(--c-bg); color: var(--c-text); } } }
+
+
+.etapa-name { all: unset; box-sizing: border-box; cursor: text; display: inline-flex; align-items: center; gap: .5rem; font-weight: 600; font-size: var(--text-base); padding: .1rem .3rem; margin-left: -.3rem; border-radius: var(--radius-sm);
+  svg { opacity: 0; color: var(--c-text-muted); transition: opacity var(--t-fast); }
+  &:hover, &:focus-visible { background: var(--c-surface); svg { opacity: 1; } }
+  &:focus-visible { outline: 2px solid var(--c-brand); } }
+.assigned-row--view .assigned-row__edit-input { width: 100%; max-width: 260px; }

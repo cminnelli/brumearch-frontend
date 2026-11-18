@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal, computed } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -42,6 +42,7 @@ export class EtapasComponent implements OnInit {
   @Output() etapasChange = new EventEmitter<{ nombre?: string; orden: number; estado: EstadoEtapa; fechaInicio?: string | null; duracion?: number | null; avance?: number | null }[]>();
 
   private http      = inject(HttpClient);
+  private host      = inject(ElementRef<HTMLElement>);
   private configSvc = inject(ConfigService);
 
   plantillas  = signal<EtapaPlantilla[]>([]);
@@ -186,14 +187,22 @@ export class EtapasComponent implements OnInit {
   startEditNombre(a: ProyectoEtapa) {
     this.editingId.set(a._id!);
     this.editingNombre.set(a.nombre);
+    // el input aparece en el próximo ciclo: darle foco y seleccionar el texto para escribir encima
+    setTimeout(() => {
+      const el = this.host.nativeElement.querySelector('.assigned-row__edit-input') as HTMLInputElement | null;
+      el?.focus(); el?.select();
+    });
   }
 
   commitEditNombre(a: ProyectoEtapa) {
     if (this.editingId() !== a._id) return;
     const nombre = this.editingNombre().trim() || a.etapaId.nombre;
-    this.assigned.update(list => list.map(x => x._id === a._id ? { ...x, nombre } : x));
     this.editingId.set(null);
-    this.dirty.set(true);
+    if (nombre === a.nombre) return;
+    // El nombre es solo de este proyecto: la etapa del catálogo no se modifica.
+    this.assigned.update(list => list.map(x => x._id === a._id ? { ...x, nombre } : x));
+    if (this.catalogOpen()) this.dirty.set(true);
+    else this.save();
   }
 
   cancelEditNombre() { this.editingId.set(null); }
