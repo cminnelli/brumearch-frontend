@@ -13,9 +13,9 @@ import { MonedaService } from '../../../core/services/moneda.service';
   imports: [FormsModule],
   template: `
     <div class="tcf">
-      <label [for]="id">Tipo de cambio <span class="tcf__opt">($ por dólar{{ moneda === 'ARS' ? ', opcional' : '' }})</span></label>
+      <label [for]="id">Tipo de cambio <span class="tcf__opt">($ por dólar · queda guardado en este registro)</span></label>
       <div class="tcf__row">
-        <input [id]="id" type="number" min="0" step="any" [ngModel]="valor" (ngModelChange)="cambiar($event)" [name]="id" placeholder="Ej: 1450" />
+        <input [id]="id" type="number" min="0" step="any" [ngModel]="valor" (ngModelChange)="cambiar($event)" [name]="id" [placeholder]="m.tcProyecto() ? 'Proyecto: ' + m.tcProyecto() : 'Ej: 1450'" />
         @if (m.sugerido(); as s) { <button type="button" class="tcf__sug" (click)="cambiar(s.valor)" [title]="'Cotización ' + s.nombre + ' de hoy'">Sugerido: $ {{ s.valor.toLocaleString('es-AR') }}</button> }
       </div>
       @if (equivale) { <small class="tcf__eq">{{ equivale }}</small> }
