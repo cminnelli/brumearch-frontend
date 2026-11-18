@@ -37,7 +37,8 @@
       @if (kpis(); as k) {
         <div class="proj-kpis" aria-label="Estado de la obra">
           <div class="pk"><span>Plan de costos</span>
-            @for (x of k.filas; track x.m) { @if (x.plan) { <strong class="num">{{ x.fPlan }}</strong>@if (x.alt?.plan) { <small class="alt">≈ {{ x.alt!.plan }}</small> } } } @empty { <strong class="num">—</strong> }</div>
+            @for (x of k.filas; track x.m) { @if (x.plan) { <strong class="num">{{ x.fPlan }}</strong>@if (x.alt?.plan) { <small class="alt">≈ {{ x.alt!.plan }}</small> } } }
+            @if (!tienePlan(k)) { <strong class="num">—</strong><small>Cargalo en la pestaña Plan</small> }</div>
           <div class="pk"><span>Gastado</span>
             @for (x of k.filas; track x.m) { <strong class="num">{{ x.fGastado }}</strong>@if (x.alt) { <small class="alt">≈ {{ x.alt.gastado }}</small> }
               @if (x.pct !== null) { <div class="progress" [class.progress--warn]="x.pct >= 85" [class.progress--bad]="x.pct > 100" [style.--v]="x.pct > 100 ? 100 : x.pct"><i></i></div> } }</div>

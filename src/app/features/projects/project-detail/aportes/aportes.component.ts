@@ -91,7 +91,7 @@ export class AportesComponent implements OnInit {
   panel = signal<{ id: string; tipo: 'asignar' | 'utilidad' } | null>(null);
   busca = signal('');
   gastoSelId = signal<string | null>(null);
-  formAsig: { moneda: 'ARS' | 'USD'; monto: number | null; fecha: string; concepto: string } = { moneda: 'ARS', monto: null, fecha: hoyISO(), concepto: '' };
+  formAsig: { moneda: 'ARS' | 'USD'; monto: number | null; fecha: string; concepto: string; metodo: 'efectivo' | 'transferencia' | 'cheque' } = { moneda: 'ARS', monto: null, fecha: hoyISO(), concepto: '', metodo: 'efectivo' };
   formUtil: { monto: number | null; nota: string } = { monto: null, nota: '' };
   errorPanel = signal('');
   trabajando = signal(false);
@@ -118,7 +118,7 @@ export class AportesComponent implements OnInit {
 
   abrirPanel(a: Aporte, tipo: 'asignar' | 'utilidad') {
     this.errorPanel.set(''); this.busca.set(''); this.gastoSelId.set(null);
-    this.formAsig = { moneda: 'ARS', monto: null, fecha: hoyISO(), concepto: '' };
+    this.formAsig = { moneda: 'ARS', monto: null, fecha: hoyISO(), concepto: '', metodo: 'efectivo' };
     this.formUtil = { monto: Math.round((a.saldo ?? 0) * 100) / 100 || null, nota: '' };
     this.panel.set(this.panel()?.id === a._id && this.panel()?.tipo === tipo ? null : { id: a._id, tipo });
     this.cargarGastos();
@@ -144,7 +144,7 @@ export class AportesComponent implements OnInit {
   asignar(a: Aporte) {
     const g = this.gastoSel(); if (!g || !this.puedeAsignar(a)) return;
     this.trabajando.set(true); this.errorPanel.set('');
-    this.svc.asignar(this.projectId, a._id, { gastoId: g._id, monedaOperacion: this.formAsig.moneda, montoOperacion: this.formAsig.monto!, fecha: this.formAsig.fecha, concepto: this.formAsig.concepto || undefined }).subscribe({
+    this.svc.asignar(this.projectId, a._id, { gastoId: g._id, monedaOperacion: this.formAsig.moneda, montoOperacion: this.formAsig.monto!, metodoPago: this.formAsig.metodo, fecha: this.formAsig.fecha, concepto: this.formAsig.concepto || undefined }).subscribe({
       next: r => { this.resumen.set(r); this.trabajando.set(false); this.cerrarPanel(); this.cargarGastos(); this.cambio.emit(); },
       error: (e: HttpErrorResponse) => { this.trabajando.set(false); this.errorPanel.set(e.error?.message ?? 'No se pudo asignar el pago.'); },
     });

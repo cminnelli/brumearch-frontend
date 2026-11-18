@@ -45,6 +45,7 @@ export interface AsignacionAporte {
   monedaOperacion: Moneda;
   montoOperacion: number;
   descuenta: number;
+  metodoPago?: string;
   concepto?: string;
   gasto: { descripcion?: string; proveedor?: string; subrubro?: string; rubro?: string } | null;
 }

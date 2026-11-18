@@ -60,3 +60,16 @@
 .ap-calc { font-size: var(--text-sm); color: var(--c-text-sub); b { color: var(--c-text); } }
 .ap-todo { margin-left: 0; align-self: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.ap-imp-wrap { overflow-x: auto; }
+@media (max-width: 700px) {
+  .ap-imp thead { display: none; }
+  .ap-imp, .ap-imp tbody { display: block; }
+  .ap-imp tr { display: grid; grid-template-columns: 1fr 1fr; gap: .15rem .8rem; padding: .7rem 0; border-bottom: 1px solid var(--c-border); }
+  .ap-imp td { border: 0; padding: 0; text-align: left !important; white-space: normal !important; }
+  .ap-imp td:nth-child(2) { grid-column: 1 / -1; order: -1; }
+  .ap-imp td[data-l]::before { content: attr(data-l); display: block; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--c-text-muted); }
+  .ap-imp td.ap-rowact { grid-column: 1 / -1; text-align: right !important; }
+  .ap-imp td:empty { display: none; }
+  .ap-leg { flex-direction: column; gap: .3rem; }
+}

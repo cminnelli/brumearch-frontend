@@ -48,7 +48,6 @@ export class GastosVariosComponent implements OnInit {
   q = signal('');
   catId = signal<string>('todas');
   periodo = signal<Periodo>('todos');
-  vista = signal<'lista' | 'categorias'>((() => { try { return (localStorage.getItem('gv_vista') as 'lista' | 'categorias') || 'lista'; } catch { return 'lista' as const; } })());
   abierto = signal<string | null>(null);
   editandoId = signal<string | null>(null);
 
@@ -69,8 +68,6 @@ export class GastosVariosComponent implements OnInit {
     this.cargar();
   }
   cargar() { this.svc.list(this.projectId).subscribe(l => { this.items.set(l); this.cambio.emit(); }); }
-
-  setVista(v: 'lista' | 'categorias') { this.vista.set(v); try { localStorage.setItem('gv_vista', v); } catch { /* sin storage */ } }
 
   // ── importes en la moneda elegida ──
   enVista(g: GastoVario): number | null { return this.m.aVista(g.monto, g.moneda, g.tipoCambio); }
@@ -101,13 +98,6 @@ export class GastosVariosComponent implements OnInit {
     for (const g of l) { const v = this.enVista(g); if (v === null) completo = false; else valor += v; }
     return { valor, completo };
   }
-  porCategoria = computed(() => {
-    const mapa = new Map<string, { id: string; nombre: string; items: GastoVario[] }>();
-    for (const g of this.filtrados()) { const id = g.subrubroId?._id ?? 'x'; const e = mapa.get(id) ?? { id, nombre: g.subrubroId?.nombre ?? 'Sin categoría', items: [] }; e.items.push(g); mapa.set(id, e); }
-    const arr = [...mapa.values()].map(e => ({ ...e, ...this.suma(e.items) })).sort((a, b) => b.valor - a.valor);
-    const max = Math.max(1, ...arr.map(a => a.valor));
-    return arr.map(a => ({ ...a, pct: Math.round(a.valor / max * 100) }));
-  });
   /** Una "ficha" por categoría con su total y su parte del gasto, para el resumen visual. */
   fichas = computed(() => {
     const mapa = new Map<string, { id: string; nombre: string; items: GastoVario[] }>();
@@ -120,7 +110,6 @@ export class GastosVariosComponent implements OnInit {
   /** Cada categoría tiene siempre el mismo color (según su lugar en el catálogo). */
   color(id: string) { const i = this.categorias().findIndex(c => c._id === id); return this.COLORES[(i < 0 ? 0 : i) % this.COLORES.length]; }
   inicial(nombre?: string) { return (nombre ?? '?').trim().charAt(0).toUpperCase(); }
-  conteoCat = (id: string) => this.items().filter(g => g.subrubroId?._id === id).length;
 
   // ── alta / edición ──
   guardar() {

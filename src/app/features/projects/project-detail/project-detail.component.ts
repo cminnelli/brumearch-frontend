@@ -281,11 +281,17 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  tienePlan(k: { filas: { plan: number }[] }) { return k.filas.some(x => x.plan > 0); }
   private refrescoTimer?: ReturnType<typeof setTimeout>;
   /** Vuelve a cargar los números del proyecto (con un pequeño retardo para juntar varios cambios seguidos). */
   refrescarDatos() {
     clearTimeout(this.refrescoTimer);
-    this.refrescoTimer = setTimeout(() => { const p = this.project(); if (p) this.loadResumen(p._id); }, 500);
+    this.refrescoTimer = setTimeout(() => {
+      const p = this.project(); if (!p) return;
+      // Solo lo que cambia con un pago o un gasto chico: más rápido que recargar todo el resumen
+      this.gastoSvc.list(p._id).subscribe(g => this.gastos.set(g));
+      this.gvSvc.list(p._id).subscribe(v => this.gastosVarios.set(v));
+    }, 300);
   }
 
   guardarTipoCambio(tc: number) {
