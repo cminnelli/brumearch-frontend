@@ -2,16 +2,18 @@
 
   <!-- ─── TOOLBAR ──────────────────────────────────────── -->
   <div class="obra-toolbar">
-    <div class="seg obra-chips" role="group" aria-label="Filtrar compras por estado">
+    <div class="seg obra-chips" role="group" aria-label="Filtrar compras">
       @for (f of filtrosCompra; track f.id) {
         <button type="button" [attr.aria-pressed]="obraFilter() === 'todos' && compraFiltro() === f.id" (click)="setCompraFiltro(f.id)">
-          {{ f.label }}@if (comprasConteo()[f.id]) { <span class="obra-chips__n">{{ comprasConteo()[f.id] }}</span> }
+          {{ f.label }}<span class="obra-chips__n">{{ comprasConteo()[f.id] }}</span>
         </button>
       }
-      <button type="button" class="obra-chips__alert" [attr.aria-pressed]="obraFilter() === 'por_confirmar'" (click)="obraFilter.set('por_confirmar'); deselect()">
-        Pagos por confirmar@if (pagosPendientesView().length) { <span class="obra-chips__n obra-chips__n--warn">{{ pagosPendientesView().length }}</span> }
-      </button>
     </div>
+    <label class="search cp-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span class="sr-only">Buscar compra</span>
+      <input type="search" placeholder="Buscar rubro o proveedor" [value]="compraQuery()" (input)="compraQuery.set($any($event.target).value)" />
+    </label>
     <div class="obra-toolbar__actions">
       @if (obraFilter() !== 'por_confirmar') {
         <button class="btn btn--ghost btn--sm" (click)="showSolicitudForm.set(!showSolicitudForm()); showPresForm.set(false)">
@@ -276,21 +278,28 @@
     </div>
   }
 
-  <!-- ─── RESUMEN + BÚSQUEDA ───────────────────────────── -->
-  @if (obraFilter() !== 'por_confirmar' && compras().length) {
-    <div class="cp-top">
-      <div class="cp-sum">
-        @for (r of resumenCompras(); track r.moneda) {
-          <div class="cp-sum__item"><span>Comprometido</span><b class="num">{{ fmt(r.comprometido, r.moneda) }}</b></div>
-          <div class="cp-sum__item"><span>Pagado</span><b class="num">{{ fmt(r.pagado, r.moneda) }}</b><div class="progress progress--dark" [style.--v]="r.pct"><i></i></div></div>
-          <div class="cp-sum__item"><span>Falta pagar</span><b class="num" [class.cp-warn]="r.porPagar > 0">{{ fmt(r.porPagar, r.moneda) }}</b></div>
-        } @empty { <div class="cp-sum__item"><span>Todavía no hay compras elegidas</span></div> }
-      </div>
-      <label class="search cp-search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <span class="sr-only">Buscar compra</span>
-        <input type="search" placeholder="Buscar rubro o proveedor" [value]="compraQuery()" (input)="compraQuery.set($any($event.target).value)" />
-      </label>
+  <!-- ─── LO QUE FALTA PAGAR ───────────────────────────── -->
+  @if (obraFilter() !== 'por_confirmar' && (resumenCompras().length || pagosPendientesView().length)) {
+    <div class="cp-hero">
+      @if (resumenCompras().length) {
+        <div class="cp-card cp-card--main">
+          <span class="cp-card__lbl">Falta pagar</span>
+          @for (r of resumenCompras(); track r.moneda) {
+            <div class="cp-line">
+              <strong class="cp-card__big num" [class.cp-card__big--ok]="r.porPagar === 0">{{ r.porPagar === 0 ? 'Todo pagado' : fmt(r.porPagar, r.moneda) }}</strong>
+              <div class="progress progress--dark" [style.--v]="r.pct"><i></i></div>
+              <span class="cp-card__foot">Ya pagaste <b class="num">{{ fmt(r.pagado, r.moneda) }}</b> de <b class="num">{{ fmt(r.comprometido, r.moneda) }}</b></span>
+            </div>
+          }
+        </div>
+      }
+      @if (pagosPendientesView().length) {
+        <button type="button" class="cp-card cp-card--alert" (click)="obraFilter.set('por_confirmar'); deselect()">
+          <span class="cp-card__lbl">Requiere tu atención</span>
+          <strong class="cp-card__big">{{ pagosPendientesView().length }} pago{{ pagosPendientesView().length !== 1 ? 's' : '' }} por confirmar</strong>
+          <span class="cp-card__foot">Pagos cargados que todavía no se marcaron como pagados <b>→</b></span>
+        </button>
+      }
     </div>
   }
 
@@ -300,26 +309,36 @@
 
     <!-- LIST PANE ─────────────────────────────────────── -->
     <div class="obra-list-pane">
+      @if (comprasVisibles().length) {
+        <div class="cp-head" aria-hidden="true"><span>Compra</span><span class="r">Monto</span><span>Pendiente</span><span>Estado</span></div>
+      }
       @for (r of comprasVisibles(); track r.key) {
         <button type="button" class="cp-row" [class.cp-row--active]="selectedId() === r.id" [class.cp-row--off]="r.estado === 'descartada'" (click)="select(r.type, r.id)">
-          <div class="cp-row__main">
+          <div class="cp-c cp-c--name">
             <strong>{{ r.titulo }}</strong>
-            <span class="cp-row__meta">{{ r.sub }}@if (r.detalle) { · {{ r.detalle }} }</span>
-            <div class="cp-steps" role="img" [attr.aria-label]="'Paso ' + (r.paso + 1) + ' de 4: ' + PASOS[r.paso < 0 ? 0 : r.paso]">
+            <span class="cp-sub">{{ r.sub }}@if (r.detalle) { · {{ r.detalle }} }</span>
+            <div class="cp-steps" role="img" [attr.aria-label]="'Paso ' + (r.paso < 0 ? 0 : r.paso + 1) + ' de 4'">
               @for (p of PASOS; track $index) { <i [class.on]="$index <= r.paso" [class.cur]="$index === r.paso" [title]="p"></i> }
             </div>
           </div>
-          <div class="cp-row__side">
-            @if (r.monto !== null) { <b class="num">{{ fmt(r.monto, r.moneda!) }}</b> }
-            @if (r.type === 'gasto' && r.monto) { <div class="progress progress--dark cp-row__bar" [style.--v]="r.pagado! / r.monto * 100"><i></i></div><small class="num">Pagado {{ fmt(r.pagado!, r.moneda!) }}</small> }
-            <span class="pill {{ COMPRA_PILL[r.estado] }}">{{ COMPRA_LABEL[r.estado] }}</span>
+          <div class="cp-c cp-c--amt num">@if (r.monto !== null) { {{ fmt(r.monto, r.moneda!) }} } @else { <span class="cp-dash">—</span> }</div>
+          <div class="cp-c cp-c--pay">
+            @if (r.type === 'gasto' && r.falta > 0) {
+              <b class="cp-falta num">{{ fmt(r.falta, r.moneda!) }}</b>
+              <div class="progress progress--dark" [style.--v]="r.pagado! / r.monto! * 100"><i></i></div>
+            } @else if (r.type === 'gasto') {
+              <span class="cp-ok">✓ Pagado completo</span>
+            } @else if (r.estado === 'elegida') {
+              <span class="cp-dash">Todavía sin gasto</span>
+            } @else { <span class="cp-dash">—</span> }
           </div>
+          <div class="cp-c cp-c--st"><span class="pill {{ COMPRA_PILL[r.estado] }}">{{ COMPRA_LABEL[r.estado] }}</span></div>
         </button>
       } @empty {
         <div class="obra-empty">
           @if (compras().length) {
             <p class="obra-empty__title">Sin resultados</p>
-            <p class="obra-empty__desc">Probá con otro estado o búsqueda.</p>
+            <p class="obra-empty__desc">Probá con otro filtro o búsqueda.</p>
           } @else {
             <p class="obra-empty__title">Todavía no hay compras</p>
             <p class="obra-empty__desc">Empezá pidiendo cotizaciones a proveedores, o cargá un presupuesto que ya tengas.</p>

@@ -153,6 +153,9 @@ export class PersonasComponent implements OnInit {
     else this.run(this.members.remove(this.project._id, p.memberId!), () => this.cargarMiembros());
   }
 
+  /** Línea secundaria: email (si hay nombre), teléfono y cargo. */
+  detalle(p: Persona) { return [p.name ? p.email : '', p.phone, p.cargo].filter(Boolean).join(' · '); }
+
   puedeGestionar(p: Persona) { return p.rol === 'propietario' ? this.canEdit : this.canManage; }
 
   // ── Internos ───────────────────────────────────────────

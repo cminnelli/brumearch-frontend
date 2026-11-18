@@ -37,7 +37,7 @@ export class DashboardComponent implements OnInit {
     const l = this.activos();
     return l.length ? Math.round(l.reduce((s, p) => s + p.avance.pct, 0) / l.length) : 0;
   });
-  monedasGasto = computed(() => { const t = this.data()?.totales; return t ? monedasUsadas(t.gastado, t.pagado) : []; });
+  monedasPorPagar = computed(() => { const t = this.data()?.totales; return t ? monedasUsadas(t.porPagar, t.gastado) : []; });
   pendientesTotal = computed(() => (this.data()?.proyectos ?? []).reduce((s, p) => s + p.pendientes, 0));
 
   ngOnInit() {
@@ -49,7 +49,7 @@ export class DashboardComponent implements OnInit {
 
   /** Para la barra: ejecutado vs. presupuesto aprobado en la moneda principal del proyecto. */
   ejecucion(p: ProjectSummary): { moneda: string; gastado: number; aprobado: number; pct: number } | null {
-    const mon = (['USD', 'ARS', 'EUR'] as const).find(m => p.aprobado[m] > 0 || p.gastado[m] > 0);
+    const mon = (['ARS', 'USD', 'EUR'] as const).filter(m => p.aprobado[m] > 0 || p.gastado[m] > 0).sort((a, b) => (p.aprobado[b] + p.gastado[b]) - (p.aprobado[a] + p.gastado[a]))[0];
     if (!mon) return null;
     const aprobado = p.aprobado[mon], gastado = p.gastado[mon];
     return { moneda: mon, gastado, aprobado, pct: aprobado ? Math.round(gastado / aprobado * 100) : 0 };

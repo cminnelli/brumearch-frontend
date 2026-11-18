@@ -22,6 +22,7 @@ export interface ProjectSummary {
   aprobado: PorMoneda;
   gastado: PorMoneda;
   pagado: PorMoneda;
+  porPagar: PorMoneda;
   pendientes: number;
   vencidos: number;
 }
@@ -37,12 +38,14 @@ export interface PagoPendiente {
   moneda: keyof PorMoneda;
   fecha: string;
   vencido: boolean;
+  faltaPago: boolean;
+  faltaFirma: boolean;
 }
 
 export interface DashboardData {
   proyectos: ProjectSummary[];
   pagosPendientes: PagoPendiente[];
-  totales: { aprobado: PorMoneda; gastado: PorMoneda; pagado: PorMoneda };
+  totales: { aprobado: PorMoneda; gastado: PorMoneda; pagado: PorMoneda; porPagar: PorMoneda };
   pagosVencidos: number;
 }
 

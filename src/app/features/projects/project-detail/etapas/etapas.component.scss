@@ -422,3 +422,10 @@
   .etapa-bar { flex: 1 1 120px; max-width: 220px; } }
 .etapa-pct { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--text-sm); color: var(--c-text-sub);
   input { width: 62px; font: inherit; padding: .25rem .4rem; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); background: var(--c-bg); color: var(--c-text); } }
+
+
+/* Vista: una fila compacta por etapa (nombre · estado y avance · fechas) */
+.assigned-row--view { padding-right: var(--sp-3); display: grid; grid-template-columns: minmax(140px, 1fr) auto auto; align-items: center; gap: var(--sp-2) var(--sp-3);
+  .etapa-estado { padding: 0; flex-wrap: nowrap; .etapa-bar { width: 80px; flex: none; } }
+  .assigned-row__sched--view { justify-content: flex-end; padding: 0; margin: 0; }
+  @media (max-width: 1100px) { grid-template-columns: 1fr; .assigned-row__sched--view { justify-content: flex-start; } } }

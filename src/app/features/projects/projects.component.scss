@@ -299,3 +299,7 @@
   td a { display: block; strong { display: block; font-weight: 600; } small { color: var(--c-text-sub); font-size: var(--text-sm); } }
   &__prog { display: flex; align-items: center; gap: .6rem; min-width: 150px; .progress { flex: 1; } b { font-weight: 600; font-size: var(--text-sm); } }
   &__ok { color: var(--c-good); font-size: var(--text-sm); font-weight: 600; } }
+
+.toolbar .search input { width: 320px; max-width: 100%; }
+.projects .page-header { margin-bottom: var(--sp-3); }
+.projects .toolbar { margin-top: 0; }

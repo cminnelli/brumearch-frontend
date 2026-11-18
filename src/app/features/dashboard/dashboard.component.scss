@@ -31,3 +31,5 @@ ul { list-style: none; }
 .pago { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); transition: background var(--t-fast); &:hover { background: var(--c-surface); }
   &__main { display: flex; flex-direction: column; min-width: 0; strong { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } small { color: var(--c-text-sub); font-size: var(--text-sm); } }
   &__side { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; b { font-weight: 600; white-space: nowrap; } } }
+
+.kpi__money--ok { color: var(--c-good); }

@@ -20,9 +20,10 @@ import { Proveedor } from '../../../../shared/models/proveedor.model';
 import { fileUrl } from '../../../../shared/utils/file-url';
 
 type CompraEstado = 'cotizando' | 'revisar' | 'elegida' | 'enpago' | 'pagada' | 'descartada';
+type CompraFiltro = 'todas' | 'cotizando' | 'porpagar' | 'pagada';
 interface CompraRow {
   key: string; type: 'sol' | 'pres' | 'gasto'; id: string; titulo: string; detalle: string; sub: string;
-  estado: CompraEstado; paso: number; monto: number | null; moneda: string | null; pagado: number | null; buscar: string;
+  estado: CompraEstado; paso: number; monto: number | null; moneda: string | null; pagado: number | null; falta: number; buscar: string;
 }
 
 @Component({
@@ -156,7 +157,7 @@ export class ObraComponent implements OnInit {
 
   // ── Master/detail selection ──────────────────────────────
   // ── Compras: una sola lista que sigue el recorrido de cada compra ──
-  compraFiltro = signal<CompraEstado | 'todas'>('todas');
+  compraFiltro = signal<CompraFiltro>('todas');
   compraQuery  = signal('');
   readonly PASOS = ['Cotización', 'Presupuesto', 'Gasto en pago', 'Pagada'];
   readonly COMPRA_LABEL: Record<CompraEstado, string> = {
@@ -174,47 +175,51 @@ export class ObraComponent implements OnInit {
     for (const s of this.solicitudes().filter(x => x.estado === 'abierta')) {
       const n = s.cotizaciones.length;
       rows.push({ key: s._id, type: 'sol', id: s._id, titulo: s.subrubroId.nombre, detalle: s.descripcion || '',
-        sub: `${n} cotizacion${n !== 1 ? 'es' : ''} recibida${n !== 1 ? 's' : ''}`, estado: 'cotizando', paso: 0, monto: null, moneda: null, pagado: null, buscar: '' });
+        sub: `${n} cotizacion${n !== 1 ? 'es' : ''} recibida${n !== 1 ? 's' : ''}`, estado: 'cotizando', paso: 0, monto: null, moneda: null, pagado: null, falta: 0, buscar: '' });
     }
     for (const p of this.presupuestos()) {
       const estado: CompraEstado = p.estado === 'aprobado' ? 'elegida' : p.estado === 'pendiente' ? 'revisar' : 'descartada';
       rows.push({ key: p._id, type: 'pres', id: p._id, titulo: p.subrubroId.nombre, detalle: p.descripcion || '',
-        sub: p.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: p.monto, moneda: p.moneda, pagado: null, buscar: '' });
+        sub: p.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: p.monto, moneda: p.moneda, pagado: null, falta: estado === 'elegida' ? p.monto : 0, buscar: '' });
     }
     for (const g of this.gastos()) {
       const pagado = totalPagadoGasto(g);
       const estado: CompraEstado = pagado >= g.monto && g.monto > 0 ? 'pagada' : 'enpago';
       rows.push({ key: g._id, type: 'gasto', id: g._id, titulo: g.subrubroId.nombre, detalle: g.descripcion || '',
-        sub: g.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: g.monto, moneda: g.moneda, pagado, buscar: '' });
+        sub: g.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: g.monto, moneda: g.moneda, pagado, falta: Math.max(0, g.monto - pagado), buscar: '' });
     }
     for (const r of rows) r.buscar = `${r.titulo} ${r.detalle} ${r.sub}`.toLowerCase();
     return rows.sort((a, b) => this.COMPRA_ORDEN.indexOf(a.estado) - this.COMPRA_ORDEN.indexOf(b.estado));
   });
 
+  private enFiltro(r: CompraRow, f: CompraFiltro) {
+    return f === 'todas' || (f === 'cotizando' ? ['cotizando', 'revisar'].includes(r.estado) : f === 'porpagar' ? ['elegida', 'enpago'].includes(r.estado) : r.estado === 'pagada');
+  }
   comprasVisibles = computed(() => {
     const f = this.compraFiltro(), q = this.compraQuery().trim().toLowerCase();
-    return this.compras().filter(r => (f === 'todas' || r.estado === f) && (!q || r.buscar.includes(q)));
+    return this.compras().filter(r => this.enFiltro(r, f) && (!q || r.buscar.includes(q)));
   });
   comprasConteo = computed(() => {
-    const c: Record<string, number> = { todas: this.compras().length };
-    for (const r of this.compras()) c[r.estado] = (c[r.estado] ?? 0) + 1;
+    const c: Record<string, number> = {};
+    for (const f of ['todas', 'cotizando', 'porpagar', 'pagada'] as CompraFiltro[]) c[f] = this.compras().filter(r => this.enFiltro(r, f)).length;
     return c;
   });
-  filtrosCompra: { id: CompraEstado | 'todas'; label: string }[] = [
-    { id: 'todas', label: 'Todas' }, { id: 'cotizando', label: 'Cotizando' }, { id: 'revisar', label: 'A revisar' },
-    { id: 'elegida', label: 'Elegidas' }, { id: 'enpago', label: 'En pago' }, { id: 'pagada', label: 'Pagadas' },
+  filtrosCompra: { id: CompraFiltro; label: string }[] = [
+    { id: 'todas', label: 'Todas' }, { id: 'cotizando', label: 'Cotizando' }, { id: 'porpagar', label: 'Por pagar' }, { id: 'pagada', label: 'Pagadas' },
   ];
-  /** Por moneda: lo comprometido (elegido, en pago o pagado), lo pagado y lo que falta pagar. */
+  /** Por moneda, de mayor a menor: lo comprometido (elegido, en pago o pagado), lo pagado y lo que falta pagar. */
   resumenCompras = computed(() => {
-    const m: Record<string, { comprometido: number; pagado: number }> = {};
+    const m: Record<string, { comprometido: number; pagado: number; porPagar: number }> = {};
     for (const r of this.compras()) {
       if (!r.moneda || !['elegida', 'enpago', 'pagada'].includes(r.estado)) continue;
-      const x = (m[r.moneda] ??= { comprometido: 0, pagado: 0 });
-      x.comprometido += r.monto ?? 0; x.pagado += r.pagado ?? 0;
+      const x = (m[r.moneda] ??= { comprometido: 0, pagado: 0, porPagar: 0 });
+      x.comprometido += r.monto ?? 0; x.pagado += r.pagado ?? 0; x.porPagar += r.falta;
     }
-    return Object.entries(m).map(([moneda, v]) => ({ moneda, ...v, porPagar: Math.max(0, v.comprometido - v.pagado), pct: v.comprometido ? Math.round(v.pagado / v.comprometido * 100) : 0 }));
+    return Object.entries(m)
+      .map(([moneda, v]) => ({ moneda, ...v, pct: v.comprometido ? Math.min(100, Math.round(v.pagado / v.comprometido * 100)) : 0 }))
+      .sort((a, b) => b.comprometido - a.comprometido);
   });
-  setCompraFiltro(f: CompraEstado | 'todas') { this.obraFilter.set('todos'); this.compraFiltro.set(f); this.deselect(); }
+  setCompraFiltro(f: CompraFiltro) { this.obraFilter.set('todos'); this.compraFiltro.set(f); this.deselect(); }
   /** Cotización de la que salió un presupuesto (para ver las ofertas comparadas). */
   solDePres(presId: string) { return this.solicitudes().find(s => s.presupuestoId === presId) ?? null; }
 

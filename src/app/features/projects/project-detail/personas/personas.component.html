@@ -1,9 +1,5 @@
 <section class="ps">
-  <p class="ps__intro">
-    Todas las personas de esta obra en un solo lugar.
-    <strong>Propietario</strong> es el cliente: entra a su portal con el email que cargues.
-    <strong>Editor</strong> y <strong>Lector</strong> son gente del estudio o externos que ven este proyecto.
-  </p>
+  <p class="ps__intro"><strong>Propietario</strong>: el cliente, entra a su portal con el email que cargues. <strong>Editor</strong>: ve y modifica este proyecto. <strong>Lector</strong>: solo lo ve.</p>
 
   @if (canEdit) {
     <form class="ps-add" (ngSubmit)="agregar()" autocomplete="off">
@@ -68,13 +64,9 @@
               </div>
             } @else {
               <strong>{{ p.name || p.email }}</strong>
-              <small>
-                @if (p.name && p.email) { {{ p.email }} }
-                @if (p.phone) { · {{ p.phone }} }
-                @if (p.cargo) { · {{ p.cargo }} }
-                @if (p.rol === 'propietario' && !p.email) { <span class="ps-warn">Sin email: no puede entrar al portal</span> }
-                @if (p.rol !== 'propietario' && p.registrado === false) { <span class="ps-warn">Todavía no se registró · el acceso se activa cuando entre</span> }
-              </small>
+              @if (detalle(p)) { <small>{{ detalle(p) }}</small> }
+              @if (p.rol === 'propietario' && !p.email) { <small class="ps-warn">Sin email: no puede entrar al portal</small> }
+              @if (p.rol !== 'propietario' && p.registrado === false) { <small class="ps-warn">Todavía no se registró. El acceso se activa cuando entre con ese email.</small> }
             }
           </div>
 

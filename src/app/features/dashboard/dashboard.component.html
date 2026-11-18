@@ -36,14 +36,14 @@
           <div class="progress progress--dark" [style.--v]="avancePromedio()"><i></i></div>
         </div>
         <div class="kpi">
-          <span class="kpi__label">Gastado</span>
-          @if (monedasGasto().length) {
-            @for (m of monedasGasto(); track m) { <strong class="kpi__money num">{{ fmt(d.totales.gastado[m], m) }}</strong> }
-          } @else { <strong class="kpi__value num">—</strong> }
+          <span class="kpi__label">Falta pagar</span>
+          @for (m of monedasPorPagar(); track m) {
+            <strong class="kpi__money num" [class.kpi__money--ok]="d.totales.porPagar[m] === 0">{{ d.totales.porPagar[m] === 0 ? m + ' · todo pagado' : fmt(d.totales.porPagar[m], m) }}</strong>
+          } @empty { <strong class="kpi__value num">—</strong> }
           <span class="kpi__sub">en todas las obras</span>
         </div>
         <div class="kpi" [class.kpi--alert]="d.pagosVencidos > 0">
-          <span class="kpi__label">Pagos pendientes</span>
+          <span class="kpi__label">Pagos por confirmar</span>
           <strong class="kpi__value num">{{ pendientesTotal() }}</strong>
           @if (d.pagosVencidos) { <span class="pill pill--bad">{{ d.pagosVencidos }} vencido{{ d.pagosVencidos !== 1 ? 's' : '' }}</span> }
           @else { <span class="kpi__sub">sin vencidos</span> }
@@ -82,7 +82,7 @@
         </section>
 
         <section class="dash-panel" aria-labelledby="h-pagos">
-          <header class="dash-panel__head"><h2 id="h-pagos">Próximos pagos</h2></header>
+          <header class="dash-panel__head"><h2 id="h-pagos">Pagos por confirmar</h2></header>
           <ul class="pagos">
             @for (pg of d.pagosPendientes.slice(0, 8); track pg.pagoId) {
               <li>
@@ -97,7 +97,7 @@
                   </div>
                 </a>
               </li>
-            } @empty { <li class="dash-empty">No hay pagos pendientes. Todo al día.</li> }
+            } @empty { <li class="dash-empty">No hay pagos por confirmar. Todo al día.</li> }
           </ul>
         </section>
       </div>

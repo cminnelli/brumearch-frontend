@@ -57,7 +57,7 @@ export class ProjectsComponent implements OnInit {
   ];
   setVista(v: 'tarjetas' | 'tabla') { this.vista.set(v); try { localStorage.setItem('proj_vista', v); } catch { /* sin storage */ } }
   ejecucion(p: ProjectSummary) {
-    const mon = (['USD', 'ARS', 'EUR'] as const).find(m => p.aprobado[m] > 0 || p.gastado[m] > 0);
+    const mon = (['ARS', 'USD', 'EUR'] as const).filter(m => p.aprobado[m] > 0 || p.gastado[m] > 0).sort((a, b) => (p.aprobado[b] + p.gastado[b]) - (p.aprobado[a] + p.gastado[a]))[0];
     if (!mon) return null;
     const aprobado = p.aprobado[mon], gastado = p.gastado[mon];
     return { moneda: mon, gastado, aprobado, pct: aprobado ? Math.min(100, Math.round(gastado / aprobado * 100)) : 0 };

@@ -295,24 +295,24 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   isGroupActive(t: { group: DetailTab[] }) { return t.group.includes(this.activeTab()); }
   activeSub = computed(() => this.NAV.find(t => t.sub && t.group.includes(this.activeTab()))?.sub ?? null);
 
-  /** Cifras de cabecera, en la moneda principal del proyecto (USD, ARS o EUR, la primera con movimiento). */
+  /** Cifras de cabecera por moneda (de mayor a menor movimiento). Una obra puede tener gastos en ARS y en USD. */
   kpis = computed(() => {
     const p = this.project();
     if (!p || !this.resumenLoaded()) return null;
-    // Referencia = plan de costos (los presupuestos aprobados se borran al pasar a gasto).
-    const plan = (p.planObra ?? []).map(x => ({ monto: x.monto, moneda: x.moneda as Moneda }));
-    if (!plan.length && p.budget?.estimated) plan.push({ monto: p.budget.estimated, moneda: p.budget.currency as Moneda });
+    const f = (n: number, m: string) => `${m} ${Math.round(n).toLocaleString('es-AR')}`;
+    const plan = (p.planObra ?? []).map(x => ({ monto: x.monto, moneda: x.moneda as string }));
+    if (!plan.length && p.budget?.estimated) plan.push({ monto: p.budget.estimated, moneda: p.budget.currency });
     const gst = this.gastos();
-    const mon = (['USD', 'ARS', 'EUR'] as Moneda[]).find(m => plan.some(x => x.moneda === m) || gst.some(g => g.moneda === m)) ?? 'ARS';
-    const aprobado = plan.filter(x => x.moneda === mon).reduce((s, x) => s + x.monto, 0);
-    const gastado  = gst.filter(g => g.moneda === mon).reduce((s, g) => s + g.monto, 0);
-    const pagado   = gst.filter(g => g.moneda === mon).reduce((s, g) => s + totalPagadoGasto(g), 0);
-    const f = (n: number) => `${mon} ${Math.round(n).toLocaleString('es-AR')}`;
-    return {
-      aprobado: aprobado ? f(aprobado) : '—', gastado: f(gastado), pagado: f(pagado), pendiente: f(Math.max(0, gastado - pagado)),
-      pctEjec: aprobado ? Math.round(gastado / aprobado * 100) : null,
-      avance: avanceObra(p.etapas),
-    };
+    const monedas = [...new Set([...plan.map(x => x.moneda), ...gst.map(g => g.moneda as string)])];
+    const filas = monedas.map(m => {
+      const planM = plan.filter(x => x.moneda === m).reduce((s, x) => s + x.monto, 0);
+      const gastado = gst.filter(g => g.moneda === m).reduce((s, g) => s + g.monto, 0);
+      const pagado = gst.filter(g => g.moneda === m).reduce((s, g) => s + totalPagadoGasto(g), 0);
+      // lo que falta es la suma de lo pendiente en cada gasto (un sobrepago no compensa a otro gasto)
+      const pend = gst.filter(g => g.moneda === m).reduce((s, g) => s + Math.max(0, g.monto - totalPagadoGasto(g)), 0);
+      return { m, plan: planM, gastado, pagado, pend, pct: planM ? Math.round(gastado / planM * 100) : null as number | null };
+    }).sort((a, b) => (b.gastado + b.plan) - (a.gastado + a.plan));
+    return { filas: filas.map(x => ({ ...x, fPlan: x.plan ? f(x.plan, x.m) : '—', fGastado: f(x.gastado, x.m), fPagado: f(x.pagado, x.m), fPend: f(x.pend, x.m) })), avance: avanceObra(p.etapas) };
   });
 
   onProjectChange(p: Project) { this.project.set(p); }

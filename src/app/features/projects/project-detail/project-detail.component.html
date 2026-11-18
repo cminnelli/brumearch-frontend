@@ -32,11 +32,14 @@
 
       @if (kpis(); as k) {
         <div class="proj-kpis" aria-label="Estado de la obra">
-          <div class="pk"><span>Plan de costos</span><strong class="num">{{ k.aprobado }}</strong></div>
-          <div class="pk"><span>Ejecutado</span><strong class="num">{{ k.gastado }}</strong>
-            @if (k.pctEjec !== null) { <div class="progress" [class.progress--warn]="k.pctEjec >= 85" [class.progress--bad]="k.pctEjec > 100" [style.--v]="k.pctEjec > 100 ? 100 : k.pctEjec"><i></i></div> }</div>
-          <div class="pk"><span>Pagado / pendiente</span><strong class="num">{{ k.pagado }}</strong><small>Pendiente {{ k.pendiente }}</small></div>
-          <div class="pk"><span>Avance de etapas</span><strong class="num">{{ k.avance }}%</strong><div class="progress progress--dark" [style.--v]="k.avance"><i></i></div></div>
+          <div class="pk"><span>Plan de costos</span>
+            @for (x of k.filas; track x.m) { @if (x.plan) { <strong class="num">{{ x.fPlan }}</strong> } } @empty { <strong class="num">—</strong> }</div>
+          <div class="pk"><span>Gastado</span>
+            @for (x of k.filas; track x.m) { <strong class="num">{{ x.fGastado }}</strong>
+              @if (x.pct !== null) { <div class="progress" [class.progress--warn]="x.pct >= 85" [class.progress--bad]="x.pct > 100" [style.--v]="x.pct > 100 ? 100 : x.pct"><i></i></div> } }</div>
+          <div class="pk"><span>Pagado</span>
+            @for (x of k.filas; track x.m) { <strong class="num">{{ x.fPagado }}</strong>@if (x.pend > 0) { <small>Faltan {{ x.fPend }}</small> } }</div>
+          <div class="pk"><span>Avance de obra</span><strong class="num">{{ k.avance }}%</strong><div class="progress progress--dark" [style.--v]="k.avance"><i></i></div></div>
         </div>
       }
     </header>
