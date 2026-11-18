@@ -358,6 +358,7 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'info') {
       <div class="tab-content">
+      @if (editing()) {
             @if (project()!.coverImage) {
               <div class="proj-cover" [style.background-image]="'url(' + coverUrl(project()!.coverImage!) + ')'">
                 @if (canEdit()) {
@@ -514,6 +515,101 @@
 
           </div>
         </div>
+      } @else {
+        @if (ahora(); as a) {
+        <div class="rs">
+
+          <!-- Foto + cómo está la obra ahora -->
+          <section class="rs-top">
+            <div class="rs-cover" [style.background-image]="project()!.coverImage ? 'url(' + coverUrl(project()!.coverImage!) + ')' : ''">
+              @if (!project()!.coverImage) { <span class="rs-cover__ph">{{ project()!.name[0] }}</span> }
+              @if (canEdit()) {
+                <label class="rs-cover__btn" [class.rs-cover__btn--loading]="coverUploading()">
+                  {{ coverUploading() ? 'Subiendo...' : project()!.coverImage ? 'Cambiar foto' : '+ Agregar foto' }}
+                  <input type="file" hidden accept="image/*" (change)="onCoverFile($event)" />
+                </label>
+              }
+            </div>
+
+            <aside class="rs-now" aria-label="Cómo está la obra ahora">
+              <span class="rs-lbl">Ahora en obra</span>
+              @if (a.terminada) {
+                <strong class="rs-now__main">Obra terminada</strong>
+                <span class="pill pill--good" style="align-self:flex-start">Todas las etapas completadas</span>
+              } @else if (a.activa) {
+                <strong class="rs-now__main">{{ a.activa.nombre }}</strong>
+                <div class="progress progress--dark" [style.--v]="a.pctActiva"><i></i></div>
+                <span class="rs-now__sub">Etapa en curso · {{ a.pctActiva }}% completada</span>
+              } @else if (a.sinEtapas) {
+                <strong class="rs-now__main rs-now__main--muted">Sin etapas cargadas</strong>
+                <button type="button" class="rs-link" (click)="setTab('config')">Definir las etapas →</button>
+              } @else {
+                <strong class="rs-now__main rs-now__main--muted">Todavía no empezó</strong>
+              }
+
+              <dl class="rs-now__list">
+                @if (a.proxima && !a.terminada) {
+                  <div><dt>Sigue</dt><dd>{{ a.proxima.nombre }}@if (a.proxima.fechaInicio) { <small>desde el {{ fmtFecha(a.proxima.fechaInicio) }}</small> }</dd></div>
+                }
+                @if (a.fin) {
+                  <div><dt>Entrega estimada</dt><dd>{{ fmtFecha(a.fin) }} <small [class.rs-warn]="a.atrasada">{{ a.entrega }}</small></dd></div>
+                }
+                <div><dt>Pagos</dt><dd>
+                  @if (a.porConfirmar) { <button type="button" class="rs-link" (click)="setTab('compras')">{{ a.porConfirmar }} por confirmar →</button> }
+                  @else { <span class="rs-ok">✓ Al día</span> }
+                </dd></div>
+              </dl>
+            </aside>
+          </section>
+
+          <!-- Características de un vistazo -->
+          @if (datos().length || rasgos().length) {
+            <section class="rs-facts" aria-label="Características">
+              @for (x of datos(); track x.l) { <div class="rs-fact"><strong class="num">{{ x.v }}</strong><span>{{ x.l }}</span></div> }
+              @if (rasgos().length) { <div class="rs-fact rs-fact--tags">@for (r of rasgos(); track r) { <span class="pill">{{ r }}</span> }</div> }
+            </section>
+          }
+
+          <!-- Detalle -->
+          <section class="rs-cols">
+            <div class="rs-card">
+              <span class="rs-lbl">Sobre el proyecto</span>
+              @if (project()!.description) { <p class="rs-text">{{ project()!.description }}</p> }
+              <dl class="rs-kv">
+                <div><dt>Ubicación</dt><dd>
+                  @if (locationStr(project()!)) { {{ locationStr(project()!) }}@if (mapsUrl(project()!); as m) { <a class="rs-link" [href]="m" target="_blank" rel="noopener">Ver en el mapa ↗</a> } }
+                  @else { <span class="rs-muted">Sin cargar</span> }
+                </dd></div>
+                <div><dt>Plazo</dt><dd>
+                  @if (project()!.startDate || project()!.endDate) { {{ fmtFecha(project()!.startDate) || '—' }} → {{ fmtFecha(project()!.endDate) || '—' }} }
+                  @else { <span class="rs-muted">Sin fechas</span> }
+                </dd></div>
+              </dl>
+            </div>
+
+            <div class="rs-card">
+              <span class="rs-lbl">Personas</span>
+              @if (allOwners(project()!).length) {
+                <ul class="rs-people">
+                  @for (o of allOwners(project()!).slice(0, 4); track $index) {
+                    <li><app-avatar [name]="o.name" [email]="o.email" style="--av-size:34px" />
+                      <div><strong>{{ o.name || o.email }}</strong><small>Propietario@if (o.email && o.name) { · {{ o.email }} }</small></div></li>
+                  }
+                </ul>
+              } @else { <p class="rs-muted">Todavía no cargaste al propietario.</p> }
+              @if (canEdit()) { <button type="button" class="rs-link" (click)="setTab('personas')">Ver personas y accesos →</button> }
+            </div>
+
+            <div class="rs-card">
+              <span class="rs-lbl">Servicios contratados</span>
+              @if (project()!.services?.length) {
+                <div class="rs-chips">@for (s of project()!.services!; track s) { <span class="pill">{{ serviceLabel(s) }}</span> }</div>
+              } @else { <p class="rs-muted">Sin servicios cargados.</p> }
+            </div>
+          </section>
+        </div>
+        }
+      }
       </div>
     }
 

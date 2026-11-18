@@ -424,8 +424,49 @@
   input { width: 62px; font: inherit; padding: .25rem .4rem; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); background: var(--c-bg); color: var(--c-text); } }
 
 
-/* Vista: una fila compacta por etapa (nombre · estado y avance · fechas) */
-.assigned-row--view { padding-right: var(--sp-3); display: grid; grid-template-columns: minmax(140px, 1fr) auto auto; align-items: center; gap: var(--sp-2) var(--sp-3);
-  .etapa-estado { padding: 0; flex-wrap: nowrap; .etapa-bar { width: 80px; flex: none; } }
-  .assigned-row__sched--view { justify-content: flex-end; padding: 0; margin: 0; }
-  @media (max-width: 1100px) { grid-template-columns: 1fr; .assigned-row__sched--view { justify-content: flex-start; } } }
+/* Vista: una fila por etapa con cuatro columnas (etapa · planificado · real · estado) */
+$cr-cols: minmax(150px, 1fr) 200px 270px minmax(290px, 1.1fr);
+.cr-head { display: none; }
+@media (min-width: 1180px) {
+  .cr-head { display: grid; grid-template-columns: $cr-cols; gap: var(--sp-2) var(--sp-3); padding: .6rem 1rem; font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--c-text-muted); border-bottom: 1px solid var(--c-border); }
+  .assigned-row--view { display: grid; grid-template-columns: $cr-cols; grid-template-areas: "name plan real state"; align-items: center; gap: var(--sp-2) var(--sp-3); padding: .8rem 1rem;
+    .assigned-row__main { grid-area: name; padding: 0; }
+    .assigned-row__sched--view { grid-area: plan; padding: 0; margin: 0; justify-content: flex-start; }
+    .etapa-real { grid-area: real; padding: 0; flex-wrap: wrap; gap: .4rem .6rem; label { flex-direction: column; align-items: flex-start; gap: .1rem; } }
+    .etapa-estado { grid-area: state; padding: 0; flex-wrap: wrap; .etapa-bar { flex: 1 1 100%; max-width: none; width: auto; } } }
+}
+@media (max-width: 1179px) {
+  .assigned-row--view { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; padding: .8rem 1rem;
+    .etapa-real, .etapa-estado, .assigned-row__sched--view { padding-left: 0; } }
+}
+
+/* ═══ Plan contra real ═══ */
+.pv { border: 1px solid var(--c-border); border-radius: var(--radius-md); padding: var(--sp-3); margin-bottom: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3);
+  &__head { display: flex; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end; h3 { font-family: var(--font-head); font-size: var(--text-lg); font-weight: 700; } }
+  &__kpis { display: flex; gap: var(--sp-4); flex-wrap: wrap;
+    > div { display: flex; flex-direction: column; gap: .15rem; }
+    span { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--c-text-muted); }
+    strong { font-family: var(--font-head); font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; } }
+  &__dev { &--ok { color: var(--c-good); } &--warn { color: var(--c-warn); } &--bad { color: var(--c-bad); } }
+  &__ins { list-style: none; display: flex; flex-direction: column; gap: .4rem;
+    li { font-size: var(--text-sm); padding: .55rem .8rem; border-radius: var(--radius-sm); background: var(--c-surface); border-left: 3px solid var(--c-border-strong); color: var(--c-text); }
+    &--ok { border-left-color: var(--c-good) !important; } &--warn { border-left-color: var(--c-warn) !important; background: var(--c-warn-soft) !important; } &--bad { border-left-color: var(--c-bad) !important; background: var(--c-bad-soft) !important; } } }
+
+.gx { display: flex; flex-direction: column; gap: 6px; font-size: var(--text-sm);
+  &__row, &__axis { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--sp-2); align-items: center; }
+  &__lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--c-text-sub); font-size: var(--text-xs); }
+  &__track { position: relative; height: 20px; background: var(--c-surface); border-radius: 4px; }
+  &__axis &__track { height: 16px; background: transparent; }
+  &__tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--c-border); font-style: normal; span { position: absolute; left: 4px; top: 0; font-size: 10px; color: var(--c-text-muted); text-transform: capitalize; } }
+  &__plan { position: absolute; top: 3px; height: 6px; border-radius: 3px; background: var(--c-border-strong); }
+  &__real { position: absolute; top: 11px; height: 6px; border-radius: 3px; background: var(--c-text); &--late { background: var(--c-bad); } }
+  &__proy { position: absolute; top: 11px; height: 6px; border-radius: 3px; background: repeating-linear-gradient(45deg, var(--c-brand) 0 4px, transparent 4px 8px); opacity: .8; }
+  &__now { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--c-brand); border-radius: 1px; }
+  &__legend { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: .4rem; padding-left: calc(150px + var(--sp-2)); font-size: var(--text-xs); color: var(--c-text-sub);
+    span { display: inline-flex; align-items: center; gap: .4rem; }
+    i { position: static; display: inline-block; width: 18px; height: 6px; } i.gx__now { width: 2px; height: 12px; } }
+  @media (max-width: 700px) { &__row, &__axis { grid-template-columns: 90px minmax(0, 1fr); } &__legend { padding-left: 0; } } }
+
+.etapa-real { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: 0 0 .1rem 3.2rem;
+  label { display: inline-flex; align-items: center; gap: .4rem; font-size: var(--text-xs); color: var(--c-text-sub);
+    input { font: inherit; font-size: var(--text-xs); padding: .2rem .4rem; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); background: var(--c-bg); color: var(--c-text); } } }

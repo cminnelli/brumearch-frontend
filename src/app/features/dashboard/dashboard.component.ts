@@ -20,6 +20,7 @@ export class DashboardComponent implements OnInit {
   loading = signal(true);
   error   = signal(false);
   today   = new Date();
+  fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   fmt = fmtMoney;
   statusLabel = (s: string) => (PROJECT_STATUS_LABELS as Record<string, string>)[s] ?? s;

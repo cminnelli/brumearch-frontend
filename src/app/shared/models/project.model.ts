@@ -81,7 +81,7 @@ export interface Project {
   tags?:       string[];
   coverImage?: string;
   planObra?:   PlanObraEntry[];
-  etapas?:     { nombre?: string; orden: number; estado: 'pendiente' | 'activa' | 'completada'; fechaInicio?: string | null; duracion?: number | null; avance?: number | null }[];
+  etapas?:     { nombre?: string; orden: number; estado: 'pendiente' | 'activa' | 'completada'; fechaInicio?: string | null; duracion?: number | null; avance?: number | null; fechaInicioReal?: string | null; fechaFinReal?: string | null }[];
   createdAt:   string;
   updatedAt:   string;
 }

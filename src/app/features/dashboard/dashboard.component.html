@@ -1,7 +1,7 @@
 <div class="dash">
   <header class="page-header">
     <div class="page-header__left">
-      <p class="dash__date">{{ today | date:'EEEE d \'de\' MMMM':'':'es-AR' }}</p>
+      <p class="dash__date">{{ fechaHoy }}</p>
       <h1 class="page-header__title">{{ saludo() }}@if (firstName()) {, {{ firstName() }}}</h1>
     </div>
     @if (auth.isAdmin) { <a routerLink="/projects" [queryParams]="{ nuevo: 1 }" class="btn btn--primary">+ Nuevo proyecto</a> }

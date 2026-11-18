@@ -24,11 +24,60 @@
         <div><span class="avance-card__label">Avance de obra</span><strong class="avance-card__pct num">{{ completedPct() }}%</strong></div>
         <p class="avance-card__how">
           Sale del avance de cada etapa que cargás acá abajo, {{ ponderado() ? 'ponderado por su duración en semanas' : 'con el mismo peso para cada etapa (cargá la duración de todas para ponderar)' }}.
-          Completada cuenta 100%, pendiente 0% y en curso el porcentaje que indiques.
+          Completada cuenta 100%, pendiente 0% y en curso el porcentaje que indiques (50% si no lo cargás).
         </p>
       </div>
       <div class="progress" [style.--v]="completedPct()"><i></i></div>
     </div>
+  }
+
+  @if (!loading() && assigned().length && !catalogOpen()) {
+    <section class="pv" aria-label="Plan contra real">
+      <header class="pv__head">
+        <h3>Plan contra real</h3>
+        <div class="pv__kpis">
+          <div><span>Fin planificado</span><strong class="num">{{ fmtLarga(analisis().planFin) }}</strong></div>
+          <div><span>Fin proyectado</span><strong class="num">{{ fmtLarga(analisis().proyFin) }}</strong></div>
+          <div><span>Desvío</span>
+            @if (analisis().desvioDias !== null) {
+              <strong class="pv__dev pv__dev--{{ analisis().tono }}">{{ analisis().desvioDias! > 0 ? '+' : '' }}{{ analisis().desvioDias }} días</strong>
+            } @else { <strong class="num">—</strong> }
+          </div>
+        </div>
+      </header>
+
+      @if (analisis().insights.length) {
+        <ul class="pv__ins">
+          @for (i of analisis().insights; track $index) { <li class="pv__ins--{{ i.tono }}">{{ i.texto }}</li> }
+        </ul>
+      }
+
+      @if (analisis().desde) {
+        <div class="gx" role="img" aria-label="Gráfico de plan contra real por etapa">
+          <div class="gx__axis"><span class="gx__lbl"></span><div class="gx__track">
+            @for (m of meses(); track m.left) { <i class="gx__tick" [style.left.%]="m.left"><span>{{ m.label }}</span></i> }
+          </div></div>
+          @for (x of analisis().etapas; track x.id) {
+            <div class="gx__row">
+              <span class="gx__lbl" [title]="x.nombre">{{ x.nombre }}</span>
+              <div class="gx__track">
+                @if (x.planInicio && x.planFin) { <i class="gx__plan" [style.left.%]="pos(x.planInicio)" [style.width.%]="ancho(x.planInicio, x.planFin)" [title]="'Plan: ' + fmtCorta(x.planInicio) + ' → ' + fmtCorta(x.planFin)"></i> }
+                @if (x.realInicio) {
+                  <i class="gx__real" [class.gx__real--late]="x.tono === 'bad'" [style.left.%]="pos(x.realInicio)"
+                     [style.width.%]="ancho(x.realInicio, x.realFin ?? (x.estado === 'activa' ? hoy() : x.planFin ?? x.realInicio))"
+                     [title]="'Real: ' + fmtCorta(x.realInicio) + ' → ' + (x.realFin ? fmtCorta(x.realFin) : 'hoy')"></i>
+                }
+                @if (x.estado === 'activa' && x.proyFin && x.proyFin > hoy()) {
+                  <i class="gx__proy" [style.left.%]="hoyPos()" [style.width.%]="ancho(hoy(), x.proyFin)" [title]="'Proyectado: termina ' + fmtCorta(x.proyFin)"></i>
+                }
+                <i class="gx__now" [style.left.%]="hoyPos()"></i>
+              </div>
+            </div>
+          }
+          <div class="gx__legend"><span><i class="gx__plan"></i>Planificado</span><span><i class="gx__real"></i>Real</span><span><i class="gx__proy"></i>Proyectado</span><span><i class="gx__now"></i>Hoy</span></div>
+        </div>
+      }
+    </section>
   }
 
   @if (loading()) {
@@ -150,6 +199,7 @@
           Sin etapas asignadas. Usá "Editar etapas" para comenzar.
         </div>
       } @else {
+        <div class="cr-head" aria-hidden="true"><span>Etapa</span><span>Planificado</span><span>Real</span><span>Estado y avance</span></div>
         <div class="etapas-assigned">
           @for (a of assigned(); track a._id) {
             <div class="assigned-row assigned-row--view">
@@ -172,7 +222,7 @@
                   @if (a.estado === 'activa') {
                     <label class="etapa-pct">
                       <span>Avance</span>
-                      <input type="number" min="0" max="100" step="5" [value]="a.avance ?? 50" (change)="setAvance(a._id!, +$any($event.target).value)" />
+                      <input type="number" min="0" max="100" step="5" [value]="a.avance ?? ''" placeholder="—" (change)="setAvance(a._id!, +$any($event.target).value)" />
                       <span>%</span>
                     </label>
                   }
@@ -180,6 +230,15 @@
                   <span class="pill" [class.pill--good]="a.estado === 'completada'" [class.pill--brand]="a.estado === 'activa'">{{ a.estado === 'activa' ? 'En curso · ' + pctEtapa(a) + '%' : a.estado === 'completada' ? 'Completada' : 'Pendiente' }}</span>
                 }
                 <div class="progress progress--dark etapa-bar" [style.--v]="pctEtapa(a)"><i></i></div>
+              </div>
+              <div class="etapa-real">
+                @if (a.estado !== 'pendiente') {
+                  <label>Inicio real <input type="date" [value]="a.fechaInicioReal || ''" [disabled]="!canEdit || saving()" (change)="setReal(a._id!, 'fechaInicioReal', $any($event.target).value)" /></label>
+                }
+                @if (a.estado === 'completada') {
+                  <label>Fin real <input type="date" [value]="a.fechaFinReal || ''" [disabled]="!canEdit || saving()" (change)="setReal(a._id!, 'fechaFinReal', $any($event.target).value)" /></label>
+                }
+                @if (analisisPorId()[a._id!]; as an) { <span class="pill {{ TONO_PILL[an.tono] }}">{{ an.texto }}</span> }
               </div>
               @if (a.fechaInicio || a.duracion) {
                 <div class="assigned-row__sched assigned-row__sched--view">

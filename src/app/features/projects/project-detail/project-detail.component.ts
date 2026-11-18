@@ -26,6 +26,7 @@ import { ArsNumPipe } from '../../../shared/pipes/ars-num.pipe';
 import { ChatContextService } from '../../../core/services/chat-context.service';
 import { avanceObra } from '../../../shared/utils/avance';
 import { fileUrl } from '../../../shared/utils/file-url';
+import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
 import { PersonasComponent } from './personas/personas.component';
 import { MembersService, ProjectRole } from '../../../core/services/members.service';
 
@@ -56,7 +57,7 @@ export interface RubroResumen {
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, PersonasComponent, SafePipe, ArsNumPipe],
+  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, PersonasComponent, AvatarComponent, SafePipe, ArsNumPipe],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.scss',
 })
@@ -313,6 +314,44 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       return { m, plan: planM, gastado, pagado, pend, pct: planM ? Math.round(gastado / planM * 100) : null as number | null };
     }).sort((a, b) => (b.gastado + b.plan) - (a.gastado + a.plan));
     return { filas: filas.map(x => ({ ...x, fPlan: x.plan ? f(x.plan, x.m) : '—', fGastado: f(x.gastado, x.m), fPagado: f(x.pagado, x.m), fPend: f(x.pend, x.m) })), avance: avanceObra(p.etapas) };
+  });
+
+  fmtFecha(d?: string | Date | null) {
+    return d ? new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  }
+  mapsUrl(p: Project) {
+    const c = p.location?.coordinates;
+    const q = c?.lat && c?.lng ? `${c.lat},${c.lng}` : this.locationStr(p);
+    return q ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q) : '';
+  }
+
+  /** Estado de la obra "ahora": etapa en curso, la que sigue, entrega y pagos por confirmar. */
+  ahora = computed(() => {
+    const p = this.project();
+    if (!p) return null;
+    const et = [...(p.etapas ?? [])].sort((a, b) => a.orden - b.orden);
+    const activa = et.find(e => e.estado === 'activa') ?? null;
+    const proxima = et.find(e => e.estado === 'pendiente') ?? null;
+    const terminada = et.length > 0 && et.every(e => e.estado === 'completada');
+    const fin = p.endDate ? new Date(p.endDate) : null;
+    const dias = fin ? Math.round((fin.getTime() - Date.now()) / 86400000) : null;
+    const entrega = dias === null ? '' : dias > 13 ? `en ${Math.round(dias / 7)} semanas` : dias >= 0 ? `en ${dias} día${dias !== 1 ? 's' : ''}` : `hace ${-dias} día${dias !== -1 ? 's' : ''}`;
+    const porConfirmar = this.gastos().reduce((n, g) => n + g.pagos.filter(x => !x.pagado?.valor || !x.firmado?.valor).length, 0);
+    return { activa, pctActiva: activa ? (activa.avance ?? 50) : 0, proxima, terminada, sinEtapas: !et.length, fin, entrega, atrasada: dias !== null && dias < 0 && !terminada, porConfirmar, avance: avanceObra(p.etapas) };
+  });
+
+  /** Números de la obra para la franja de características (solo los que tienen dato). */
+  datos = computed(() => {
+    const f = this.project()?.features;
+    if (!f) return [];
+    return [
+      { v: f.levels, l: 'niveles' }, { v: f.surface, l: 'm² construidos' }, { v: f.lotSurface, l: 'm² de terreno' },
+      { v: f.bedrooms, l: 'dormitorios' }, { v: f.bathrooms, l: 'baños' }, { v: f.units, l: 'unidades' },
+    ].filter(x => x.v);
+  });
+  rasgos = computed(() => {
+    const p = this.project();
+    return [p?.features?.hasLaundry ? 'Lavadero' : '', p?.location?.isGatedCommunity ? 'Barrio cerrado' : ''].filter(Boolean);
   });
 
   onProjectChange(p: Project) { this.project.set(p); }

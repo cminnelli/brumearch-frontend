@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ConfigService, EtapaPlantilla } from '../../../../core/services/config.service';
 import { avanceObra } from '../../../../shared/utils/avance';
+import { analizarCronograma, fmtCorta, fmtLarga, diasEntre } from '../../../../shared/utils/desvios';
 import { environment } from '../../../../../environments/environment';
 
 type EstadoEtapa = 'pendiente' | 'activa' | 'completada';
@@ -17,6 +18,8 @@ interface ProyectoEtapa {
   fechaInicio?: string | null;
   duracion?:    number | null;
   avance?:      number | null;
+  fechaInicioReal?: string | null;
+  fechaFinReal?:    string | null;
 }
 
 const ESTADO_NEXT: Record<EstadoEtapa, EstadoEtapa> = {
@@ -65,9 +68,24 @@ export class EtapasComponent implements OnInit {
     { id: 'pendiente', label: 'Pendiente' }, { id: 'activa', label: 'En curso' }, { id: 'completada', label: 'Completada' },
   ];
 
-  /** Cambia el estado de una etapa y guarda en el momento. */
+  /** Cambia el estado de una etapa, completa las fechas reales y guarda en el momento. */
   setEstado(id: string, estado: EstadoEtapa) {
-    this.assigned.update(list => list.map(a => a._id !== id ? a : { ...a, estado, avance: estado === 'activa' ? (a.avance ?? 50) : null }));
+    const hoy = new Date().toISOString().split('T')[0];
+    this.assigned.update(list => list.map(a => {
+      if (a._id !== id) return a;
+      const inicio = a.fechaInicioReal || a.fechaInicio || hoy;
+      return {
+        ...a, estado,
+        avance: estado === 'activa' ? (a.avance ?? null) : null,
+        fechaInicioReal: estado === 'pendiente' ? null : inicio,
+        fechaFinReal: estado === 'completada' ? (a.fechaFinReal || hoy) : null,
+      };
+    }));
+    this.save();
+  }
+  /** Corrige a mano una fecha real (la fecha en que se marcó puede no ser la fecha en que ocurrió). */
+  setReal(id: string, campo: 'fechaInicioReal' | 'fechaFinReal', valor: string) {
+    this.assigned.update(list => list.map(a => a._id !== id ? a : { ...a, [campo]: valor || null }));
     this.save();
   }
   setAvance(id: string, valor: number) {
@@ -75,6 +93,32 @@ export class EtapasComponent implements OnInit {
     this.assigned.update(list => list.map(a => a._id !== id ? a : { ...a, avance }));
     this.save();
   }
+  // ── Plan vs. real ──
+  fmtCorta = fmtCorta; fmtLarga = fmtLarga;
+  analisis = computed(() => analizarCronograma(this.assigned().map(a => ({
+    id: a._id!, nombre: a.nombre, orden: a.orden, estado: a.estado, avance: a.avance, fechaInicio: a.fechaInicio, duracion: a.duracion,
+    fechaInicioReal: a.fechaInicioReal, fechaFinReal: a.fechaFinReal,
+  }))));
+  analisisPorId = computed(() => Object.fromEntries(this.analisis().etapas.map(x => [x.id, x])));
+  readonly TONO_PILL = { ok: 'pill--good', warn: 'pill--warn', bad: 'pill--bad', none: '' } as const;
+  /** Posición (%) de una fecha en el gráfico. */
+  pos(d: Date | null): number {
+    const an = this.analisis();
+    if (!d || !an.desde || !an.hasta) return 0;
+    const total = Math.max(1, diasEntre(an.desde, an.hasta));
+    return Math.max(0, Math.min(100, diasEntre(an.desde, d) / total * 100));
+  }
+  ancho(a: Date | null, b: Date | null): number { return a && b ? Math.max(0.8, this.pos(b) - this.pos(a)) : 0; }
+  hoy() { return new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()); }
+  hoyPos() { return this.pos(this.hoy()); }
+  /** Marcas de mes del eje. */
+  meses = computed(() => {
+    const an = this.analisis(); const out: { label: string; left: number }[] = [];
+    if (!an.desde || !an.hasta) return out;
+    const d = new Date(an.desde.getFullYear(), an.desde.getMonth() + 1, 1);
+    while (d <= an.hasta) { out.push({ label: d.toLocaleDateString('es-AR', { month: 'short' }), left: this.pos(d) }); d.setMonth(d.getMonth() + 1); }
+    return out;
+  });
   pctEtapa(a: ProyectoEtapa) { return a.estado === 'completada' ? 100 : a.estado === 'activa' ? (a.avance ?? 50) : 0; }
 
   private base = environment.apiUrl;
@@ -96,6 +140,8 @@ export class EtapasComponent implements OnInit {
           fechaInicio: d.fechaInicio ? new Date(d.fechaInicio).toISOString().split('T')[0] : null,
           duracion:    d.duracion ?? null,
           avance:      d.avance ?? null,
+          fechaInicioReal: d.fechaInicioReal ? new Date(d.fechaInicioReal).toISOString().split('T')[0] : null,
+          fechaFinReal:    d.fechaFinReal ? new Date(d.fechaFinReal).toISOString().split('T')[0] : null,
         })));
         if (data.length === 0) this.catalogOpen.set(true);
         this.loading.set(false);
@@ -220,7 +266,9 @@ export class EtapasComponent implements OnInit {
       estado:      a.estado,
       fechaInicio: a.fechaInicio || null,
       duracion:    a.duracion    || null,
-      avance:      a.estado === 'activa' ? (a.avance ?? 50) : null,
+      avance:      a.estado === 'activa' ? (a.avance ?? null) : null,
+      fechaInicioReal: a.fechaInicioReal || null,
+      fechaFinReal:    a.fechaFinReal || null,
     }));
     this.http.put<any[]>(`${this.base}/projects/${this.projectId}/etapas`, body).subscribe({
       next: data => {
