@@ -24,8 +24,11 @@ import { SeleccionesComponent } from './selecciones/selecciones.component';
 import { SafePipe } from '../../../shared/pipes/safe.pipe';
 import { ArsNumPipe } from '../../../shared/pipes/ars-num.pipe';
 import { ChatContextService } from '../../../core/services/chat-context.service';
+import { fileUrl } from '../../../shared/utils/file-url';
+import { EquipoComponent } from './equipo/equipo.component';
+import { MembersService, ProjectRole } from '../../../core/services/members.service';
 
-type DetailTab = 'info' | 'documentos' | 'resumen' | 'obra' | 'caja' | 'config' | 'planificacion' | 'selecciones';
+type DetailTab = 'info' | 'documentos' | 'resumen' | 'obra' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'equipo';
 
 const ALL_SERVICES = Object.entries(SERVICE_LABELS) as [ProjService, string][];
 
@@ -49,7 +52,7 @@ export interface RubroResumen {
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, SafePipe, ArsNumPipe],
+  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, EquipoComponent, SafePipe, ArsNumPipe],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.scss',
 })
@@ -63,6 +66,12 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   private cfgSvc         = inject(ConfigService);
   private reservaSvc     = inject(ReservaService);
   private chatCtx        = inject(ChatContextService);
+  private membersSvc     = inject(MembersService);
+
+  /** Mi rol en este proyecto: admin (superadmin) | editor | lector. Lo decide el backend. */
+  myRole    = signal<ProjectRole | null>(null);
+  canEdit   = computed(() => this.myRole() === 'admin' || this.myRole() === 'editor');
+  isSuper   = computed(() => this.myRole() === 'admin');
 
   project = signal<Project | null>(null);
   docs    = signal<ProjectDocument[]>([]);
@@ -234,6 +243,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         this.project.set(p);
         this.planObra.set(p.planObra ?? []);
         this.loading.set(false);
+        this.membersSvc.myRole(id).subscribe({ next: r => this.myRole.set(r.role), error: () => this.myRole.set('lector') });
         this.chatCtx.setProject(p._id, p.name);
         this.documentService.list(id).subscribe(d => this.docs.set(d));
         this.loadResumen(id);
@@ -399,8 +409,8 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   openPreview(doc: ProjectDocument)  { this.previewDoc.set(doc); }
   closePreview()                     { this.previewDoc.set(null); }
-  fileUrl(doc: ProjectDocument)      { return `/uploads/${doc.filename}`; }
-  coverUrl(filename: string)         { return `/uploads/${filename}`; }
+  fileUrl(doc: ProjectDocument)      { return fileUrl(doc.filename); }
+  coverUrl(filename: string)         { return fileUrl(filename); }
   isImage(mime: string)              { return mime?.startsWith('image/'); }
   isPdf(mime: string)                { return mime === 'application/pdf'; }
 

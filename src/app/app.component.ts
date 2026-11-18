@@ -1,3 +1,4 @@
+import { fileUrl } from './shared/utils/file-url';
 import { Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, NavigationEnd, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -18,6 +19,7 @@ export class AppComponent implements OnInit {
   private router = inject(Router);
 
   showNav = false;
+  avatarSrc() { return fileUrl(this.auth.currentUser()?.avatar); }
 
   ngOnInit() {
     this.router.events

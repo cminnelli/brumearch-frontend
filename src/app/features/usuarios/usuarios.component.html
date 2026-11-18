@@ -1,0 +1,70 @@
+<div class="us">
+  <header class="page-header">
+    <div class="page-header__left">
+      <h1 class="page-header__title">Usuarios</h1>
+      <p class="page-header__desc">
+        {{ users().length }} personas registradas · {{ superCount() }} superadmin.
+        El acceso a cada obra se asigna desde la pestaña Equipo del proyecto.
+      </p>
+    </div>
+  </header>
+
+  <div class="us-tools">
+    <label class="us-search">
+      <span class="us-sr">Buscar usuario</span>
+      <input type="search" placeholder="Buscar por nombre o email" [value]="query()" (input)="query.set($any($event.target).value)" />
+    </label>
+  </div>
+
+  @if (error()) { <p class="us-error" role="alert">{{ error() }}</p> }
+
+  @if (loading()) {
+    <p class="us-muted">Cargando usuarios...</p>
+  } @else if (!filtered().length) {
+    <div class="empty-state"><span class="empty-state__title">Sin resultados</span><span class="empty-state__desc">Probá con otro nombre o email.</span></div>
+  } @else {
+    <div class="us-wrap">
+      <table class="us-table">
+        <thead><tr><th>Persona</th><th>Rol</th><th>Proyectos</th><th>Alta</th><th></th></tr></thead>
+        <tbody>
+          @for (u of filtered(); track u._id) {
+            <tr [class.us-off]="!u.isActive">
+              <td>
+                <div class="us-person">
+                  <span class="us-av">@if (u.avatar) { <img [src]="fileUrl(u.avatar)" alt="" /> } @else { {{ initials(u) }} }</span>
+                  <div><strong>{{ u.name }}</strong><small>{{ u.email }}</small></div>
+                </div>
+              </td>
+              <td>
+                @if (u.superadmin) {
+                  <span class="us-pill us-pill--super">Superadmin</span>
+                  @if (u.superadminFijo) { <small class="us-muted" title="Definido en la configuración del servidor (ADMIN_EMAILS)">fijo</small> }
+                } @else if (!u.isActive) {
+                  <span class="us-pill">Desactivado</span>
+                } @else {
+                  <span class="us-pill">Usuario</span>
+                }
+              </td>
+              <td>
+                @if (u.proyectos.length) {
+                  <div class="us-projects">
+                    @for (p of u.proyectos; track p._id) {
+                      <a [routerLink]="['/projects', p._id]" [queryParams]="{ tab: 'equipo' }">{{ p.name }} <em>{{ p.role === 'editor' ? 'editor' : 'lector' }}</em></a>
+                    }
+                  </div>
+                } @else { <span class="us-muted">{{ u.superadmin ? 'Todos' : 'Ninguno' }}</span> }
+              </td>
+              <td class="us-muted">{{ u.createdAt | date:'d MMM yyyy' }}</td>
+              <td class="us-actions">
+                @if (!u.superadminFijo && !isMe(u)) {
+                  <button class="btn btn--ghost btn--sm" type="button" (click)="toggleSuper(u)">{{ u.superadmin ? 'Quitar superadmin' : 'Hacer superadmin' }}</button>
+                  <button class="btn btn--ghost btn--sm" type="button" (click)="toggleActive(u)">{{ u.isActive ? 'Desactivar' : 'Reactivar' }}</button>
+                } @else if (isMe(u)) { <span class="us-muted">Vos</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

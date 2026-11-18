@@ -1,0 +1,87 @@
+<section class="eq">
+  <header class="eq__head">
+    <div>
+      <h2 class="eq__title">Equipo del proyecto</h2>
+      <p class="eq__desc">
+        Quién puede entrar a este proyecto. Un <strong>editor</strong> lee y modifica; un <strong>lector</strong> solo lee.
+        El superadmin de Brume Arch siempre tiene acceso total.
+      </p>
+    </div>
+  </header>
+
+  @if (canManage) {
+    <form class="eq-invite" (ngSubmit)="invite()">
+      <div class="eq-field eq-field--grow">
+        <label for="eq-email">Email</label>
+        <input id="eq-email" name="email" type="email" [(ngModel)]="form.email" placeholder="persona@email.com" required autocomplete="off" />
+      </div>
+      <div class="eq-field">
+        <label for="eq-cargo">Cargo (opcional)</label>
+        <input id="eq-cargo" name="cargo" type="text" [(ngModel)]="form.cargo" placeholder="Dirección de obra" />
+      </div>
+      <div class="eq-field">
+        <label for="eq-role">Rol</label>
+        <select id="eq-role" name="role" [(ngModel)]="form.role">
+          <option value="lector">Lector</option>
+          <option value="editor">Editor</option>
+        </select>
+      </div>
+      <button class="btn btn--primary" type="submit" [disabled]="saving() || !form.email.trim()">
+        {{ saving() ? 'Agregando...' : 'Dar acceso' }}
+      </button>
+    </form>
+    <p class="eq-hint">Si la persona todavía no tiene cuenta, el acceso queda listo y se activa cuando entre con ese email.</p>
+  }
+
+  @if (error()) { <p class="eq-error" role="alert">{{ error() }}</p> }
+
+  @if (loading()) {
+    <p class="eq-muted">Cargando equipo...</p>
+  } @else if (!members().length) {
+    <div class="empty-state">
+      <span class="empty-state__title">Todavía no hay nadie más en este proyecto</span>
+      <span class="empty-state__desc">Solo el superadmin tiene acceso. {{ canManage ? 'Agregá a la primera persona con el formulario de arriba.' : '' }}</span>
+    </div>
+  } @else {
+    <div class="eq-table-wrap">
+      <table class="eq-table">
+        <thead>
+          <tr><th>Persona</th><th>Rol</th><th>Desde</th>@if (canManage) { <th></th> }</tr>
+        </thead>
+        <tbody>
+          @for (m of members(); track m._id) {
+            <tr>
+              <td>
+                <div class="eq-person">
+                  <span class="eq-av">
+                    @if (m.user?.avatar) { <img [src]="fileUrl(m.user!.avatar)" alt="" /> } @else { {{ initials(m) }} }
+                  </span>
+                  <div>
+                    <strong>{{ m.user?.name ?? m.email }}</strong>
+                    <small>
+                      {{ m.user ? m.email : 'Invitación pendiente' }}@if (m.cargo) { · {{ m.cargo }} }
+                    </small>
+                  </div>
+                </div>
+              </td>
+              <td>
+                @if (canManage) {
+                  <select class="eq-role" [ngModel]="m.role" (ngModelChange)="changeRole(m, $event)" [attr.aria-label]="'Rol de ' + m.email">
+                    <option value="lector">Lector</option>
+                    <option value="editor">Editor</option>
+                  </select>
+                } @else {
+                  <span class="eq-pill eq-pill--{{ m.role }}">{{ m.role === 'editor' ? 'Editor' : 'Lector' }}</span>
+                }
+              </td>
+              <td class="eq-muted">{{ m.createdAt | date:'d MMM yyyy' }}</td>
+              @if (canManage) {
+                <td class="eq-actions"><button class="btn btn--ghost btn--sm" type="button" (click)="remove(m)">Quitar</button></td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

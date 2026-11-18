@@ -1,3 +1,4 @@
+import { fileUrl } from '../../../shared/utils/file-url';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,6 +17,7 @@ type Tab = 'info' | 'etapas' | 'finanzas' | 'selecciones';
   styleUrl: './client-project.component.scss',
 })
 export class ClientProjectComponent implements OnInit {
+  fileUrl = fileUrl;
   private route     = inject(ActivatedRoute);
   private clientSvc = inject(ClientService);
   private router    = inject(Router);

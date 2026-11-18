@@ -8,12 +8,15 @@
       <li><a routerLink="/projects" routerLinkActive="active">Proyectos</a></li>
       <li><a routerLink="/config" routerLinkActive="active">Configuración</a></li>
       <li><a routerLink="/entorno" routerLinkActive="active">Entorno</a></li>
+      @if (auth.isAdmin) {
+        <li><a routerLink="/usuarios" routerLinkActive="active">Usuarios</a></li>
+      }
     </ul>
     <div class="navbar__user">
       @if (auth.currentUser()) {
         <a routerLink="/profile" class="nav-avatar" [title]="auth.currentUser()!.name">
           @if (auth.currentUser()!.avatar) {
-            <img [src]="auth.currentUser()!.avatar" [alt]="auth.currentUser()!.name" />
+            <img [src]="avatarSrc()" [alt]="auth.currentUser()!.name" />
           } @else {
             {{ auth.currentUser()!.name[0].toUpperCase() }}
           }

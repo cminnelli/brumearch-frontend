@@ -1,3 +1,4 @@
+import { fileUrl } from '../../../shared/utils/file-url';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -13,6 +14,7 @@ import { ClientProject, STATUS_LABELS } from '../../../shared/models/client-proj
   styleUrl: './client-dashboard.component.scss',
 })
 export class ClientDashboardComponent implements OnInit {
+  fileUrl = fileUrl;
   private clientSvc = inject(ClientService);
   private router    = inject(Router);
   auth              = inject(AuthService);

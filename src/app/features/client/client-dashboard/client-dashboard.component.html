@@ -39,7 +39,7 @@
           <button class="cd-card" (click)="openProject(p._id)">
 
             <div class="cd-card__cover"
-              [style.backgroundImage]="p.coverImage ? 'url(' + p.coverImage + ')' : ''">
+              [style.backgroundImage]="p.coverImage ? 'url(' + fileUrl(p.coverImage) + ')' : ''">
               @if (!p.coverImage) {
                 <div class="cd-card__cover-placeholder">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">

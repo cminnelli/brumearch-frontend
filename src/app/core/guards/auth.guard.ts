@@ -64,3 +64,8 @@ export const clientGuard: CanActivateFn = (_route, _state) => {
     map(() => check())
   );
 };
+
+export const superadminGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.isAdmin ? true : inject(Router).createUrlTree(['/dashboard']);
+};

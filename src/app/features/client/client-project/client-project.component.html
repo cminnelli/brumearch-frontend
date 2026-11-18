@@ -10,7 +10,7 @@
 
     <!-- Hero -->
     <div class="cp-hero"
-      [style.backgroundImage]="project()!.coverImage ? 'url(' + project()!.coverImage + ')' : ''">
+      [style.backgroundImage]="project()!.coverImage ? 'url(' + fileUrl(project()!.coverImage) + ')' : ''">
       @if (!project()!.coverImage) {
         <div class="cp-hero__bg"></div>
       }

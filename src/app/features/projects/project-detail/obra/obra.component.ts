@@ -17,6 +17,7 @@ import {
   Solicitud, Cotizacion,
 } from '../../../../shared/models/obra.model';
 import { Proveedor } from '../../../../shared/models/proveedor.model';
+import { fileUrl } from '../../../../shared/utils/file-url';
 
 @Component({
   selector: 'app-obra',
@@ -883,7 +884,7 @@ export class ObraComponent implements OnInit {
   getPresById(id: string | null)   { return id ? this.presupuestos().find(p => p._id === id) ?? null : null; }
   getGastoById(id: string | null)  { return id ? this.gastos().find(g => g._id === id) ?? null : null; }
 
-  fileUrl(filename: string) { return `/uploads/${filename}`; }
+  fileUrl(filename: string) { return fileUrl(filename); }
   fileIcon(mime: string)    { return mime?.includes('pdf') ? '📄' : mime?.includes('sheet') || mime?.includes('excel') || mime?.includes('csv') ? '📊' : mime?.includes('word') ? '📝' : mime?.includes('image') ? '🖼️' : '📎'; }
   fmtSize(b: number)        { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB'; }
 

@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { from, EMPTY, Observable, Observer } from 'rxjs';
+import { from, of, EMPTY, Observable, Observer } from 'rxjs';
 import { tap, catchError, switchMap, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { User, AuthResponse } from '../../shared/models/user.model';
@@ -15,6 +15,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { firebaseApp } from '../../firebase.config';
+import { FILE_TOKEN_KEY } from '../../shared/utils/file-url';
 
 const TOKEN_KEY = 'auth_token';
 const fbAuth = getAuth(firebaseApp);
@@ -28,6 +29,20 @@ export class AuthService {
 
   currentUser = signal<User | null>(null);
   sessionRestored = signal(false);
+
+  constructor() {
+    // El token de archivos dura 12 h: se renueva cada hora mientras haya sesión
+    setInterval(() => { if (this.token) this.loadFileToken().subscribe(); }, 60 * 60 * 1000);
+  }
+
+  /** Pide el token corto con el que se abren los archivos subidos. */
+  loadFileToken(): Observable<void> {
+    return this.http.get<{ token: string }>(`${this.baseUrl}/file-token`).pipe(
+      tap((r) => { try { localStorage.setItem(FILE_TOKEN_KEY, r.token); } catch { /* sin storage */ } }),
+      map(() => void 0),
+      catchError(() => of(void 0)),
+    );
+  }
 
   get token(): string | null {
     return localStorage.getItem(TOKEN_KEY);
@@ -81,6 +96,7 @@ export class AuthService {
     this.http
       .get<{ user: User }>(`${this.baseUrl}/me`)
       .pipe(
+        switchMap((res) => this.loadFileToken().pipe(map(() => res))),
         tap((res) => {
           this.currentUser.set(res.user);
           this.sessionRestored.set(true);
@@ -103,7 +119,8 @@ export class AuthService {
                         localStorage.setItem('auth_token', res.token);
                         this.currentUser.set(res.user);
                         this.sessionRestored.set(true);
-                      })
+                      }),
+                      switchMap(() => this.loadFileToken())
                     )
                   ),
                   catchError(() => {
@@ -154,6 +171,7 @@ export class AuthService {
     localStorage.setItem(TOKEN_KEY, res.token);
     this.currentUser.set(res.user);
     this.sessionRestored.set(true);
+    this.loadFileToken().subscribe();
     if (!res.user.profileComplete) {
       this.router.navigate(['/profile-setup']);
     } else if (this.isClient) {
@@ -165,6 +183,7 @@ export class AuthService {
 
   private clearToken() {
     localStorage.removeItem(TOKEN_KEY);
+    try { localStorage.removeItem(FILE_TOKEN_KEY); } catch { /* sin storage */ }
     this.currentUser.set(null);
   }
 }

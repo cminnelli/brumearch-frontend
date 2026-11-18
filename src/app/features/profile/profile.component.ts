@@ -1,3 +1,4 @@
+import { fileUrl } from '../../shared/utils/file-url';
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -30,7 +31,7 @@ export class ProfileComponent implements OnInit {
   }
 
   get avatarUrl(): string | null {
-    return this.auth.currentUser()?.avatar ?? null;
+    return fileUrl(this.auth.currentUser()?.avatar) || null;
   }
 
   get initials(): string {
