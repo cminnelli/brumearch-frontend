@@ -1,8 +1,17 @@
 <div class="login-page">
-  <div class="login-card">
+  <aside class="login-hero" aria-hidden="true">
+    <div class="login-hero__brand"><span class="brand-mark"></span> Brume Arch</div>
+    <div class="login-hero__body">
+      <p class="login-hero__kicker">Gestión de obras</p>
+      <h2>Cada obra,<br>bajo control.</h2>
+      <p>Cronograma, compras, pagos y avance en un solo lugar.</p>
+    </div>
+    <ul class="login-hero__pts"><li>Plan vs. real</li><li>Pagos y comprobantes</li><li>Costo por m²</li></ul>
+  </aside>
+  <main class="login-card">
     <div class="login-card__brand">
       <div class="brand-mark"></div>
-      <span>Plataforma Brumelab Arch</span>
+      <span>Brume Arch</span>
     </div>
 
     <h1>{{ mode === 'login' ? 'Bienvenido' : 'Crear cuenta' }}</h1>
@@ -21,13 +30,14 @@
     <div class="divider"><span>o con tu email</span></div>
 
     @if (error()) {
-      <div class="alert">{{ error() }}</div>
+      <div class="alert" role="alert">{{ error() }}</div>
     }
 
     <form (ngSubmit)="submit()">
       <div class="field">
-        <label>Email</label>
+        <label for="lg-email">Email</label>
         <input
+          id="lg-email"
           type="email"
           [(ngModel)]="email"
           name="email"
@@ -37,15 +47,19 @@
         />
       </div>
       <div class="field">
-        <label>Contraseña</label>
-        <input
-          type="password"
-          [(ngModel)]="password"
-          name="password"
-          placeholder="••••••••"
-          required
-          autocomplete="current-password"
-        />
+        <label for="lg-pass">Contraseña</label>
+        <div class="pass">
+          <input
+            id="lg-pass"
+            [type]="verPass() ? 'text' : 'password'"
+            [(ngModel)]="password"
+            name="password"
+            placeholder="••••••••"
+            required
+            [autocomplete]="mode === 'login' ? 'current-password' : 'new-password'"
+          />
+          <button type="button" class="pass__ver" (click)="verPass.set(!verPass())" [attr.aria-label]="verPass() ? 'Ocultar contraseña' : 'Mostrar contraseña'" [attr.aria-pressed]="verPass()">{{ verPass() ? 'Ocultar' : 'Ver' }}</button>
+        </div>
       </div>
       <button type="submit" class="btn-primary" [disabled]="loading()">
         @if (loading()) { Cargando... }
@@ -63,5 +77,5 @@
         <button type="button" (click)="setMode('login')">Ingresar</button>
       }
     </div>
-  </div>
+  </main>
 </div>

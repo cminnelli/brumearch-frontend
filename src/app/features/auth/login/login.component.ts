@@ -16,6 +16,7 @@ export class LoginComponent {
   password = '';
   mode: 'login' | 'register' = 'login';
   loading = signal(false);
+  verPass = signal(false);
   error = signal('');
 
   setMode(m: 'login' | 'register') {
