@@ -68,7 +68,7 @@
                   <a [routerLink]="['/projects', f.p._id]" class="m2__row">
                     <div class="m2__top"><strong>{{ f.p.name }}</strong><b class="num">{{ fmtM(f.costo) }}<small>/m²</small></b></div>
                     <div class="progress progress--dark" [style.--v]="f.ancho"><i></i></div>
-                    <span class="m2__sub">{{ f.p.superficie }} m² · {{ fmtM(f.gasto) }} gastados</span>
+                    <span class="m2__sub">{{ f.p.superficie }} m² {{ f.p.superficieTipo === 'final' ? 'finales' : 'planificados' }} · {{ fmtM(f.gasto) }} gastados</span>
                   </a>
                 </li>
               }

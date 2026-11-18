@@ -43,6 +43,12 @@
               @if (x.pct !== null) { <div class="progress" [class.progress--warn]="x.pct >= 85" [class.progress--bad]="x.pct > 100" [style.--v]="x.pct > 100 ? 100 : x.pct"><i></i></div> } }</div>
           <div class="pk"><span>Pagado</span>
             @for (x of k.filas; track x.m) { <strong class="num">{{ x.fPagado }}</strong>@if (x.alt) { <small class="alt">≈ {{ x.alt.pagado }}</small> }@if (x.pend > 0) { <small>Faltan {{ x.fPend }}</small> } }</div>
+          @if (costoM2(); as c) {
+            <div class="pk"><span>Costo por m²</span>
+              @if (c.valor) { <strong class="num">{{ c.valor }}</strong><small>sobre {{ c.m2 }} m² {{ c.tipo }}</small>@if (c.sugerirFinal) { <small>Cargá los m² finales en Resumen</small> } }
+              @else if (c.falta === 'm2') { <strong class="num">—</strong><small>Cargá los m² en Resumen → Características</small> }
+              @else { <strong class="num">—</strong><small>Cargá el tipo de cambio</small> }</div>
+          }
           <div class="pk"><span>Avance de obra</span><strong class="num">{{ k.avance }}%</strong><div class="progress progress--dark" [style.--v]="k.avance"><i></i></div></div>
         </div>
       }
@@ -472,7 +478,8 @@
               <div class="icard__label">Características</div>
               @if (editing()) {
                 <div class="ifield"><label>Niveles</label><input type="number" [(ngModel)]="form.levels" name="levels" min="0" /></div>
-                <div class="ifield"><label>m² construidos</label><input type="number" [(ngModel)]="form.surface" name="surface" min="0" /></div>
+                <div class="ifield"><label>m² planificados</label><input type="number" [(ngModel)]="form.surface" name="surface" min="0" /></div>
+                <div class="ifield"><label>m² finales (al cerrar la obra)</label><input type="number" [(ngModel)]="form.surfaceFinal" name="surfaceFinal" min="0" /></div>
                 <div class="ifield"><label>m² terreno</label><input type="number" [(ngModel)]="form.lotSurface" name="lotSurface" min="0" /></div>
                 <div class="ifield"><label>Dormitorios</label><input type="number" [(ngModel)]="form.bedrooms" name="bedrooms" min="0" /></div>
                 <div class="ifield"><label>Baños</label><input type="number" [(ngModel)]="form.bathrooms" name="bathrooms" min="0" /></div>
@@ -481,7 +488,8 @@
               } @else {
                 <div class="specs-grid">
                   @if (project()!.features?.levels)     { <div class="spec"><span class="spec__v">{{ project()!.features!.levels }}</span><span class="spec__k">Niveles</span></div> }
-                  @if (project()!.features?.surface)    { <div class="spec"><span class="spec__v">{{ project()!.features!.surface }}</span><span class="spec__k">m² const.</span></div> }
+                  @if (project()!.features?.surface)    { <div class="spec"><span class="spec__v">{{ project()!.features!.surface }}</span><span class="spec__k">m² planif.</span></div> }
+                  @if (project()!.features?.surfaceFinal) { <div class="spec"><span class="spec__v">{{ project()!.features!.surfaceFinal }}</span><span class="spec__k">m² finales</span></div> }
                   @if (project()!.features?.lotSurface) { <div class="spec"><span class="spec__v">{{ project()!.features!.lotSurface }}</span><span class="spec__k">m² terreno</span></div> }
                   @if (project()!.features?.bedrooms)   { <div class="spec"><span class="spec__v">{{ project()!.features!.bedrooms }}</span><span class="spec__k">Dorm.</span></div> }
                   @if (project()!.features?.bathrooms)  { <div class="spec"><span class="spec__v">{{ project()!.features!.bathrooms }}</span><span class="spec__k">Baños</span></div> }

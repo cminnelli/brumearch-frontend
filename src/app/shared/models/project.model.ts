@@ -41,6 +41,7 @@ export interface ProjectOwner {
 export interface ProjectFeatures {
   levels?:     number;
   surface?:    number;
+  surfaceFinal?: number;
   lotSurface?: number;
   bedrooms?:   number;
   bathrooms?:  number;

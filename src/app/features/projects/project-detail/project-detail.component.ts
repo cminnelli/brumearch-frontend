@@ -389,6 +389,19 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return { convertido: false, faltaTC: monedas.length > 1 || monedas[0] !== vista, avance, filas };
   });
 
+  /** Costo por m² de ESTA obra: gastado / m². Usa los m² planificados; al cerrar la obra, los finales si están cargados. */
+  costoM2 = computed(() => {
+    const p = this.project(); const k = this.kpis();
+    if (!p || !k) return null;
+    const f = p.features;
+    const final = p.status === 'completed' && !!f?.surfaceFinal;
+    const m2 = final ? f!.surfaceFinal! : (f?.surface ?? 0);
+    const fila = k.convertido ? k.filas[0] : null;
+    if (!m2) return { m2: 0, tipo: final ? 'finales' : 'planificados', valor: null as string | null, falta: 'm2' as const, sugerirFinal: false };
+    if (!fila) return { m2, tipo: final ? 'finales' : 'planificados', valor: null, falta: 'tc' as const, sugerirFinal: false };
+    return { m2, tipo: final ? 'finales' : 'planificados', valor: `${fila.m} ${Math.round(fila.gastado / m2).toLocaleString('es-AR')}`, falta: null, sugerirFinal: p.status === 'completed' && !final };
+  });
+
   fmtFecha(d?: string | Date | null) {
     return d ? new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   }
@@ -418,7 +431,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     const f = this.project()?.features;
     if (!f) return [];
     return [
-      { v: f.levels, l: 'niveles' }, { v: f.surface, l: 'm² construidos' }, { v: f.lotSurface, l: 'm² de terreno' },
+      { v: f.levels, l: 'niveles' }, { v: f.surface, l: 'm² planificados' }, { v: f.surfaceFinal, l: 'm² finales' }, { v: f.lotSurface, l: 'm² de terreno' },
       { v: f.bedrooms, l: 'dormitorios' }, { v: f.bathrooms, l: 'baños' }, { v: f.units, l: 'unidades' },
     ].filter(x => x.v);
   });
@@ -470,6 +483,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       isGatedCommunity: p.location?.isGatedCommunity || false,
       levels:           p.features?.levels || null,
       surface:          p.features?.surface || null,
+      surfaceFinal:     p.features?.surfaceFinal || null,
       lotSurface:       p.features?.lotSurface || null,
       bedrooms:         p.features?.bedrooms || null,
       bathrooms:        p.features?.bathrooms || null,
@@ -517,7 +531,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
         isGatedCommunity: this.form.isGatedCommunity,
       },
       features: {
-        levels: this.form.levels || undefined, surface: this.form.surface || undefined,
+        levels: this.form.levels || undefined, surface: this.form.surface || undefined, surfaceFinal: this.form.surfaceFinal || undefined,
         lotSurface: this.form.lotSurface || undefined, bedrooms: this.form.bedrooms || undefined,
         bathrooms: this.form.bathrooms || undefined, hasLaundry: this.form.hasLaundry,
       },

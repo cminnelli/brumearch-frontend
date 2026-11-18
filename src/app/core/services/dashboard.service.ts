@@ -26,6 +26,7 @@ export interface ProjectSummary {
   pendientes: number;
   vencidos: number;
   superficie: number | null;
+  superficieTipo: 'final' | 'planificada';
   gastadoEq: { ARS: number; USD: number };
   sinTC: number;
 }
