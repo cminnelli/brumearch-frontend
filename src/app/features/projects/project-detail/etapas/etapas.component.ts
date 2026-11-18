@@ -120,8 +120,10 @@ export class EtapasComponent implements OnInit {
   meses = computed(() => {
     const an = this.analisis(); const out: { label: string; left: number }[] = [];
     if (!an.desde || !an.hasta) return out;
-    const d = new Date(an.desde.getFullYear(), an.desde.getMonth() + 1, 1);
-    while (d <= an.hasta) { out.push({ label: d.toLocaleDateString('es-AR', { month: 'short' }), left: this.pos(d) }); d.setMonth(d.getMonth() + 1); }
+    const d = new Date(an.desde.getFullYear(), an.desde.getMonth(), 1);
+    const sacarPrimero = () => { if (out.length >= 2 && out[1].left - out[0].left < 7) out.shift(); };
+    while (d <= an.hasta) { out.push({ label: d.toLocaleDateString('es-AR', { month: 'short' }) + (d.getMonth() === 0 ? ' ’' + String(d.getFullYear()).slice(2) : ''), left: this.pos(d) }); d.setMonth(d.getMonth() + 1); }
+    sacarPrimero();
     return out;
   });
   pctEtapa(a: ProyectoEtapa) { return a.estado === 'completada' ? 100 : a.estado === 'activa' ? (a.avance ?? 50) : 0; }

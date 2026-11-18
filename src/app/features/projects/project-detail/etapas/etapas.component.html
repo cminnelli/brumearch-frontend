@@ -28,11 +28,25 @@
           <small>Promedio del avance de cada etapa{{ ponderado() ? ', según su duración' : '' }}.</small>
         </div>
         <dl class="pv__trio">
-          <div><dt>Planificado</dt><dd class="num">{{ fmtLarga(analisis().planFin) }}</dd><small>fin de obra</small></div>
-          <div><dt>Real / proyectado</dt><dd class="num">{{ fmtLarga(analisis().proyFin) }}</dd><small>fin de obra</small></div>
-          <div><dt>Hoy</dt><dd class="num">{{ fmtLarga(hoy()) }}</dd>
+          <div>
+            <dt>Inicio de obra</dt>
+            <dd class="num">{{ fmtLarga(analisis().inicioReal ?? analisis().inicioPlan) }}</dd>
+            <small>
+              @if (analisis().inicioReal && analisis().inicioPlan && analisis().inicioReal!.getTime() !== analisis().inicioPlan!.getTime()) { Real · planificado {{ fmtLarga(analisis().inicioPlan) }} }
+              @else if (analisis().inicioReal) { Real, como se planificó }
+              @else { Planificado }
+            </small>
+          </div>
+          <div>
+            <dt>Fin de obra</dt>
+            <dd class="num">{{ fmtLarga(analisis().finReal ?? analisis().proyFin) }}</dd>
+            <small>{{ analisis().finReal ? 'Real' : 'Proyectado' }} · planificado {{ fmtLarga(analisis().planFin) }}</small>
+          </div>
+          <div>
+            <dt>Hoy</dt><dd class="num">{{ fmtLarga(hoy()) }}</dd>
             <small>@if (analisis().desvioDias === null) { Sin datos para comparar }
-              @else { <span class="pill {{ TONO_PILL[analisis().tono] }}">{{ analisis().desvioDias! > 0 ? '+' + analisis().desvioDias + ' días de atraso' : analisis().desvioDias! < 0 ? -analisis().desvioDias! + ' días adelantada' : 'En fecha' }}</span> }</small></div>
+              @else { <span class="pill {{ TONO_PILL[analisis().tono] }}">{{ analisis().desvioDias! > 0 ? '+' + analisis().desvioDias + ' días de atraso' : analisis().desvioDias! < 0 ? -analisis().desvioDias! + ' días adelantada' : 'En fecha' }}</span> }</small>
+          </div>
         </dl>
       </div>
       @if (analisis().insights.length) {
@@ -40,6 +54,51 @@
           @for (i of analisis().insights.slice(0, 2); track $index) { <li class="pv__ins--{{ i.tono }}">{{ i.texto }}</li> }
         </ul>
       }
+    </section>
+
+    <section class="tlc" aria-label="Línea de tiempo de la obra">
+      <header class="tlc__head">
+        <h3>Línea de tiempo</h3>
+        <div class="tlc__legend">
+          <span><i class="k k--plan"></i>Planificado</span><span><i class="k k--real"></i>Real</span><span><i class="k k--proy"></i>Proyectado</span><span><i class="k k--now"></i>Hoy</span>
+        </div>
+      </header>
+      <div class="tlc__scroll">
+        <div class="tlc__grid">
+          <div class="tlc__names">
+            <span class="tlc__corner"></span>
+            @for (x of analisis().etapas; track x.id) { <span class="tlc__name" [title]="x.nombre">{{ x.nombre }}</span> }
+          </div>
+          <div class="tlc__plot">
+            <div class="tlc__flags">
+              @if (analisis().inicioPlan) { <i class="tlc__flag" [style.left.%]="pos(analisis().inicioPlan)"><b>Inicio</b>{{ fmtCorta(analisis().inicioPlan) }}</i> }
+              @if (analisis().planFin) { <i class="tlc__flag" [class.tlc__flag--end]="pos(analisis().planFin) > 86" [style.left.%]="pos(analisis().planFin)"><b>Fin plan</b>{{ fmtCorta(analisis().planFin) }}</i> }
+              @if (analisis().proyFin && analisis().planFin && analisis().proyFin!.getTime() > analisis().planFin!.getTime()) { <i class="tlc__flag tlc__flag--late" [class.tlc__flag--end]="pos(analisis().proyFin) > 86" [style.left.%]="pos(analisis().proyFin)"><b>Fin proyectado</b>{{ fmtCorta(analisis().proyFin) }}</i> }
+            </div>
+            <div class="tlc__axis">@for (m of meses(); track m.left) { <i [style.left.%]="m.left">{{ m.label }}</i> }</div>
+            <div class="tlc__rows">
+              @for (m of meses(); track m.left) { <i class="tlc__tick" [style.left.%]="m.left"></i> }
+              @for (x of analisis().etapas; track x.id) {
+                <div class="tlc__row">
+                  @if (x.planInicio && x.planFin) { <i class="tlc__plan" [style.left.%]="pos(x.planInicio)" [style.width.%]="ancho(x.planInicio, x.planFin)" [title]="x.nombre + ' · plan: ' + fmtCorta(x.planInicio) + ' → ' + fmtCorta(x.planFin)"></i> }
+                  @if (x.realInicio) {
+                    <i class="tlc__real" [class.tlc__real--late]="x.tono === 'bad'" [style.left.%]="pos(x.realInicio)"
+                       [style.width.%]="ancho(x.realInicio, x.realFin ?? (x.estado === 'activa' ? hoy() : x.planFin ?? x.realInicio))"
+                       [title]="x.nombre + ' · real: ' + fmtCorta(x.realInicio) + ' → ' + (x.realFin ? fmtCorta(x.realFin) : 'hoy')"></i>
+                  }
+                  @if (x.estado !== 'completada' && x.proyFin && x.proyFin > hoy()) {
+                    <i class="tlc__proy" [style.left.%]="hoyPos()" [style.width.%]="ancho(hoy(), x.proyFin)" [title]="x.nombre + ' · proyectado: termina ' + fmtCorta(x.proyFin)"></i>
+                  }
+                  @if (x.corto && (x.tono === 'warn' || x.tono === 'bad' || (x.estado === 'completada' && x.tono === 'ok'))) {
+                    <span class="tlc__lab tlc__lab--{{ x.tono }}" [class.tlc__lab--end]="pos(x.proyFin ?? x.planFin) > 88" [style.left.%]="pos(x.proyFin ?? x.planFin) > 88 ? null : pos(x.proyFin ?? x.planFin) + 0.6">{{ x.estado === 'completada' && x.tono === 'ok' ? '✓ ' + (x.desvioDias! < 0 ? x.corto : 'en plazo') : x.corto }}</span>
+                  }
+                </div>
+              }
+              <i class="tlc__now" [style.left.%]="hoyPos()"><span>Hoy</span></i>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   }
 
@@ -167,9 +226,6 @@
             <span role="columnheader">Etapa</span>
             <span role="columnheader">Planificado</span>
             <span role="columnheader">Real</span>
-            <span role="columnheader" class="cr-tl-col">
-              <span class="tl-head">@for (m of meses(); track m.left; let k = $index) { @if (meses().length < 8 || k % 2 === 0) { <i [style.left.%]="m.left">{{ m.label }}</i> } }</span>
-            </span>
             <span role="columnheader">Hoy</span>
           </div>
 
@@ -216,15 +272,6 @@
                     }
                   </span>
                 }
-              </div>
-
-              <div class="cr-c cr-tl-col" role="cell" aria-hidden="true">
-                <div class="tl">
-                  @for (m of meses(); track m.left) { <i class="tl__tick" [style.left.%]="m.left"></i> }
-                  @if (an.planInicio && an.planFin) { <i class="tl__plan" [style.left.%]="pos(an.planInicio)" [style.width.%]="ancho(an.planInicio, an.planFin)"></i> }
-                  @if (an.realInicio) { <i class="tl__real" [class.tl__real--late]="an.tono === 'bad'" [style.left.%]="pos(an.realInicio)" [style.width.%]="ancho(an.realInicio, an.realFin ?? (a.estado === 'activa' ? hoy() : an.planFin ?? an.realInicio))"></i> }
-                  <i class="tl__now" [style.left.%]="hoyPos()"></i>
-                </div>
               </div>
 
               <div class="cr-c cr-hoy" role="cell" data-l="Hoy">

@@ -837,14 +837,12 @@
                     <div class="cot-card__prov">{{ c.proveedorId?.nombre ?? 'Sin proveedor' }}</div>
                     <div class="cot-card__price">{{ c.monto != null ? fmt(c.monto, c.moneda) : '—' }}</div>
 
-                    <div class="cot-card__tags">
-                      @if (c.plazo) {
-                        <span class="cot-tag cot-tag--plazo">⏱ {{ c.plazo }}</span>
-                      }
-                      @if (c.condiciones) {
-                        <span class="cot-tag cot-tag--cond">💳 {{ c.condiciones }}</span>
-                      }
-                    </div>
+                    @if (c.condiciones || c.plazo) {
+                      <dl class="cot-card__det">
+                        @if (c.condiciones) { <div><dt>Condición de pago</dt><dd>{{ c.condiciones }}</dd></div> }
+                        @if (c.plazo) { <div><dt>Plan de ejecución</dt><dd>{{ c.plazo }}</dd></div> }
+                      </dl>
+                    }
 
                     @if (c.archivos.length) {
                       <div class="cot-card__files">
@@ -891,13 +889,13 @@
                       <input type="number" [(ngModel)]="cotizacionForm.monto" name="cq_monto" placeholder="0" min="0" />
                     </div>
                   </div>
-                  <div class="field">
-                    <label>Plazo de ejecución</label>
-                    <input [(ngModel)]="cotizacionForm.plazo" name="cq_plazo" placeholder="Ej: 45 días, 3 semanas" />
+                  <div class="field field--full">
+                    <label for="cq_plazo">Plan de ejecución <span class="opt">(opcional)</span></label>
+                    <textarea id="cq_plazo" rows="3" [(ngModel)]="cotizacionForm.plazo" name="cq_plazo" placeholder="Detalle de tiempos. Ej: 45 días en total. Inicio 10/03, estructura 3 semanas, mampostería 4 semanas…"></textarea>
                   </div>
-                  <div class="field">
-                    <label>Condiciones de pago</label>
-                    <input [(ngModel)]="cotizacionForm.condiciones" name="cq_cond" placeholder="Ej: 50% anticipo, saldo al finalizar" />
+                  <div class="field field--full">
+                    <label for="cq_cond">Condición de pago</label>
+                    <textarea id="cq_cond" rows="2" [(ngModel)]="cotizacionForm.condiciones" name="cq_cond" placeholder="Ej: 50% anticipo, saldo contra avance de obra"></textarea>
                   </div>
                   <div class="field">
                     <label>Documentos</label>
@@ -906,9 +904,9 @@
                       <input type="file" multiple hidden (change)="onCotizacionFiles($event)" accept=".pdf,.xlsx,.xls,.docx,.jpg,.png" />
                     </label>
                   </div>
-                  <div class="field">
-                    <label>Notas</label>
-                    <input [(ngModel)]="cotizacionForm.notas" name="cq_notas" placeholder="Observaciones adicionales…" />
+                  <div class="field field--full">
+                    <label for="cq_notas">Observaciones</label>
+                    <textarea id="cq_notas" rows="5" [(ngModel)]="cotizacionForm.notas" name="cq_notas" placeholder="Todo lo que quieras dejar anotado de esta cotización…"></textarea>
                   </div>
                 </div>
                 <div class="form-actions">

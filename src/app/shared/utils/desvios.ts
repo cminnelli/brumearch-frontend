@@ -44,6 +44,11 @@ export interface Analisis {
   proyFin: Date | null;
   desvioDias: number | null;
   tono: Tono;
+  /** Hitos de la obra completa. */
+  inicioPlan: Date | null;
+  inicioReal: Date | null;
+  /** Fin real: solo si todas las etapas terminaron y tienen fecha de fin real. */
+  finReal: Date | null;
   insights: { tono: Tono; texto: string }[];
   /** Rango de fechas del gráfico. */
   desde: Date | null;
@@ -92,6 +97,7 @@ export function analizarCronograma(entrada: EtapaIn[], hoy: Date = new Date()): 
         proyFin = sumar(base, transcurrido / (av / 100));
       } else if (planFin) proyFin = planFin;       // sin avance cargado: como mínimo, el plan
       if (proyFin && proyFin < h && !estimada) proyFin = h;
+      if (planFin && planFin < h && (!proyFin || proyFin < h) && !estimada) proyFin = h;   // venció el plan: el atraso corre solo
       if (proyFin && planFin) {
         desvio = diasEntre(planFin, proyFin);
         texto = desvio > 0 ? `${estimada ? 'Estimás' : 'Va'} ${plural(desvio)} tarde` : desvio < 0 ? `Estimás terminar ${plural(desvio)} antes` : 'En plazo';
@@ -105,10 +111,11 @@ export function analizarCronograma(entrada: EtapaIn[], hoy: Date = new Date()): 
         carry = Math.max(carry, desvio);
       } else if (planInicio && planFin) {
         if (diasEntre(planInicio, h) > carry) carry = diasEntre(planInicio, h);   // ya debería haber empezado
+        if (diasEntre(planFin, h) > carry) carry = diasEntre(planFin, h);         // y si venció su fin, el atraso corre solo
         const c = Math.max(0, carry);
         proyFin = sumar(planFin, c);
         desvio = c;
-        texto = c > 0 ? `Se corre ~${plural(c)}` : 'En plazo';
+        texto = c > 0 ? (planFin < h ? `Sin iniciar: ${plural(c)} de atraso` : `Se corre ~${plural(c)}`) : 'En plazo';
       } else texto = 'Sin fechas planificadas';
     }
     tono = tonoDe(desvio);
@@ -149,8 +156,14 @@ export function analizarCronograma(entrada: EtapaIn[], hoy: Date = new Date()): 
   const sinFecha = etapas.filter(x => x.estado === 'completada' && !x.realFin);
   if (sinFecha.length) insights.push({ tono: 'none', texto: sinFecha.length > 2 ? `Faltan las fechas reales de fin de ${sinFecha.length} etapas completadas para medir su desvío.` : `Falta la fecha real de fin de ${sinFecha.map(x => x.nombre).join(' y ')} para medir su desvío.` });
 
+  const iniPlan = etapas.filter(x => x.planInicio).map(x => x.planInicio!.getTime());
+  const iniReal = etapas.filter(x => x.realInicio && x.estado !== 'pendiente').map(x => x.realInicio!.getTime());
+  const inicioPlan = iniPlan.length ? new Date(Math.min(...iniPlan)) : null;
+  const inicioReal = iniReal.length ? new Date(Math.min(...iniReal)) : null;
+  const finReal = etapas.length && etapas.every(x => x.estado === 'completada' && x.realFin) ? new Date(Math.max(...etapas.map(x => x.realFin!.getTime()))) : null;
+
   const fechas = etapas.flatMap(x => [x.planInicio, x.realInicio, x.planFin, x.proyFin].filter(Boolean) as Date[]);
   const desde = fechas.length ? new Date(Math.min(...fechas.map(d => d.getTime()))) : null;
   const hasta = fechas.length ? new Date(Math.max(...fechas.map(d => d.getTime()), h.getTime())) : null;
-  return { etapas, planFin, proyFin, desvioDias, tono: tonoDe(desvioDias), insights: insights.slice(0, 5), desde, hasta, completo };
+  return { etapas, planFin, proyFin, desvioDias, tono: tonoDe(desvioDias), inicioPlan, inicioReal, finReal, insights: insights.slice(0, 5), desde, hasta, completo };
 }
