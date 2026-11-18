@@ -28,12 +28,11 @@ import { fileUrl } from '../../../../shared/utils/file-url';
           <ul class="ca-list">
             @for (a of resumen()!.aportes; track a._id) {
               <li>
-                <div class="ca-l1"><span class="ca-fecha">{{ fmtFecha(a.fecha) }}</span><strong>{{ a.concepto || 'Aporte' }}</strong></div>
-                <div class="ca-l2">
-                  <b class="num">{{ m.fmt(a.equiv[m.vista()], m.vista()) }}</b>
-                  @if (a.moneda !== m.vista()) { <small>{{ m.fmt(a.monto, a.moneda) }} · TC {{ a.tipoCambio?.toLocaleString('es-AR') ?? '—' }}</small> }
-                  @if (a.comprobante) { <a [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Ver comprobante</a> }
-                </div>
+                <div class="ca-date" aria-hidden="true"><b>{{ dia(a.fecha) }}</b><span>{{ mes(a.fecha) }}</span></div>
+                <div class="ca-mid"><strong>{{ a.concepto || 'Pago' }}</strong>
+                  <small>{{ fmtFecha(a.fecha) }}@if (a.moneda !== m.vista()) { · {{ m.fmt(a.monto, a.moneda) }} · TC {{ a.tipoCambio?.toLocaleString('es-AR') ?? '—' }} }</small></div>
+                <b class="num ca-monto">{{ m.fmt(a.equiv[m.vista()], m.vista()) }}</b>
+                @if (a.comprobante) { <a [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Ver comprobante</a> }
               </li>
             }
           </ul>
@@ -45,11 +44,12 @@ import { fileUrl } from '../../../../shared/utils/file-url';
     .ca { display: flex; flex-direction: column; gap: var(--sp-3); padding-bottom: var(--sp-4); }
     .ca-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--sp-2); flex-wrap: wrap; h2 { font-family: var(--font-head); font-size: var(--text-xl); font-weight: 700; } p { font-size: var(--text-sm); color: var(--c-text-sub); } }
     .ca-sub { font-family: var(--font-head); font-size: var(--text-lg); font-weight: 700; margin-top: var(--sp-1); }
-    .ca-list { list-style: none; border: 1px solid var(--c-border); border-radius: var(--radius-md); overflow: hidden;
-      li { padding: .85rem 1rem; border-top: 1px solid var(--c-border); display: flex; flex-direction: column; gap: .2rem; &:first-child { border-top: 0; } } }
-    .ca-l1 { display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; strong { font-weight: 600; } }
-    .ca-fecha { font-size: var(--text-sm); color: var(--c-text-sub); }
-    .ca-l2 { display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; b { font-weight: 600; } small { color: var(--c-text-muted); font-size: var(--text-xs); } a { font-size: var(--text-sm); font-weight: 600; color: var(--c-brand); margin-left: auto; } }
+    .ca-list { list-style: none; display: flex; flex-direction: column; gap: .6rem;
+      li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: .8rem; align-items: center; padding: .75rem .9rem; border: 1px solid var(--c-border); border-left: 4px solid #17803d; border-radius: var(--radius-md); background: var(--c-bg); }
+      a { grid-column: 2 / -1; font-size: var(--text-sm); font-weight: 600; color: var(--c-brand); } }
+    .ca-date { display: flex; flex-direction: column; align-items: center; line-height: 1.05; padding: .35rem 0; border-radius: 10px; background: var(--c-surface); b { font-family: var(--font-head); font-size: 1.3rem; } span { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; color: var(--c-text-sub); } }
+    .ca-mid { display: flex; flex-direction: column; min-width: 0; strong { font-weight: 600; } small { color: var(--c-text-muted); font-size: var(--text-xs); } }
+    .ca-monto { font-family: var(--font-head); font-size: 1.2rem; color: #17803d; }
     .ca-vacio, .ca-err { color: var(--c-text-muted); font-size: var(--text-sm); }
   `],
 })
@@ -65,5 +65,7 @@ export class ClientAportesComponent implements OnInit {
   ngOnInit() {
     this.svc.resumenCliente(this.projectId).subscribe({ next: r => { this.resumen.set(r); this.loading.set(false); }, error: () => { this.error.set(true); this.loading.set(false); } });
   }
+  dia(d: string) { return new Date(d).getUTCDate(); }
+  mes(d: string) { return new Date(d).toLocaleDateString('es-AR', { month: 'short', timeZone: 'UTC' }).replace('.', ''); }
   fmtFecha(d: string) { return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
 }

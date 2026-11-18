@@ -28,6 +28,8 @@ export interface ProjectSummary {
   superficie: number | null;
   superficieTipo: 'final' | 'planificada';
   gastadoEq: { ARS: number; USD: number };
+  porPagarEq: { ARS: number; USD: number };
+  aprobadoEq: { ARS: number; USD: number };
   sinTC: number;
 }
 

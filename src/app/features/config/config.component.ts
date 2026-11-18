@@ -334,11 +334,17 @@ export class ConfigComponent implements OnInit {
   }
 
   /** ¿Ya hay un rubro marcado como caja chica / gastos varios? */
+  ccMensaje = signal('');
   hayCajaChica = computed(() => this.rubros().some(r => r.esCajaChica));
 
   /** Marca (o desmarca) un rubro como la caja chica. Solo puede haber uno: el servidor desmarca el anterior. */
   toggleCajaChica(r: Rubro) {
-    this.svc.updateRubro(r._id, { esCajaChica: !r.esCajaChica }).subscribe(() => this.svc.getRubros().subscribe(d => this.rubros.set(d)));
+    const activar = !r.esCajaChica;
+    this.svc.updateRubro(r._id, { esCajaChica: activar }).subscribe((res: Rubro & { migrados?: number }) => {
+      this.svc.getRubros().subscribe(d => this.rubros.set(d));
+      this.ccMensaje.set(!activar ? 'Quitaste la caja chica. Elegí otro rubro cuando quieras: los gastos varios ya cargados se mueven al nuevo.'
+        : res?.migrados ? `Listo: ${res.migrados} gasto${res.migrados !== 1 ? 's' : ''} vari${res.migrados !== 1 ? 'os' : 'o'} pasaron a "${r.nombre}".` : `"${r.nombre}" es ahora la caja chica.`);
+    });
   }
 
   /** Categorías modelo para gastos chicos de obra. Se crean como subrubros del rubro de la caja chica. */
@@ -368,7 +374,7 @@ export class ConfigComponent implements OnInit {
     this.svc.createRubro(this.rubroForm).subscribe(r => {
       this.rubros.update(l => [...l, r].sort((a, b) => a.nombre.localeCompare(b.nombre)));
       // el servidor deja un solo rubro como caja chica: refrescar para ver cuál quedó
-      if (r.esCajaChica) this.svc.getRubros().subscribe(d => this.rubros.set(d));
+      if (r.esCajaChica) { this.svc.getRubros().subscribe(d => this.rubros.set(d)); this.ccMensaje.set(`"${r.nombre}" es ahora la caja chica.`); }
       this.rubroForm = this.emptyRubro();
       this.showForm.set(false);
     });

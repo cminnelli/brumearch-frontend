@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -20,7 +21,7 @@ const hoyISO = () => new Date().toISOString().split('T')[0];
 @Component({
   selector: 'app-gastos-varios',
   standalone: true,
-  imports: [FormsModule, RouterLink, TipoCambioComponent],
+  imports: [FormsModule, RouterLink, DecimalPipe, TipoCambioComponent],
   templateUrl: './gastos-varios.component.html',
   styleUrl: './gastos-varios.component.scss',
 })
@@ -83,16 +84,17 @@ export class GastosVariosComponent implements OnInit {
   }
 
   // ── filtrado ──
-  filtrados = computed(() => {
-    const q = this.q().trim().toLowerCase(), cat = this.catId(), per = this.periodo();
+  /** Búsqueda y período aplicados, sin filtrar por categoría (para que el resumen por categoría siga visible al elegir una). */
+  base = computed(() => {
+    const q = this.q().trim().toLowerCase(), per = this.periodo();
     const hoy = new Date(); const ini = (off: number) => new Date(hoy.getFullYear(), hoy.getMonth() + off, 1);
     return this.items().filter(g => {
-      if (cat !== 'todas' && g.subrubroId?._id !== cat) return false;
       if (q && !g.concepto.toLowerCase().includes(q)) return false;
       if (per !== 'todos') { const f = new Date(g.fecha); const d = per === 'mes' ? ini(0) : ini(-1); const h = per === 'mes' ? ini(1) : ini(0); if (f < d || f >= h) return false; }
       return true;
     });
   });
+  filtrados = computed(() => { const cat = this.catId(); return cat === 'todas' ? this.base() : this.base().filter(g => g.subrubroId?._id === cat); });
   total = computed(() => this.suma(this.filtrados()));
   private suma(l: GastoVario[]): { valor: number; completo: boolean } {
     let valor = 0, completo = true;
@@ -106,6 +108,18 @@ export class GastosVariosComponent implements OnInit {
     const max = Math.max(1, ...arr.map(a => a.valor));
     return arr.map(a => ({ ...a, pct: Math.round(a.valor / max * 100) }));
   });
+  /** Una "ficha" por categoría con su total y su parte del gasto, para el resumen visual. */
+  fichas = computed(() => {
+    const mapa = new Map<string, { id: string; nombre: string; items: GastoVario[] }>();
+    for (const g of this.base()) { const id = g.subrubroId?._id ?? 'x'; const e = mapa.get(id) ?? { id, nombre: g.subrubroId?.nombre ?? 'Sin categoría', items: [] }; e.items.push(g); mapa.set(id, e); }
+    const arr = [...mapa.values()].map(e => ({ ...e, ...this.suma(e.items), n: e.items.length })).sort((a, b) => b.valor - a.valor);
+    const tot = arr.reduce((t, a) => t + a.valor, 0);
+    return arr.map(a => ({ ...a, parte: tot ? a.valor / tot * 100 : 0, color: this.color(a.id) }));
+  });
+  readonly COLORES = ['#ff4f00', '#2563eb', '#16a34a', '#a855f7', '#d97706', '#0891b2', '#db2777', '#65a30d', '#4f46e5', '#64748b'];
+  /** Cada categoría tiene siempre el mismo color (según su lugar en el catálogo). */
+  color(id: string) { const i = this.categorias().findIndex(c => c._id === id); return this.COLORES[(i < 0 ? 0 : i) % this.COLORES.length]; }
+  inicial(nombre?: string) { return (nombre ?? '?').trim().charAt(0).toUpperCase(); }
   conteoCat = (id: string) => this.items().filter(g => g.subrubroId?._id === id).length;
 
   // ── alta / edición ──

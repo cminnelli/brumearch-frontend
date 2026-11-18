@@ -44,18 +44,17 @@ export class DashboardComponent implements OnInit {
   monedasPorPagar = computed(() => { const t = this.data()?.totales; return t ? monedasUsadas(t.porPagar, t.gastado) : []; });
   pendientesTotal = computed(() => (this.data()?.proyectos ?? []).reduce((s, p) => s + p.pendientes, 0));
 
-  /** Costo por m² de cada obra con superficie cargada, en la moneda elegida (cada movimiento con su propio tipo de cambio). */
-  m2 = computed(() => {
+  /** Una tarjeta por obra, con sus propios indicadores en la moneda elegida (cada movimiento con su tipo de cambio). */
+  obras = computed(() => {
     const v = this.m.vista();
-    const filas = (this.data()?.proyectos ?? []).filter(p => p.status !== 'archived' && p.superficie && p.gastadoEq[v] > 0)
-      .map(p => ({ p, gasto: p.gastadoEq[v], costo: p.gastadoEq[v] / p.superficie!, faltaTC: p.sinTC > 0 }))
-      .sort((a, b) => b.costo - a.costo);
-    const max = filas[0]?.costo ?? 0;
-    const sup = filas.reduce((s, f) => s + f.p.superficie!, 0);
-    const gasto = filas.reduce((s, f) => s + f.gasto, 0);
-    return { filas: filas.map(f => ({ ...f, ancho: max ? f.costo / max * 100 : 0 })), promedio: sup ? gasto / sup : 0, sup, gasto, faltanTC: filas.some(f => f.faltaTC) };
+    const orden = (st: string) => (st === 'active' ? 0 : st === 'draft' ? 1 : 2);
+    return (this.data()?.proyectos ?? []).filter(p => p.status !== 'archived').sort((a, b) => orden(a.status) - orden(b.status))
+      .map(p => {
+        const plan = p.aprobadoEq[v], gastado = p.gastadoEq[v], falta = p.porPagarEq[v];
+        const pct = plan ? Math.round(gastado / plan * 100) : null;
+        return { p, plan, gastado, falta, pct, costoM2: p.superficie && gastado > 0 ? gastado / p.superficie : null, faltaTC: v === 'USD' ? p.sinTC > 0 : p.sinTC > 0 };
+      });
   });
-  sinSuperficie = computed(() => (this.data()?.proyectos ?? []).filter(p => p.status !== 'archived' && !p.superficie));
   fmtM = (n: number) => `${this.m.vista() === 'USD' ? 'US$' : '$'} ${Math.round(n).toLocaleString('es-AR')}`;
 
   ngOnInit() {

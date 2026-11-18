@@ -1,16 +1,22 @@
 @if (r(); as d) {
   <section class="ar">
     <div class="ar-hero">
-      <div class="ar-card ar-card--ok">
+      <div class="ar-hero__main">
         <span class="ar-lbl">{{ paraPropietario ? 'Pagaste hasta hoy' : 'Cobrado hasta hoy' }}</span>
         <strong class="num">{{ principal(d.aportado) }}</strong>
         <small class="num">≈ {{ secundario(d.aportado) }}</small>
+        <div class="ar-chips">
+          <span>{{ d.aportes.length }} pago{{ d.aportes.length !== 1 ? 's' : '' }}</span>
+          @if (d.aportes.length) { <span>Último: {{ ultimo() }}</span> }
+        </div>
       </div>
-      <div class="ar-card">
-        <span class="ar-lbl">Pagos registrados</span>
-        <strong class="num">{{ d.aportes.length }}</strong>
-        @if (d.aportes.length) { <small>Último: {{ ultimo() }}</small> }
-      </div>
+      @if (barras().length) {
+        <div class="ar-bars" role="img" aria-label="Pagos en el tiempo">
+          @for (b of barras(); track b.id) {
+            <div class="ar-bar" [title]="b.titulo"><i [style.height.%]="b.alto"></i><small>{{ b.mes }}</small></div>
+          }
+        </div>
+      }
     </div>
 
     @if (d.sinTC > 0 && !m.tcProyecto()) {

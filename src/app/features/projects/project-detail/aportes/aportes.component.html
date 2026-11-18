@@ -30,28 +30,30 @@
         @if (error()) { <p class="ap-error" role="alert">{{ error() }}</p> }
         <div class="ap-form__btns">
           <button class="btn btn--ghost btn--sm" type="button" (click)="cerrar()">Cancelar</button>
-          <button class="btn btn--primary" type="submit" [disabled]="guardando()">{{ guardando() ? 'Guardando…' : editandoId() ? 'Guardar cambios' : 'Registrar aporte' }}</button>
+          <button class="btn btn--primary" type="submit" [disabled]="guardando()">{{ guardando() ? 'Guardando…' : editandoId() ? 'Guardar cambios' : 'Registrar pago' }}</button>
         </div>
       </form>
     }
 
     @if (resumen()?.aportes?.length) {
-      <div class="ap-table" role="table" aria-label="Aportes">
-        <div class="ap-th" role="row"><span>Fecha</span><span>Detalle</span><span class="r">Monto</span><span></span></div>
+      <ul class="ap-list" aria-label="Pagos del propietario">
         @for (a of resumen()!.aportes; track a._id) {
-          <div class="ap-tr" role="row">
-            <span class="ap-fecha">{{ fmtFecha(a.fecha) }}</span>
-            <div class="ap-det"><strong>{{ a.concepto || 'Aporte' }}</strong><small>{{ metodoLabel(a.metodo) }}@if (a.origen) { · {{ a.origen }} }@if (a.referencia) { · {{ a.referencia }} }</small></div>
-            <span class="ap-monto num">{{ enVista(a) }}@if (esOtra(a)) { <small>{{ m.fmt(a.monto, a.moneda) }}@if (a.tipoCambio) { · TC {{ a.tipoCambio.toLocaleString('es-AR') }} }</small> }</span>
-            <span class="ap-act">
-              @if (a.comprobante) { <a class="btn btn--ghost btn--sm" [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Comprobante</a> }
-              @if (canEdit) { <button class="btn btn--ghost btn--sm" type="button" (click)="editar(a)">Editar</button><button class="btn btn--ghost btn--sm btn--del" type="button" (click)="eliminar(a)" aria-label="Eliminar aporte">×</button> }
-            </span>
-          </div>
+          <li class="ap-card">
+            <div class="ap-date" aria-hidden="true"><b>{{ dia(a.fecha) }}</b><span>{{ mes(a.fecha) }}</span><small>{{ anio(a.fecha) }}</small></div>
+            <div class="ap-det">
+              <strong>{{ a.concepto || 'Pago' }}</strong>
+              <div class="ap-tags"><span class="ap-tag">{{ metodoLabel(a.metodo) }}</span>@if (a.origen) { <span class="ap-tag ap-tag--soft">{{ a.origen }}</span> }@if (a.referencia) { <span class="ap-tag ap-tag--soft">Ref. {{ a.referencia }}</span> }</div>
+            </div>
+            <div class="ap-monto num">{{ enVista(a) }}@if (esOtra(a)) { <small>{{ m.fmt(a.monto, a.moneda) }}@if (a.tipoCambio) { · TC {{ a.tipoCambio.toLocaleString('es-AR') }} }</small> }</div>
+            <div class="ap-act">
+              @if (a.comprobante) { <a class="btn btn--ghost btn--sm" [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Ver comprobante</a> }
+              @if (canEdit) { <button class="btn btn--ghost btn--sm" type="button" (click)="editar(a)">Editar</button><button class="btn btn--ghost btn--sm btn--del" type="button" (click)="eliminar(a)" aria-label="Eliminar pago">×</button> }
+            </div>
+          </li>
         }
-      </div>
+      </ul>
     } @else if (!abierto()) {
-      <div class="empty-state"><span class="empty-state__title">Todavía no hay aportes</span><span class="empty-state__desc">Registrá el primero cuando el propietario pague. Desde ahí se va viendo en qué se usa.</span></div>
+      <div class="empty-state"><span class="empty-state__title">Todavía no hay pagos</span><span class="empty-state__desc">Registrá el primero cuando el propietario pague.</span></div>
     }
   }
 </section>

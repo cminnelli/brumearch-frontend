@@ -56,7 +56,7 @@ export class AportesComponent implements OnInit {
 
   guardar() {
     const f = this.form;
-    if (!f.monto || f.monto <= 0 || this.guardando()) { this.error.set('Cargá el monto del aporte.'); return; }
+    if (!f.monto || f.monto <= 0 || this.guardando()) { this.error.set('Cargá el monto del pago.'); return; }
     this.error.set(''); this.guardando.set(true);
     const fd = new FormData();
     fd.append('fecha', f.fecha); fd.append('monto', String(f.monto)); fd.append('moneda', f.moneda); fd.append('metodo', f.metodo);
@@ -66,15 +66,19 @@ export class AportesComponent implements OnInit {
     const id = this.editandoId();
     (id ? this.svc.update(this.projectId, id, fd) : this.svc.create(this.projectId, fd)).subscribe({
       next: () => { this.guardando.set(false); this.cerrar(); this.cargar(); },
-      error: (e: HttpErrorResponse) => { this.guardando.set(false); this.error.set(e.error?.message ?? 'No se pudo guardar el aporte.'); },
+      error: (e: HttpErrorResponse) => { this.guardando.set(false); this.error.set(e.error?.message ?? 'No se pudo guardar el pago.'); },
     });
   }
   async eliminar(a: Aporte) {
-    if (!await this.confirmSvc.confirm('Esta acción no se puede deshacer.', '¿Eliminar este aporte?')) return;
+    if (!await this.confirmSvc.confirm('Esta acción no se puede deshacer.', '¿Eliminar este pago?')) return;
     this.svc.remove(this.projectId, a._id).subscribe(() => this.cargar());
   }
   onArchivo(e: Event) { this.archivo = (e.target as HTMLInputElement).files?.[0] ?? null; }
 
+  private f(d: string) { return new Date(d); }
+  dia(d: string) { return this.f(d).getUTCDate(); }
+  mes(d: string) { return this.f(d).toLocaleDateString('es-AR', { month: 'short', timeZone: 'UTC' }).replace('.', ''); }
+  anio(d: string) { return this.f(d).getUTCFullYear(); }
   metodoLabel(id?: string) { return this.metodos.find(x => x.id === id)?.l ?? ''; }
   fmtFecha(d: string) { return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
   enVista(a: Aporte) { return this.m.fmt(a.equiv[this.m.vista()], this.m.vista()); }

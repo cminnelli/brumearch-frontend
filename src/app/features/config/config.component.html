@@ -142,6 +142,7 @@
         </button>
       </div>
 
+      @if (ccMensaje()) { <p class="cc-msg" role="status">{{ ccMensaje() }} <button type="button" (click)="ccMensaje.set('')" aria-label="Cerrar">✕</button></p> }
       @if (!hayCajaChica() && !showForm()) {
         <div class="cc-aviso" role="note">
           <div>
@@ -168,13 +169,15 @@
               <input [(ngModel)]="rubroForm.descripcion" name="descripcion" placeholder="Opcional" />
             </div>
           </div>
-          <label class="cc-check" [class.cc-check--aviso]="!hayCajaChica()">
+          @if (!hayCajaChica()) {
+          <label class="cc-check cc-check--aviso">
             <input type="checkbox" [(ngModel)]="rubroForm.esCajaChica" name="esCajaChica" />
             <span>
               <b>Este rubro es la caja chica / gastos varios</b>
-              <small>{{ hayCajaChica() ? 'Si lo marcás, reemplaza al rubro de caja chica actual.' : 'Todavía no definiste la caja chica: marcalo para que los gastos chicos de las obras tengan dónde ir. Sus subrubros serán las categorías.' }}</small>
+              <small>Todavía no definiste la caja chica: marcalo para que los gastos chicos de las obras tengan dónde ir. Sus subrubros serán las categorías.</small>
             </span>
           </label>
+          }
           <div class="form-actions">
             <button type="submit" class="btn">Guardar rubro</button>
           </div>
@@ -196,11 +199,14 @@
                 } @else {
                   <span class="rubro-nombre">{{ r.nombre }}</span>
                   <code class="chip">{{ r.codigo }}</code>
-                  @if (r.esCajaChica) { <span class="cc-tag" title="Los gastos chicos de las obras se categorizan con los subrubros de este rubro">Caja chica</span> }
                 }
               </div>
               <div class="rubro-header__right" (click)="$event.stopPropagation()">
-                <button type="button" class="cc-btn" [class.cc-btn--on]="r.esCajaChica" (click)="toggleCajaChica(r)" [title]="r.esCajaChica ? 'Quitar como caja chica' : 'Usar este rubro como caja chica / gastos varios'">{{ r.esCajaChica ? '✓ Es la caja chica' : 'Usar como caja chica' }}</button>
+                @if (r.esCajaChica) {
+                  <button type="button" class="cc-btn cc-btn--on" (click)="toggleCajaChica(r)" title="Quitar como caja chica. Si después elegís otro rubro, los gastos varios se mueven al nuevo.">Caja chica <span aria-hidden="true">✕</span></button>
+                } @else if (!hayCajaChica()) {
+                  <button type="button" class="cc-btn" (click)="toggleCajaChica(r)" title="Usar este rubro como caja chica / gastos varios">Usar como caja chica</button>
+                }
                 <span class="sub-pill">{{ countSubrubros(r._id) }} sub</span>
                 <span class="badge" [class.badge--on]="r.activo" [class.badge--off]="!r.activo">
                   {{ r.activo ? 'Activo' : 'Inactivo' }}

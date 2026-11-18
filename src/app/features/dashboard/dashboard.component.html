@@ -24,94 +24,46 @@
       </div>
     } @else {
 
-      <section class="dash-kpis" aria-label="Resumen">
-        <div class="kpi">
-          <span class="kpi__label">Obras activas</span>
-          <strong class="kpi__value num">{{ activos().length }}</strong>
-          <span class="kpi__sub">de {{ d.proyectos.length }} proyecto{{ d.proyectos.length !== 1 ? 's' : '' }}</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi__label">Avance promedio</span>
-          <strong class="kpi__value num">{{ avancePromedio() }}<small>%</small></strong>
-          <div class="progress progress--dark" [style.--v]="avancePromedio()"><i></i></div>
-        </div>
-        <div class="kpi">
-          <span class="kpi__label">Falta pagar</span>
-          @for (m of monedasPorPagar(); track m) {
-            <strong class="kpi__money num" [class.kpi__money--ok]="d.totales.porPagar[m] === 0">{{ d.totales.porPagar[m] === 0 ? m + ' · todo pagado' : fmt(d.totales.porPagar[m], m) }}</strong>
-          } @empty { <strong class="kpi__value num">—</strong> }
-          <span class="kpi__sub">en todas las obras</span>
-        </div>
-        <div class="kpi" [class.kpi--alert]="d.pagosVencidos > 0">
-          <span class="kpi__label">Pagos por confirmar</span>
-          <strong class="kpi__value num">{{ pendientesTotal() }}</strong>
-          @if (d.pagosVencidos) { <span class="pill pill--bad">{{ d.pagosVencidos }} vencido{{ d.pagosVencidos !== 1 ? 's' : '' }}</span> }
-          @else { <span class="kpi__sub">sin vencidos</span> }
-        </div>
-      </section>
-
-      <section class="dash-panel" aria-labelledby="h-m2">
-        <header class="dash-panel__head">
-          <h2 id="h-m2">Costo por m²</h2>
-          <app-moneda-toggle />
-        </header>
-        @if (m2().filas.length) {
-          <div class="m2">
-            <div class="m2__hero">
-              <span class="kpi__label">Promedio de las obras</span>
-              <strong class="kpi__value num">{{ fmtM(m2().promedio) }}<small>/m²</small></strong>
-              <span class="kpi__sub">{{ fmtM(m2().gasto) }} gastados en {{ m2().sup.toLocaleString('es-AR') }} m²</span>
-            </div>
-            <ul class="m2__list">
-              @for (f of m2().filas; track f.p._id) {
-                <li>
-                  <a [routerLink]="['/projects', f.p._id]" class="m2__row">
-                    <div class="m2__top"><strong>{{ f.p.name }}</strong><b class="num">{{ fmtM(f.costo) }}<small>/m²</small></b></div>
-                    <div class="progress progress--dark" [style.--v]="f.ancho"><i></i></div>
-                    <span class="m2__sub">{{ f.p.superficie }} m² {{ f.p.superficieTipo === 'final' ? 'finales' : 'planificados' }} · {{ fmtM(f.gasto) }} gastados</span>
-                  </a>
-                </li>
-              }
-            </ul>
-          </div>
-          @if (m2().faltanTC) { <p class="m2__nota">Algunos movimientos no tienen tipo de cambio: el valor puede estar incompleto.</p> }
-        } @else {
-          <p class="dash-empty">Cargá los m² construidos de una obra y aparece cuánto va gastado por metro cuadrado.</p>
-        }
-        @if (sinSuperficie().length) {
-          <p class="m2__nota">Sin m² cargados: @for (p of sinSuperficie(); track p._id; let l = $last) { <a class="link" [routerLink]="['/projects', p._id]">{{ p.name }}</a>@if (!l) {, } }</p>
-        }
+      <section class="dash-strip" aria-label="Resumen del estudio">
+        <span><b class="num">{{ activos().length }}</b> obra{{ activos().length !== 1 ? 's' : '' }} activa{{ activos().length !== 1 ? 's' : '' }}</span>
+        <span><b class="num">{{ avancePromedio() }}%</b> de avance promedio</span>
+        <span [class.dash-strip__alert]="d.pagosVencidos > 0"><b class="num">{{ pendientesTotal() }}</b> pago{{ pendientesTotal() !== 1 ? 's' : '' }} por confirmar@if (d.pagosVencidos) { · {{ d.pagosVencidos }} vencido{{ d.pagosVencidos !== 1 ? 's' : '' }} }</span>
+        <app-moneda-toggle class="dash-strip__mon" />
       </section>
 
       <div class="dash-cols">
-        <section class="dash-panel" aria-labelledby="h-obras">
-          <header class="dash-panel__head"><h2 id="h-obras">Obras en curso</h2><a routerLink="/projects" class="link">Ver todas →</a></header>
-          <ul class="obras">
-            @for (p of enCurso(); track p._id) {
-              <li>
-                <a class="obra" [routerLink]="['/projects', p._id]">
-                  <div class="obra__top">
-                    <strong class="obra__name">{{ p.name }}</strong>
-                    <span class="pill" [class.pill--good]="p.status === 'active'">{{ statusLabel(p.status) }}</span>
+        <section aria-labelledby="h-obras">
+          <header class="dash-panel__head dash-panel__head--bare"><h2 id="h-obras">Obras</h2><a routerLink="/projects" class="link">Ver todas →</a></header>
+          <div class="ob-grid">
+            @for (o of obras(); track o.p._id) {
+              <a class="ob" [routerLink]="['/projects', o.p._id]">
+                <div class="ob__top">
+                  <div><strong class="ob__name">{{ o.p.name }}</strong>
+                    <span class="ob__meta">{{ typeLabel(o.p.type) }}@if (o.p.city) { · {{ o.p.city }} }@if (o.p.avance.activa) { · {{ o.p.avance.activa }} }</span></div>
+                  <span class="pill" [class.pill--good]="o.p.status === 'active'">{{ statusLabel(o.p.status) }}</span>
+                </div>
+                <div class="ob__avance">
+                  <span>Avance de obra</span><b class="num">{{ o.p.avance.pct }}%</b>
+                  <div class="progress progress--dark" [style.--v]="o.p.avance.pct"><i></i></div>
+                </div>
+                <div class="ob__stats">
+                  <div><span>Plan</span><b class="num">{{ o.plan ? fmtM(o.plan) : '—' }}</b></div>
+                  <div><span>Gastado</span><b class="num">{{ fmtM(o.gastado) }}</b>
+                    @if (o.pct !== null) { <div class="progress" [class.progress--warn]="o.pct >= 85" [class.progress--bad]="o.pct > 100" [style.--v]="o.pct > 100 ? 100 : o.pct"><i></i></div><small>{{ o.pct }}% del plan</small> }</div>
+                  <div><span>Falta pagar</span><b class="num" [class.ob__ok]="o.falta === 0">{{ o.falta === 0 ? 'Todo pagado' : fmtM(o.falta) }}</b></div>
+                  <div><span>Costo por m²</span><b class="num">{{ o.costoM2 ? fmtM(o.costoM2) : '—' }}</b>
+                    <small>{{ o.p.superficie ? o.p.superficie + ' m² ' + (o.p.superficieTipo === 'final' ? 'finales' : 'planificados') : 'Sin m² cargados' }}</small></div>
+                </div>
+                @if (o.p.pendientes || o.faltaTC) {
+                  <div class="ob__foot">
+                    @if (o.p.vencidos) { <span class="pill pill--bad">{{ o.p.vencidos }} pago{{ o.p.vencidos !== 1 ? 's' : '' }} vencido{{ o.p.vencidos !== 1 ? 's' : '' }}</span> }
+                    @else if (o.p.pendientes) { <span class="pill pill--warn">{{ o.p.pendientes }} por confirmar</span> }
+                    @if (o.faltaTC) { <small>Faltan tipos de cambio: algunas cifras pueden estar incompletas</small> }
                   </div>
-                  <span class="obra__meta">{{ typeLabel(p.type) }}@if (p.city) { · {{ p.city }} }@if (p.avance.activa) { · Etapa: {{ p.avance.activa }} }</span>
-                  <div class="obra__bars">
-                    <div class="obra__bar">
-                      <span>Avance <b class="num">{{ p.avance.pct }}%</b></span>
-                      <div class="progress progress--dark" [style.--v]="p.avance.pct"><i></i></div>
-                    </div>
-                    @if (ejecucion(p); as e) {
-                      <div class="obra__bar">
-                        <span>Ejecutado <b class="num">{{ fmt(e.gastado, e.moneda) }}</b>@if (e.aprobado) { <em> / {{ fmt(e.aprobado, e.moneda) }}</em> }</span>
-                        <div class="progress" [class]="'progress ' + (tono(e.pct) ? 'progress--' + tono(e.pct) : '')" [style.--v]="e.aprobado ? (e.pct > 100 ? 100 : e.pct) : 0"><i></i></div>
-                      </div>
-                    }
-                  </div>
-                  @if (p.vencidos) { <span class="pill pill--bad">{{ p.vencidos }} pago{{ p.vencidos !== 1 ? 's' : '' }} vencido{{ p.vencidos !== 1 ? 's' : '' }}</span> }
-                </a>
-              </li>
-            } @empty { <li class="dash-empty">No hay obras en curso.</li> }
-          </ul>
+                }
+              </a>
+            } @empty { <p class="dash-empty">No hay obras.</p> }
+          </div>
         </section>
 
         <section class="dash-panel" aria-labelledby="h-pagos">
