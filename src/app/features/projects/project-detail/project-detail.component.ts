@@ -332,7 +332,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     { id: 'aportes',     label: 'Ingresos',      group: ['aportes'],
       hint: 'Lo que va pagando el propietario y cómo lo asignaste a gastos y utilidad. El propietario solo ve sus pagos, nunca las asignaciones ni la utilidad.' },
     { id: 'selecciones', label: 'Selecciones',  group: ['selecciones'],
-      hint: 'Lista de cosas que el cliente tiene que elegir o comprar (grifería, revestimientos…) y su estado.' },
+      hint: 'Todo lo que el cliente tiene que comprar por su cuenta, con fecha y estado. Él lo ve y lo va tildando desde su portal.' },
     { id: 'documentos',  label: 'Documentos',   group: ['documentos'],
       hint: 'Planos, contratos y archivos del proyecto.' },
     { id: 'personas',    label: 'Personas',     group: ['personas'],
