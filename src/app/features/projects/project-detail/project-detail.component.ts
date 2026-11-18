@@ -29,10 +29,10 @@ import { fileUrl } from '../../../shared/utils/file-url';
 import { PersonasComponent } from './personas/personas.component';
 import { MembersService, ProjectRole } from '../../../core/services/members.service';
 
-export type DetailTab = 'info' | 'compras' | 'pagos' | 'resumen' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'documentos' | 'personas';
+export type DetailTab = 'info' | 'compras' | 'resumen' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'documentos' | 'personas';
 
 /** Enlaces viejos (?tab=obra, ?tab=equipo) siguen funcionando. */
-const LEGACY_TABS: Record<string, DetailTab> = { obra: 'compras', equipo: 'personas' };
+const LEGACY_TABS: Record<string, DetailTab> = { obra: 'compras', pagos: 'compras', equipo: 'personas' };
 
 const ALL_SERVICES = Object.entries(SERVICE_LABELS) as [ProjService, string][];
 
@@ -276,16 +276,13 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   readonly NAV: { id: DetailTab; label: string; hint: string; group: DetailTab[]; sub?: { id: DetailTab; label: string }[] }[] = [
     { id: 'info',        label: 'Resumen',      group: ['info'],
       hint: 'Datos del proyecto, ubicación y servicios contratados.' },
-    { id: 'config',      label: 'Cronograma',   group: ['config', 'planificacion'],
-      sub: [{ id: 'config', label: 'Etapas y avance' }, { id: 'planificacion', label: 'Plan de costos' }],
-      hint: 'Definí las etapas de la obra y marcá su avance. Después distribuí el costo planificado semana a semana.' },
+    { id: 'config',      label: 'Cronograma',   group: ['config'],
+      hint: 'Las etapas de la obra y su avance. De acá sale el porcentaje de avance del proyecto.' },
     { id: 'compras',     label: 'Compras',      group: ['compras'],
-      hint: 'Pedí cotizaciones a proveedores, compará presupuestos y aprobá el que corresponda.' },
-    { id: 'pagos',       label: 'Gastos y pagos', group: ['pagos'],
-      hint: 'Lo que ya se gastó, sus pagos a proveedores y los comprobantes. Confirmá los pagos pendientes.' },
-    { id: 'resumen',     label: 'Finanzas',     group: ['resumen', 'caja'],
-      sub: [{ id: 'resumen', label: 'Presupuesto vs. real' }, { id: 'caja', label: 'Reservas de fondos' }],
-      hint: 'Cuánto se planeó, cuánto se gastó y cuánto falta por rubro. Y los fondos reservados para pagos.' },
+      hint: 'Cada compra, de la cotización al pago: pedí precios, elegí proveedor, registrá el gasto y sus pagos.' },
+    { id: 'resumen',     label: 'Plan',         group: ['resumen', 'planificacion', 'caja'],
+      sub: [{ id: 'resumen', label: 'Plan vs. real' }, { id: 'planificacion', label: 'Plan semanal' }, { id: 'caja', label: 'Reservas de fondos' }],
+      hint: 'Cuánto se planeó gastar, cuánto se gastó y cuánto falta, por rubro. También el plan semanal y los fondos reservados.' },
     { id: 'selecciones', label: 'Selecciones',  group: ['selecciones'],
       hint: 'Lista de cosas que el cliente tiene que elegir o comprar (grifería, revestimientos…) y su estado.' },
     { id: 'documentos',  label: 'Documentos',   group: ['documentos'],

@@ -86,7 +86,7 @@
           <ul class="pagos">
             @for (pg of d.pagosPendientes.slice(0, 8); track pg.pagoId) {
               <li>
-                <a [routerLink]="['/projects', pg.projectId]" [queryParams]="{ tab: 'pagos' }" class="pago">
+                <a [routerLink]="['/projects', pg.projectId]" [queryParams]="{ tab: 'compras' }" class="pago">
                   <div class="pago__main">
                     <strong>{{ pg.proveedor ?? pg.concepto ?? 'Pago' }}</strong>
                     <small>{{ pg.projectName }}</small>

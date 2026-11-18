@@ -19,6 +19,12 @@ import {
 import { Proveedor } from '../../../../shared/models/proveedor.model';
 import { fileUrl } from '../../../../shared/utils/file-url';
 
+type CompraEstado = 'cotizando' | 'revisar' | 'elegida' | 'enpago' | 'pagada' | 'descartada';
+interface CompraRow {
+  key: string; type: 'sol' | 'pres' | 'gasto'; id: string; titulo: string; detalle: string; sub: string;
+  estado: CompraEstado; paso: number; monto: number | null; moneda: string | null; pagado: number | null; buscar: string;
+}
+
 @Component({
   selector: 'app-obra',
   standalone: true,
@@ -29,8 +35,6 @@ import { fileUrl } from '../../../../shared/utils/file-url';
 export class ObraComponent implements OnInit {
   @Input() projectId!: string;
   @Input() projectName = '';
-  /** compras = cotizaciones y presupuestos · pagos = gastos y pagos a proveedores */
-  @Input() seccion: 'compras' | 'pagos' = 'compras';
 
   private presSvc      = inject(PresupuestoService);
   private gastoSvc     = inject(GastoService);
@@ -151,6 +155,69 @@ export class ObraComponent implements OnInit {
   });
 
   // ── Master/detail selection ──────────────────────────────
+  // ── Compras: una sola lista que sigue el recorrido de cada compra ──
+  compraFiltro = signal<CompraEstado | 'todas'>('todas');
+  compraQuery  = signal('');
+  readonly PASOS = ['Cotización', 'Presupuesto', 'Gasto en pago', 'Pagada'];
+  readonly COMPRA_LABEL: Record<CompraEstado, string> = {
+    cotizando: 'Cotizando', revisar: 'A revisar', elegida: 'Elegida', enpago: 'En pago', pagada: 'Pagada', descartada: 'Descartada',
+  };
+  readonly COMPRA_PILL: Record<CompraEstado, string> = {
+    cotizando: '', revisar: 'pill--warn', elegida: 'pill--brand', enpago: 'pill--dark', pagada: 'pill--good', descartada: '',
+  };
+  private readonly COMPRA_ORDEN: CompraEstado[] = ['revisar', 'cotizando', 'elegida', 'enpago', 'pagada', 'descartada'];
+  private readonly PASO_DE: Record<CompraEstado, number> = { cotizando: 0, revisar: 1, elegida: 1, enpago: 2, pagada: 3, descartada: -1 };
+
+  compras = computed<CompraRow[]>(() => {
+    const rows: CompraRow[] = [];
+    // Las cotizaciones cerradas ya se reflejan en el presupuesto o gasto que originaron.
+    for (const s of this.solicitudes().filter(x => x.estado === 'abierta')) {
+      const n = s.cotizaciones.length;
+      rows.push({ key: s._id, type: 'sol', id: s._id, titulo: s.subrubroId.nombre, detalle: s.descripcion || '',
+        sub: `${n} cotizacion${n !== 1 ? 'es' : ''} recibida${n !== 1 ? 's' : ''}`, estado: 'cotizando', paso: 0, monto: null, moneda: null, pagado: null, buscar: '' });
+    }
+    for (const p of this.presupuestos()) {
+      const estado: CompraEstado = p.estado === 'aprobado' ? 'elegida' : p.estado === 'pendiente' ? 'revisar' : 'descartada';
+      rows.push({ key: p._id, type: 'pres', id: p._id, titulo: p.subrubroId.nombre, detalle: p.descripcion || '',
+        sub: p.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: p.monto, moneda: p.moneda, pagado: null, buscar: '' });
+    }
+    for (const g of this.gastos()) {
+      const pagado = totalPagadoGasto(g);
+      const estado: CompraEstado = pagado >= g.monto && g.monto > 0 ? 'pagada' : 'enpago';
+      rows.push({ key: g._id, type: 'gasto', id: g._id, titulo: g.subrubroId.nombre, detalle: g.descripcion || '',
+        sub: g.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: g.monto, moneda: g.moneda, pagado, buscar: '' });
+    }
+    for (const r of rows) r.buscar = `${r.titulo} ${r.detalle} ${r.sub}`.toLowerCase();
+    return rows.sort((a, b) => this.COMPRA_ORDEN.indexOf(a.estado) - this.COMPRA_ORDEN.indexOf(b.estado));
+  });
+
+  comprasVisibles = computed(() => {
+    const f = this.compraFiltro(), q = this.compraQuery().trim().toLowerCase();
+    return this.compras().filter(r => (f === 'todas' || r.estado === f) && (!q || r.buscar.includes(q)));
+  });
+  comprasConteo = computed(() => {
+    const c: Record<string, number> = { todas: this.compras().length };
+    for (const r of this.compras()) c[r.estado] = (c[r.estado] ?? 0) + 1;
+    return c;
+  });
+  filtrosCompra: { id: CompraEstado | 'todas'; label: string }[] = [
+    { id: 'todas', label: 'Todas' }, { id: 'cotizando', label: 'Cotizando' }, { id: 'revisar', label: 'A revisar' },
+    { id: 'elegida', label: 'Elegidas' }, { id: 'enpago', label: 'En pago' }, { id: 'pagada', label: 'Pagadas' },
+  ];
+  /** Por moneda: lo comprometido (elegido, en pago o pagado), lo pagado y lo que falta pagar. */
+  resumenCompras = computed(() => {
+    const m: Record<string, { comprometido: number; pagado: number }> = {};
+    for (const r of this.compras()) {
+      if (!r.moneda || !['elegida', 'enpago', 'pagada'].includes(r.estado)) continue;
+      const x = (m[r.moneda] ??= { comprometido: 0, pagado: 0 });
+      x.comprometido += r.monto ?? 0; x.pagado += r.pagado ?? 0;
+    }
+    return Object.entries(m).map(([moneda, v]) => ({ moneda, ...v, porPagar: Math.max(0, v.comprometido - v.pagado), pct: v.comprometido ? Math.round(v.pagado / v.comprometido * 100) : 0 }));
+  });
+  setCompraFiltro(f: CompraEstado | 'todas') { this.obraFilter.set('todos'); this.compraFiltro.set(f); this.deselect(); }
+  /** Cotización de la que salió un presupuesto (para ver las ofertas comparadas). */
+  solDePres(presId: string) { return this.solicitudes().find(s => s.presupuestoId === presId) ?? null; }
+
   selectedId   = signal<string | null>(null);
   selectedType = signal<'pres' | 'gasto' | 'sol' | null>(null);
 
@@ -289,7 +356,7 @@ export class ObraComponent implements OnInit {
   readonly metodos = Object.keys(METODO_LABELS) as MetodoPago[];
 
   ngOnInit() {
-    this.obraFilter.set(this.seccion === 'pagos' ? 'gasto' : 'todos');
+    this.obraFilter.set('todos');
     this.cfgSvc.getRubros().subscribe(d => this.rubros.set(d));
     this.cfgSvc.getSubrubros().subscribe(d => this.allSubrubros.set(d));
     this.reservaSvc.list(this.projectId).subscribe(d => this.reservas.set(d));

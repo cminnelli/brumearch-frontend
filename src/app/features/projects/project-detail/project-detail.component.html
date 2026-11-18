@@ -176,15 +176,9 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'compras') {
       <div class="tab-content">
-        <app-obra seccion="compras" [projectId]="project()!._id" [projectName]="project()!.name" />
+        <app-obra [projectId]="project()!._id" [projectName]="project()!.name" />
       </div>
     }
-    @if (activeTab() === 'pagos') {
-      <div class="tab-content">
-        <app-obra seccion="pagos" [projectId]="project()!._id" [projectName]="project()!.name" />
-      </div>
-    }
-
     <!-- ═══════════════════════════════════════════════════
          TAB: PLANIFICACIÓN
     ════════════════════════════════════════════════════ -->

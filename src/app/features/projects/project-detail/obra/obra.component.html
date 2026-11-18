@@ -2,35 +2,18 @@
 
   <!-- ─── TOOLBAR ──────────────────────────────────────── -->
   <div class="obra-toolbar">
-    <div class="obra-filters">
-      @if (seccion === 'compras') {
-        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'todos'"       (click)="obraFilter.set('todos')">Todos</button>
-        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'cotizaciones'" (click)="obraFilter.set('cotizaciones')">
-          Cotizaciones @if (solicitudes().length) { <span class="obra-filter__badge">{{ solicitudes().length }}</span> }
-        </button>
-        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'pendiente'"   (click)="obraFilter.set('pendiente')">
-          Presupuestos a revisar @if (presPendientes().length) { <span class="obra-filter__badge">{{ presPendientes().length }}</span> }
-        </button>
-        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'aprobado'"    (click)="obraFilter.set('aprobado')">
-          Aprobados @if (presAprobados().length) { <span class="obra-filter__badge">{{ presAprobados().length }}</span> }
-        </button>
-        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'rechazado'"   (click)="obraFilter.set('rechazado')">
-          Rechazados @if (presRechazados().length) { <span class="obra-filter__badge obra-filter__badge--muted">{{ presRechazados().length }}</span> }
-        </button>
-      } @else {
-        <button class="obra-filter" [class.obra-filter--active]="obraFilter() === 'gasto'"       (click)="obraFilter.set('gasto')">
-          Gastos @if (gastos().length) { <span class="obra-filter__badge">{{ gastos().length }}</span> }
-        </button>
-        <button class="obra-filter obra-filter--confirm" [class.obra-filter--active]="obraFilter() === 'por_confirmar'" (click)="obraFilter.set('por_confirmar')">
-          Pagos por confirmar
-          @if (pagosPendientesView().length) {
-            <span class="obra-filter__badge obra-filter__badge--warn">{{ pagosPendientesView().length }}</span>
-          }
+    <div class="seg obra-chips" role="group" aria-label="Filtrar compras por estado">
+      @for (f of filtrosCompra; track f.id) {
+        <button type="button" [attr.aria-pressed]="obraFilter() === 'todos' && compraFiltro() === f.id" (click)="setCompraFiltro(f.id)">
+          {{ f.label }}@if (comprasConteo()[f.id]) { <span class="obra-chips__n">{{ comprasConteo()[f.id] }}</span> }
         </button>
       }
+      <button type="button" class="obra-chips__alert" [attr.aria-pressed]="obraFilter() === 'por_confirmar'" (click)="obraFilter.set('por_confirmar'); deselect()">
+        Pagos por confirmar@if (pagosPendientesView().length) { <span class="obra-chips__n obra-chips__n--warn">{{ pagosPendientesView().length }}</span> }
+      </button>
     </div>
     <div class="obra-toolbar__actions">
-      @if (seccion === 'compras') {
+      @if (obraFilter() !== 'por_confirmar') {
         <button class="btn btn--ghost btn--sm" (click)="showSolicitudForm.set(!showSolicitudForm()); showPresForm.set(false)">
           {{ showSolicitudForm() ? '✕ Cancelar' : '+ Cotización' }}
         </button>
@@ -293,85 +276,54 @@
     </div>
   }
 
+  <!-- ─── RESUMEN + BÚSQUEDA ───────────────────────────── -->
+  @if (obraFilter() !== 'por_confirmar' && compras().length) {
+    <div class="cp-top">
+      <div class="cp-sum">
+        @for (r of resumenCompras(); track r.moneda) {
+          <div class="cp-sum__item"><span>Comprometido</span><b class="num">{{ fmt(r.comprometido, r.moneda) }}</b></div>
+          <div class="cp-sum__item"><span>Pagado</span><b class="num">{{ fmt(r.pagado, r.moneda) }}</b><div class="progress progress--dark" [style.--v]="r.pct"><i></i></div></div>
+          <div class="cp-sum__item"><span>Falta pagar</span><b class="num" [class.cp-warn]="r.porPagar > 0">{{ fmt(r.porPagar, r.moneda) }}</b></div>
+        } @empty { <div class="cp-sum__item"><span>Todavía no hay compras elegidas</span></div> }
+      </div>
+      <label class="search cp-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span class="sr-only">Buscar compra</span>
+        <input type="search" placeholder="Buscar rubro o proveedor" [value]="compraQuery()" (input)="compraQuery.set($any($event.target).value)" />
+      </label>
+    </div>
+  }
+
   <!-- ─── MASTER / DETAIL SPLIT ────────────────────────── -->
   @if (obraFilter() !== 'finanzas' && obraFilter() !== 'por_confirmar') {
   <div class="obra-split" [class.obra-split--open]="selectedId()">
 
     <!-- LIST PANE ─────────────────────────────────────── -->
     <div class="obra-list-pane">
-
-      <!-- Solicitudes -->
-      @if (obraFilter() === 'todos' || obraFilter() === 'cotizaciones') {
-        @if (solicitudes().length) {
-          @if (obraFilter() === 'todos') {
-            <div class="obra-list__section-label">Cotizaciones</div>
-          }
-          @for (s of solicitudes(); track s._id) {
-            <div class="obra-row" [class.obra-row--active]="selectedId() === s._id" (click)="select('sol', s._id)">
-              <span class="obra-row__dot obra-row__dot--sol-{{ s.estado }}"></span>
-              <div class="obra-row__body">
-                <span class="obra-row__name">{{ s.subrubroId.nombre }}</span>
-                <span class="obra-row__meta">{{ s.cotizaciones.length }} cotizacion{{ s.cotizaciones.length !== 1 ? 'es' : '' }}</span>
-              </div>
-              <span class="obra-row__badge obra-row__badge--sol-{{ s.estado }}">
-                {{ s.estado === 'abierta' ? 'Abierta' : 'Cerrada' }}
-              </span>
+      @for (r of comprasVisibles(); track r.key) {
+        <button type="button" class="cp-row" [class.cp-row--active]="selectedId() === r.id" [class.cp-row--off]="r.estado === 'descartada'" (click)="select(r.type, r.id)">
+          <div class="cp-row__main">
+            <strong>{{ r.titulo }}</strong>
+            <span class="cp-row__meta">{{ r.sub }}@if (r.detalle) { · {{ r.detalle }} }</span>
+            <div class="cp-steps" role="img" [attr.aria-label]="'Paso ' + (r.paso + 1) + ' de 4: ' + PASOS[r.paso < 0 ? 0 : r.paso]">
+              @for (p of PASOS; track $index) { <i [class.on]="$index <= r.paso" [class.cur]="$index === r.paso" [title]="p"></i> }
             </div>
-          }
-        }
-      }
-
-      <!-- Presupuestos -->
-      @if (obraFilter() !== 'gasto' && obraFilter() !== 'cotizaciones') {
-        @if (obraFilter() === 'todos' && presupuestos().length) {
-          <div class="obra-list__section-label">Presupuestos</div>
-        }
-        @for (p of presupuestos(); track p._id) {
-          @if (obraFilter() === 'todos' || obraFilter() === p.estado) {
-            <div class="obra-row" [class.obra-row--active]="selectedId() === p._id" (click)="select('pres', p._id)">
-              <span class="obra-row__dot obra-row__dot--pres-{{ p.estado }}"></span>
-              <div class="obra-row__body">
-                <span class="obra-row__name">{{ p.subrubroId.nombre }}</span>
-                @if (p.proveedorId) { <span class="obra-row__meta">{{ p.proveedorId.nombre }}</span> }
-              </div>
-              <span class="obra-row__amount">{{ fmt(p.monto, p.moneda) }}</span>
-              <span class="obra-row__badge obra-row__badge--pres-{{ p.estado }}">
-                @if (p.estado === 'pendiente') { Pendiente }
-                @if (p.estado === 'aprobado')  { Aprobado }
-                @if (p.estado === 'rechazado') { Rechazado }
-              </span>
-            </div>
-          }
-        }
-      }
-
-      <!-- Gastos -->
-      @if (obraFilter() === 'todos' || obraFilter() === 'gasto') {
-        @if (obraFilter() === 'todos' && gastos().length) {
-          <div class="obra-list__section-label">Gastos</div>
-        }
-        @for (g of gastos(); track g._id) {
-          <div class="obra-row" [class.obra-row--active]="selectedId() === g._id" (click)="select('gasto', g._id)">
-            <span class="obra-row__dot obra-row__dot--gasto-{{ estadoG(g) }}"></span>
-            <div class="obra-row__body">
-              <span class="obra-row__name">{{ g.subrubroId.nombre }}</span>
-              @if (g.proveedorId) { <span class="obra-row__meta">{{ g.proveedorId.nombre }}</span> }
-            </div>
-            <span class="obra-row__amount">{{ fmt(g.monto, g.moneda) }}</span>
-            <span class="obra-row__badge obra-row__badge--gasto-{{ estadoG(g) }}">
-              @if (estadoG(g) === 'sin_pago') { Sin pago }
-              @if (estadoG(g) === 'parcial')  { Parcial }
-              @if (estadoG(g) === 'pagado')   { Pagado }
-            </span>
           </div>
-        }
-      }
-
-      <!-- Empty state -->
-      @if (!presupuestos().length && !gastos().length && !solicitudes().length) {
+          <div class="cp-row__side">
+            @if (r.monto !== null) { <b class="num">{{ fmt(r.monto, r.moneda!) }}</b> }
+            @if (r.type === 'gasto' && r.monto) { <div class="progress progress--dark cp-row__bar" [style.--v]="r.pagado! / r.monto * 100"><i></i></div><small class="num">Pagado {{ fmt(r.pagado!, r.moneda!) }}</small> }
+            <span class="pill {{ COMPRA_PILL[r.estado] }}">{{ COMPRA_LABEL[r.estado] }}</span>
+          </div>
+        </button>
+      } @empty {
         <div class="obra-empty">
-          <p class="obra-empty__title">Sin elementos</p>
-          <p class="obra-empty__desc">Creá el primer presupuesto o pedí cotizaciones.</p>
+          @if (compras().length) {
+            <p class="obra-empty__title">Sin resultados</p>
+            <p class="obra-empty__desc">Probá con otro estado o búsqueda.</p>
+          } @else {
+            <p class="obra-empty__title">Todavía no hay compras</p>
+            <p class="obra-empty__desc">Empezá pidiendo cotizaciones a proveedores, o cargá un presupuesto que ya tengas.</p>
+          }
         </div>
       }
     </div>
@@ -398,6 +350,10 @@
               <button class="dp-close" (click)="deselect()">×</button>
             </div>
           </div>
+
+          @if (solDePres(p._id); as origen) {
+            <button type="button" class="cp-origin" (click)="select('sol', origen._id)">Ver las {{ origen.cotizaciones.length }} cotizaciones que se compararon →</button>
+          }
 
           <!-- Tarjeta de monto -->
           <div class="dp-card">
