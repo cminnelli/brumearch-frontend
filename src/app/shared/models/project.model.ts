@@ -76,6 +76,8 @@ export interface Project {
   location?:   ProjectLocation;
   features?:   ProjectFeatures;
   budget?:     { estimated?: number; currency: string };
+  /** Pesos por dólar del proyecto (manual). */
+  tipoCambio?: number | null;
   startDate?:  string;
   endDate?:    string;
   tags?:       string[];

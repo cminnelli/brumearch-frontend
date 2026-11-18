@@ -16,6 +16,8 @@ export interface Rubro {
   codigo: string;
   descripcion?: string;
   activo: boolean;
+  /** Rubro de la caja chica / gastos varios: sus subrubros son las categorías. */
+  esCajaChica?: boolean;
 }
 
 export interface Subrubro {

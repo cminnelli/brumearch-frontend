@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfigService, EtapaPlantilla, Rubro, Subrubro, Item } from '../../core/services/config.service';
@@ -24,6 +25,7 @@ export class ConfigComponent implements OnInit {
   private svc     = inject(ConfigService);
   private provSvc = inject(ProveedorService);
   private afipSvc = inject(AfipService);
+  private route  = inject(ActivatedRoute);
 
   afipLoading = signal(false);
   afipError   = signal('');
@@ -128,7 +130,10 @@ export class ConfigComponent implements OnInit {
   subrubroForm  = this.emptySubrubro();
   proveedorForm = this.emptyProveedor();
 
-  ngOnInit() { this.loadAll(); }
+  ngOnInit() {
+    this.loadAll();
+    if (this.route.snapshot.queryParamMap.get('seccion') === 'rubros') this.activeTab.set('rubros');
+  }
 
   loadAll() {
     this.svc.getEtapas().subscribe(d    => this.etapas.set(d));
@@ -328,10 +333,42 @@ export class ConfigComponent implements OnInit {
     });
   }
 
+  /** ¿Ya hay un rubro marcado como caja chica / gastos varios? */
+  hayCajaChica = computed(() => this.rubros().some(r => r.esCajaChica));
+
+  /** Marca (o desmarca) un rubro como la caja chica. Solo puede haber uno: el servidor desmarca el anterior. */
+  toggleCajaChica(r: Rubro) {
+    this.svc.updateRubro(r._id, { esCajaChica: !r.esCajaChica }).subscribe(() => this.svc.getRubros().subscribe(d => this.rubros.set(d)));
+  }
+
+  /** Categorías modelo para gastos chicos de obra. Se crean como subrubros del rubro de la caja chica. */
+  readonly CATEGORIAS_SUGERIDAS = [
+    'Ferretería y herramientas', 'Materiales menores', 'Fletes y acarreos', 'Viáticos y traslados', 'Comida y bebida',
+    'Limpieza', 'Seguridad e higiene', 'Alquiler de equipos', 'Combustible', 'Papelería y trámites', 'Imprevistos',
+  ];
+  cargandoCategorias = signal(false);
+  cargarCategoriasSugeridas(r: Rubro) {
+    const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const existentes = new Set(this.subrubrosDe(r._id).map(s => s.nombre.toLowerCase()));
+    const faltan = this.CATEGORIAS_SUGERIDAS.filter(n => !existentes.has(n.toLowerCase()));
+    if (!faltan.length) return;
+    this.cargandoCategorias.set(true);
+    let pendientes = faltan.length;
+    for (const nombre of faltan) {
+      this.svc.createSubrubro({ nombre, codigo: `${r.codigo}-${slug(nombre)}`, rubroId: r._id }).subscribe({
+        next: s => this.subrubros.update(l => [...l, s].sort((a, b) => a.nombre.localeCompare(b.nombre))),
+        error: () => { /* si ya existía el código, se sigue con las demás */ },
+        complete: () => { if (--pendientes === 0) this.cargandoCategorias.set(false); },
+      });
+    }
+  }
+
   saveRubro() {
     if (!this.rubroForm.nombre || !this.rubroForm.codigo) return;
     this.svc.createRubro(this.rubroForm).subscribe(r => {
       this.rubros.update(l => [...l, r].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      // el servidor deja un solo rubro como caja chica: refrescar para ver cuál quedó
+      if (r.esCajaChica) this.svc.getRubros().subscribe(d => this.rubros.set(d));
       this.rubroForm = this.emptyRubro();
       this.showForm.set(false);
     });
@@ -639,7 +676,7 @@ export class ConfigComponent implements OnInit {
   private emptyEtapa() {
     return { nombre: '', codigo: '', orden: this.nextOrden(), descripcion: '' };
   }
-  private emptyRubro()    { return { nombre: '', codigo: '', descripcion: '' }; }
+  private emptyRubro()    { return { nombre: '', codigo: '', descripcion: '', esCajaChica: false }; }
   private emptySubrubro() { return { nombre: '', codigo: '', rubroId: '', descripcion: '' }; }
   private emptyProveedor() {
     return {

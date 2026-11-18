@@ -18,22 +18,25 @@ import {
 } from '../../../../shared/models/obra.model';
 import { Proveedor } from '../../../../shared/models/proveedor.model';
 import { fileUrl } from '../../../../shared/utils/file-url';
+import { MonedaService } from '../../../../core/services/moneda.service';
+import { TipoCambioComponent } from '../../../../shared/components/tipo-cambio/tipo-cambio.component';
 
 type CompraEstado = 'cotizando' | 'revisar' | 'elegida' | 'enpago' | 'pagada' | 'descartada';
 type CompraFiltro = 'todas' | 'cotizando' | 'porpagar' | 'pagada';
 interface CompraRow {
   key: string; type: 'sol' | 'pres' | 'gasto'; id: string; titulo: string; detalle: string; sub: string;
-  estado: CompraEstado; paso: number; monto: number | null; moneda: string | null; pagado: number | null; falta: number; buscar: string;
+  estado: CompraEstado; paso: number; monto: number | null; moneda: string | null; tc: number | null; pagado: number | null; falta: number; buscar: string;
 }
 
 @Component({
   selector: 'app-obra',
   standalone: true,
-  imports: [CommonModule, NgTemplateOutlet, FormsModule],
+  imports: [CommonModule, NgTemplateOutlet, FormsModule, TipoCambioComponent],
   templateUrl: './obra.component.html',
   styleUrl: './obra.component.scss',
 })
 export class ObraComponent implements OnInit {
+  m = inject(MonedaService);
   @Input() projectId!: string;
   /** Avisa al proyecto que cambió algo de la plata (gastos, pagos, presupuestos) para refrescar cabecera y "Plan vs. real". */
   @Output() datosCambiaron = new EventEmitter<void>();
@@ -80,10 +83,10 @@ export class ObraComponent implements OnInit {
   addingCotizacionId   = signal<string | null>(null);
   savingCotizacion     = signal(false);
   cotizacionForm: {
-    proveedorId: string; monto: number | null; moneda: Moneda;
+    proveedorId: string; monto: number | null; moneda: Moneda; tipoCambio: number | null;
     notas: string; plazo: string; condiciones: string;
     archivos: File[]; provs: Proveedor[];
-  } = { proveedorId: '', monto: null, moneda: 'ARS', notas: '', plazo: '', condiciones: '', archivos: [], provs: [] };
+  } = { proveedorId: '', monto: null, moneda: 'ARS', tipoCambio: null, notas: '', plazo: '', condiciones: '', archivos: [], provs: [] };
 
   // ── Plan de Obra (presupuesto arquitecto por subrubro) ──
   planObra        = signal<PlanObraEntry[]>([]);
@@ -182,18 +185,18 @@ export class ObraComponent implements OnInit {
     for (const s of this.solicitudes().filter(x => x.estado === 'abierta')) {
       const n = s.cotizaciones.length;
       rows.push({ key: s._id, type: 'sol', id: s._id, titulo: s.subrubroId.nombre, detalle: s.descripcion || '',
-        sub: `${n} cotizacion${n !== 1 ? 'es' : ''} recibida${n !== 1 ? 's' : ''}`, estado: 'cotizando', paso: 0, monto: null, moneda: null, pagado: null, falta: 0, buscar: '' });
+        sub: `${n} cotizacion${n !== 1 ? 'es' : ''} recibida${n !== 1 ? 's' : ''}`, estado: 'cotizando', paso: 0, monto: null, moneda: null, tc: null, pagado: null, falta: 0, buscar: '' });
     }
     for (const p of this.presupuestos()) {
       const estado: CompraEstado = p.estado === 'aprobado' ? 'elegida' : p.estado === 'pendiente' ? 'revisar' : 'descartada';
       rows.push({ key: p._id, type: 'pres', id: p._id, titulo: p.subrubroId.nombre, detalle: p.descripcion || '',
-        sub: p.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: p.monto, moneda: p.moneda, pagado: null, falta: estado === 'elegida' ? p.monto : 0, buscar: '' });
+        sub: p.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: p.monto, moneda: p.moneda, tc: p.tipoCambio ?? null, pagado: null, falta: estado === 'elegida' ? p.monto : 0, buscar: '' });
     }
     for (const g of this.gastos()) {
       const pagado = totalPagadoGasto(g);
       const estado: CompraEstado = pagado >= g.monto && g.monto > 0 ? 'pagada' : 'enpago';
       rows.push({ key: g._id, type: 'gasto', id: g._id, titulo: g.subrubroId.nombre, detalle: g.descripcion || '',
-        sub: g.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: g.monto, moneda: g.moneda, pagado, falta: Math.max(0, g.monto - pagado), buscar: '' });
+        sub: g.proveedorId?.nombre ?? 'Sin proveedor', estado, paso: this.PASO_DE[estado], monto: g.monto, moneda: g.moneda, tc: g.tipoCambio ?? null, pagado, falta: Math.max(0, g.monto - pagado), buscar: '' });
     }
     for (const r of rows) r.buscar = `${r.titulo} ${r.detalle} ${r.sub}`.toLowerCase();
     return rows.sort((a, b) => this.COMPRA_ORDEN.indexOf(a.estado) - this.COMPRA_ORDEN.indexOf(b.estado));
@@ -214,18 +217,38 @@ export class ObraComponent implements OnInit {
   filtrosCompra: { id: CompraFiltro; label: string }[] = [
     { id: 'todas', label: 'Todas' }, { id: 'cotizando', label: 'Cotizando' }, { id: 'porpagar', label: 'Por pagar' }, { id: 'pagada', label: 'Pagadas' },
   ];
-  /** Por moneda, de mayor a menor: lo comprometido (elegido, en pago o pagado), lo pagado y lo que falta pagar. */
+  /**
+   * Resumen de lo que falta pagar. Se muestra en la moneda elegida (pesos o dólares) si todos los montos
+   * se pueden convertir; si falta algún tipo de cambio, se muestra por moneda, como se cargó.
+   */
   resumenCompras = computed(() => {
-    const m: Record<string, { comprometido: number; pagado: number; porPagar: number }> = {};
-    for (const r of this.compras()) {
-      if (!r.moneda || !['elegida', 'enpago', 'pagada'].includes(r.estado)) continue;
-      const x = (m[r.moneda] ??= { comprometido: 0, pagado: 0, porPagar: 0 });
-      x.comprometido += r.monto ?? 0; x.pagado += r.pagado ?? 0; x.porPagar += r.falta;
+    const filas = this.compras().filter(r => r.moneda && ['elegida', 'enpago', 'pagada'].includes(r.estado));
+    const v = this.m.vista(); const otra = v === 'ARS' ? 'USD' : 'ARS';
+    const suma = (dest: 'ARS' | 'USD') => {
+      let comprometido = 0, pagado = 0, porPagar = 0;
+      for (const r of filas) {
+        const a = this.m.a(dest, r.monto ?? 0, r.moneda!, r.tc), b = this.m.a(dest, r.pagado ?? 0, r.moneda!, r.tc), c = this.m.a(dest, r.falta, r.moneda!, r.tc);
+        if (a === null || b === null || c === null) return null;
+        comprometido += a; pagado += b; porPagar += c;
+      }
+      return { comprometido, pagado, porPagar };
+    };
+    const principal = filas.length ? suma(v) : null;
+    if (principal) {
+      const alt = suma(otra);
+      return [{ moneda: v as string, ...principal, pct: principal.comprometido ? Math.min(100, Math.round(principal.pagado / principal.comprometido * 100)) : 0, alt: alt ? alt.porPagar : null, altMoneda: otra as string, faltaTC: false }];
     }
-    return Object.entries(m)
-      .map(([moneda, v]) => ({ moneda, ...v, pct: v.comprometido ? Math.min(100, Math.round(v.pagado / v.comprometido * 100)) : 0 }))
-      .sort((a, b) => b.comprometido - a.comprometido);
+    const mapa: Record<string, { comprometido: number; pagado: number; porPagar: number }> = {};
+    for (const r of filas) { const x = (mapa[r.moneda!] ??= { comprometido: 0, pagado: 0, porPagar: 0 }); x.comprometido += r.monto ?? 0; x.pagado += r.pagado ?? 0; x.porPagar += r.falta; }
+    return Object.entries(mapa).map(([moneda, x]) => ({ moneda, ...x, pct: x.comprometido ? Math.min(100, Math.round(x.pagado / x.comprometido * 100)) : 0, alt: null as number | null, altMoneda: '', faltaTC: true })).sort((a, b) => b.comprometido - a.comprometido);
   });
+  /** Monto de una fila en la moneda elegida (o como se cargó si no hay tipo de cambio). */
+  mv(monto: number | null, r: { moneda: string | null; tc: number | null }): string {
+    if (monto === null || !r.moneda) return '—';
+    const c = this.m.aVista(monto, r.moneda, r.tc);
+    return c === null ? this.m.fmt(monto, r.moneda) : this.m.fmt(c, this.m.vista());
+  }
+  esOtraMoneda(r: { moneda: string | null; tc: number | null }) { return !!r.moneda && r.moneda !== this.m.vista() && this.m.puedeConvertir(r.moneda, r.tc); }
   setCompraFiltro(f: CompraFiltro) { this.obraFilter.set('todos'); this.compraFiltro.set(f); this.deselect(); }
   /** Cotización de la que salió un presupuesto (para ver las ofertas comparadas). */
   solDePres(presId: string) { return this.solicitudes().find(s => s.presupuestoId === presId) ?? null; }
@@ -313,13 +336,14 @@ export class ObraComponent implements OnInit {
   // ── UI: Edit gasto ──────────────────────────────────────
   editingGastoId = signal<string | null>(null);
   savingEditGasto = signal(false);
-  editGastoForm: { monto: number | null; moneda: string; fecha: string; descripcion: string; notas: string; proveedorId: string } =
-    { monto: null, moneda: 'ARS', fecha: '', descripcion: '', notas: '', proveedorId: '' };
+  editGastoForm: { monto: number | null; moneda: string; tipoCambio: number | null; fecha: string; descripcion: string; notas: string; proveedorId: string } =
+    { monto: null, moneda: 'ARS', tipoCambio: null, fecha: '', descripcion: '', notas: '', proveedorId: '' };
 
   startEditGasto(g: Gasto) {
     this.editGastoForm = {
       monto:       g.monto,
       moneda:      g.moneda,
+      tipoCambio:  g.tipoCambio ?? null,
       fecha:       g.fecha ? g.fecha.substring(0, 10) : '',
       descripcion: g.descripcion ?? '',
       notas:       g.notas ?? '',
@@ -336,6 +360,7 @@ export class ObraComponent implements OnInit {
     const data: any = {
       monto:       this.editGastoForm.monto,
       moneda:      this.editGastoForm.moneda,
+      tipoCambio:  this.editGastoForm.tipoCambio || null,
       fecha:       this.editGastoForm.fecha,
       descripcion: this.editGastoForm.descripcion,
       notas:       this.editGastoForm.notas,
@@ -413,6 +438,7 @@ export class ObraComponent implements OnInit {
     fd.append('subrubroId', this.presForm.subrubroId);
     fd.append('monto',      String(this.presForm.monto));
     fd.append('moneda',     this.presForm.moneda);
+    if (this.presForm.tipoCambio) fd.append('tipoCambio', String(this.presForm.tipoCambio));
     if (this.presForm.proveedorId) fd.append('proveedorId', this.presForm.proveedorId);
     if (this.presForm.descripcion) fd.append('descripcion', this.presForm.descripcion);
     if (this.presForm.notas)       fd.append('notas',       this.presForm.notas);
@@ -645,6 +671,37 @@ export class ObraComponent implements OnInit {
     });
   }
 
+  /** Subida por arrastrar y soltar: una o varias imágenes o PDF sobre el área de comprobantes. */
+  arrastrando = signal(false);
+  onDropComprobantes(g: Gasto, ev: DragEvent) {
+    ev.preventDefault(); this.arrastrando.set(false);
+    const files = Array.from(ev.dataTransfer?.files ?? []);
+    if (!files.length) return;
+    this.uploadingComprobanteId.set(g._id);
+    const subir = (i: number) => {
+      if (i >= files.length) { this.uploadingComprobanteId.set(null); return; }
+      this.gastoSvc.addComprobante(this.projectId, g._id, files[i]).subscribe({
+        next: updated => { this.gastos.update(l => l.map(x => x._id === g._id ? updated : x)); subir(i + 1); },
+        error: () => subir(i + 1),
+      });
+    };
+    subir(0);
+  }
+  esImagen(mime?: string) { return !!mime?.startsWith('image/'); }
+  extension(nombre: string) { return (nombre.split('.').pop() ?? '').slice(0, 4).toUpperCase(); }
+
+  /** Barra de pagos del gasto: un tramo por pago (color según su estado) y el resto que falta. */
+  segmentosPagos(g: Gasto) {
+    const total = g.monto || 1;
+    const segs = g.pagos.map(p => ({
+      id: p._id, pct: Math.min(100, p.monto / total * 100), monto: p.monto,
+      estado: p.pagado?.valor && p.firmado?.valor ? 'ok' : p.pagado?.valor ? 'pagado' : 'pendiente',
+      fecha: p.fecha,
+    }));
+    const usado = segs.reduce((s, x) => s + x.pct, 0);
+    return { segs, resto: Math.max(0, 100 - usado) };
+  }
+
   removeComprobanteFile(g: Gasto, comprobanteId: string) {
     this.gastoSvc.removeComprobante(this.projectId, g._id, comprobanteId).subscribe(updated =>
       this.gastos.update(l => l.map(x => x._id === g._id ? updated : x))
@@ -856,7 +913,7 @@ export class ObraComponent implements OnInit {
 
   openAddCotizacion(s: Solicitud) {
     this.selectedId.set(s._id); this.selectedType.set('sol');
-    this.cotizacionForm = { proveedorId: '', monto: null, moneda: 'ARS', notas: '', plazo: '', condiciones: '', archivos: [], provs: [] };
+    this.cotizacionForm = { proveedorId: '', monto: null, moneda: 'ARS', tipoCambio: null, notas: '', plazo: '', condiciones: '', archivos: [], provs: [] };
     this.provSvc.list(s.subrubroId._id).subscribe(d => { this.cotizacionForm.provs = d; });
     this.addingCotizacionId.set(s._id);
   }
@@ -872,6 +929,7 @@ export class ObraComponent implements OnInit {
     this.savingCotizacion.set(true);
     const fd = new FormData();
     fd.append('moneda', this.cotizacionForm.moneda);
+    if (this.cotizacionForm.tipoCambio) fd.append('tipoCambio', String(this.cotizacionForm.tipoCambio));
     if (this.cotizacionForm.proveedorId) fd.append('proveedorId', this.cotizacionForm.proveedorId);
     if (this.cotizacionForm.monto != null) fd.append('monto', String(this.cotizacionForm.monto));
     if (this.cotizacionForm.notas) fd.append('notas', this.cotizacionForm.notas);
@@ -937,6 +995,7 @@ export class ObraComponent implements OnInit {
     fd.append('presupuestoId', p._id);
     fd.append('monto',         String(p.monto));
     fd.append('moneda',        p.moneda);
+    if (p.tipoCambio) fd.append('tipoCambio', String(p.tipoCambio));
     fd.append('fecha',         this.todayISO());
     if (p.proveedorId) fd.append('proveedorId', p.proveedorId._id);
     if (p.descripcion) fd.append('descripcion', p.descripcion);
@@ -1399,7 +1458,7 @@ export class ObraComponent implements OnInit {
   }
 
   private emptyPresForm() {
-    return { rubroId: '', subrubroId: '', proveedorId: '', descripcion: '', monto: null as any, moneda: 'ARS' as Moneda, notas: '', archivos: [] as File[] };
+    return { rubroId: '', subrubroId: '', proveedorId: '', descripcion: '', monto: null as any, moneda: 'ARS' as Moneda, tipoCambio: null as number | null, notas: '', archivos: [] as File[] };
   }
 
   onPagoFuenteChange() {

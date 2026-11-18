@@ -1,0 +1,55 @@
+@if (r(); as d) {
+  <section class="ar">
+    <div class="ar-hero">
+      <div class="ar-card">
+        <span class="ar-lbl">{{ paraPropietario ? 'Aportaste' : 'Aportó el propietario' }}</span>
+        <strong class="num">{{ principal(d.aportado) }}</strong>
+        <small class="num">≈ {{ secundario(d.aportado) }}</small>
+      </div>
+      <div class="ar-card">
+        <span class="ar-lbl">Se usó en la obra</span>
+        <strong class="num">{{ principal(d.aplicado) }}</strong>
+        <small class="num">≈ {{ secundario(d.aplicado) }}</small>
+      </div>
+      <div class="ar-card" [class.ar-card--bad]="saldoNegativo()" [class.ar-card--ok]="!saldoNegativo() && d.aportado.ARS > 0">
+        <span class="ar-lbl">{{ saldoNegativo() ? 'Falta aportar' : 'Saldo disponible' }}</span>
+        <strong class="num">{{ vista() === 'USD' && sinConversion() ? '—' : saldoNegativo() ? m.fmt(-d.saldo[vista()], vista()) : principal(d.saldo) }}</strong>
+        <small class="num">≈ {{ sinConversion() ? '—' : saldoNegativo() ? m.fmt(-d.saldo[otra()], otra()) : secundario(d.saldo) }}</small>
+      </div>
+    </div>
+
+    @if (d.aportado.ARS > 0) {
+      <div class="ar-uso" role="img" [attr.aria-label]="'Se usó el ' + d.pctAplicado + '% de lo aportado'">
+        <div class="ar-uso__bar"><i [style.width.%]="d.pctAplicado > 100 ? 100 : d.pctAplicado" [class.ar-uso__over]="d.pctAplicado > 100"></i></div>
+        <span>{{ paraPropietario ? 'Ya se usó' : 'Se usó' }} el <b>{{ d.pctAplicado }}%</b> de lo aportado</span>
+      </div>
+    }
+
+    @if (d.sinTC > 0 && !m.tcProyecto() && !d.tcReferencia) {
+      <p class="ar-aviso">Para ver todo en {{ vista() === 'ARS' ? 'pesos' : 'dólares' }} hace falta un tipo de cambio. {{ paraPropietario ? 'El estudio todavía no lo cargó.' : 'Cargalo arriba, en "Cargá el tipo de cambio".' }}</p>
+    } @else if (d.sinTC > 0) {
+      <p class="ar-aviso ar-aviso--suave">{{ d.sinTC }} movimiento{{ d.sinTC !== 1 ? 's' : '' }} sin tipo de cambio propio: se usa el del proyecto ($ {{ d.tcReferencia?.toLocaleString('es-AR') }}).</p>
+    }
+
+    <div class="ar-reparto">
+      <h3>¿En qué se usó la plata?</h3>
+      @if (rubros().length) {
+        <div class="ar-stack" role="img" aria-label="Reparto por rubro">
+          @for (x of rubros(); track x.rubro) { <i [style.width.%]="ancho(x)" [style.background]="x.color" [title]="x.rubro + ' · ' + pct(x) + '%'"></i> }
+        </div>
+        <ul class="ar-list">
+          @for (x of rubros(); track x.rubro) {
+            <li>
+              <span class="ar-dot" [style.background]="x.color"></span>
+              <span class="ar-rubro">{{ x.rubro }}@if (x.gastosVarios) { <em>caja chica</em> }</span>
+              <span class="ar-pct num">{{ pct(x) }}%</span>
+              <b class="num">{{ m.fmt(x.valor, vista()) }}</b>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="ar-vacio">{{ sinAportes() ? 'Todavía no hay aportes ni gastos cargados.' : 'Todavía no se usó nada de lo aportado.' }}</p>
+      }
+    </div>
+  </section>
+}

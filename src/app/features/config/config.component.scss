@@ -1434,3 +1434,15 @@ tbody tr:hover td { background: var(--c-surface); }
   &--ok      { background: #e8f5e9; color: #2e7d32; }
   &--err     { background: #fef2f2; color: #dc2626; }
 }
+
+
+/* Caja chica / gastos varios */
+.cc-aviso { display: flex; gap: var(--sp-3); align-items: center; justify-content: space-between; flex-wrap: wrap; padding: var(--sp-3); margin-bottom: var(--sp-3); border-radius: var(--radius-md); background: var(--c-brand-soft); border-left: 4px solid var(--c-brand);
+  strong { display: block; font-family: var(--font-head); font-size: var(--text-lg); } p { font-size: var(--text-sm); color: var(--c-text-sub); max-width: 70ch; margin-top: .25rem; } }
+.cc-check { display: flex; gap: .7rem; align-items: flex-start; padding: var(--sp-2); margin-top: var(--sp-1); border: 1px dashed var(--c-border-strong); border-radius: var(--radius-sm); cursor: pointer;
+  input { margin-top: .25rem; } b { display: block; font-size: var(--text-sm); } small { display: block; font-size: var(--text-xs); color: var(--c-text-sub); margin-top: .15rem; }
+  &--aviso { border-color: var(--c-brand); background: var(--c-brand-soft); } }
+.cc-tag { font-size: var(--text-xs); font-weight: 700; padding: .12rem .55rem; border-radius: 999px; background: var(--c-brand); color: #fff; margin-left: .4rem; }
+.cc-btn { all: unset; cursor: pointer; font-size: var(--text-xs); font-weight: 600; padding: .25rem .6rem; border-radius: 999px; border: 1px solid var(--c-border-strong); color: var(--c-text-sub); white-space: nowrap;
+  &:hover { border-color: var(--c-text); color: var(--c-text); } &:focus-visible { outline: 2px solid var(--c-brand); outline-offset: 2px; } &--on { background: var(--c-brand-soft); border-color: transparent; color: var(--c-brand); } }
+.cc-sug { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; padding: var(--sp-2); border-radius: var(--radius-sm); background: var(--c-brand-soft); p { font-size: var(--text-sm); } small { color: var(--c-text-sub); font-size: var(--text-xs); line-height: 1.5; } }

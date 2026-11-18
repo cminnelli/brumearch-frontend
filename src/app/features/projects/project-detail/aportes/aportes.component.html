@@ -1,0 +1,57 @@
+<section class="ap">
+  @if (loading()) {
+    <div class="skeleton" style="height:160px;border-radius:var(--radius-md)"></div>
+  } @else {
+    <app-aportes-resumen [resumen]="resumen()" />
+
+    <div class="ap-head">
+      <h3>Aportes del propietario <span class="ap-n">{{ resumen()?.aportes?.length ?? 0 }}</span></h3>
+      @if (canEdit && !abierto()) { <button class="btn btn--primary btn--sm" type="button" (click)="nuevo()">+ Registrar aporte</button> }
+    </div>
+
+    @if (abierto()) {
+      <form class="ap-form" (ngSubmit)="guardar()">
+        <div class="ap-form__title">{{ editandoId() ? 'Editar aporte' : 'Nuevo aporte' }}</div>
+        <div class="ap-form__grid">
+          <div class="ap-f"><label for="ap-fecha">Fecha</label><input id="ap-fecha" type="date" [(ngModel)]="form.fecha" name="fecha" required /></div>
+          <div class="ap-f"><label for="ap-monto">Monto</label>
+            <div class="ap-money"><select [(ngModel)]="form.moneda" name="moneda" aria-label="Moneda"><option value="ARS">$</option><option value="USD">US$</option></select>
+              <input id="ap-monto" type="number" min="0" step="any" [(ngModel)]="form.monto" name="monto" placeholder="0" required /></div></div>
+          <div class="ap-f"><label for="ap-metodo">Cómo pagó</label>
+            <select id="ap-metodo" [(ngModel)]="form.metodo" name="metodo">@for (x of metodos; track x.id) { <option [value]="x.id">{{ x.l }}</option> }</select></div>
+          <div class="ap-f"><label for="ap-origen">Quién lo pagó</label><input id="ap-origen" [(ngModel)]="form.origen" name="origen" placeholder="Nombre" autocomplete="off" /></div>
+        </div>
+        <div class="ap-form__row2">
+          <app-tipo-cambio id="ap-tc" [moneda]="form.moneda" [monto]="form.monto" [(valor)]="form.tipoCambio" />
+          <div class="ap-f ap-f--grow"><label for="ap-concepto">Concepto (opcional)</label><input id="ap-concepto" [(ngModel)]="form.concepto" name="concepto" placeholder="Ej: Anticipo, cuota 2" /></div>
+          <div class="ap-f ap-f--grow"><label for="ap-ref">Referencia (opcional)</label><input id="ap-ref" [(ngModel)]="form.referencia" name="referencia" placeholder="Nro. de transferencia" /></div>
+          <label class="ap-file"><span>{{ archivo ? '📎 ' + archivo.name : '+ Comprobante' }}</span><input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" (change)="onArchivo($event)" /></label>
+        </div>
+        @if (error()) { <p class="ap-error" role="alert">{{ error() }}</p> }
+        <div class="ap-form__btns">
+          <button class="btn btn--ghost btn--sm" type="button" (click)="cerrar()">Cancelar</button>
+          <button class="btn btn--primary" type="submit" [disabled]="guardando()">{{ guardando() ? 'Guardando…' : editandoId() ? 'Guardar cambios' : 'Registrar aporte' }}</button>
+        </div>
+      </form>
+    }
+
+    @if (resumen()?.aportes?.length) {
+      <div class="ap-table" role="table" aria-label="Aportes">
+        <div class="ap-th" role="row"><span>Fecha</span><span>Detalle</span><span class="r">Monto</span><span></span></div>
+        @for (a of resumen()!.aportes; track a._id) {
+          <div class="ap-tr" role="row">
+            <span class="ap-fecha">{{ fmtFecha(a.fecha) }}</span>
+            <div class="ap-det"><strong>{{ a.concepto || 'Aporte' }}</strong><small>{{ metodoLabel(a.metodo) }}@if (a.origen) { · {{ a.origen }} }@if (a.referencia) { · {{ a.referencia }} }</small></div>
+            <span class="ap-monto num">{{ enVista(a) }}@if (esOtra(a)) { <small>{{ m.fmt(a.monto, a.moneda) }}@if (a.tipoCambio) { · TC {{ a.tipoCambio.toLocaleString('es-AR') }} }</small> }</span>
+            <span class="ap-act">
+              @if (a.comprobante) { <a class="btn btn--ghost btn--sm" [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Comprobante</a> }
+              @if (canEdit) { <button class="btn btn--ghost btn--sm" type="button" (click)="editar(a)">Editar</button><button class="btn btn--ghost btn--sm btn--del" type="button" (click)="eliminar(a)" aria-label="Eliminar aporte">×</button> }
+            </span>
+          </div>
+        }
+      </div>
+    } @else if (!abierto()) {
+      <div class="empty-state"><span class="empty-state__title">Todavía no hay aportes</span><span class="empty-state__desc">Registrá el primero cuando el propietario pague. Desde ahí se va viendo en qué se usa.</span></div>
+    }
+  }
+</section>

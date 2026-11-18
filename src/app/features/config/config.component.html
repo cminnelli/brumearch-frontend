@@ -142,6 +142,16 @@
         </button>
       </div>
 
+      @if (!hayCajaChica() && !showForm()) {
+        <div class="cc-aviso" role="note">
+          <div>
+            <strong>Todavía no definiste la caja chica</strong>
+            <p>Elegí cuál de tus rubros es la <b>caja chica / gastos varios</b> (por ejemplo, un rubro llamado "Proyecto" o "Gastos varios"). Sus subrubros van a ser las categorías de los gastos chicos de cada obra.</p>
+          </div>
+          <button type="button" class="btn" (click)="toggleForm()">Crear el rubro de caja chica</button>
+        </div>
+      }
+
       @if (showForm()) {
         <form class="form-card" (ngSubmit)="saveRubro()">
           <div class="form-row">
@@ -158,6 +168,13 @@
               <input [(ngModel)]="rubroForm.descripcion" name="descripcion" placeholder="Opcional" />
             </div>
           </div>
+          <label class="cc-check" [class.cc-check--aviso]="!hayCajaChica()">
+            <input type="checkbox" [(ngModel)]="rubroForm.esCajaChica" name="esCajaChica" />
+            <span>
+              <b>Este rubro es la caja chica / gastos varios</b>
+              <small>{{ hayCajaChica() ? 'Si lo marcás, reemplaza al rubro de caja chica actual.' : 'Todavía no definiste la caja chica: marcalo para que los gastos chicos de las obras tengan dónde ir. Sus subrubros serán las categorías.' }}</small>
+            </span>
+          </label>
           <div class="form-actions">
             <button type="submit" class="btn">Guardar rubro</button>
           </div>
@@ -179,9 +196,11 @@
                 } @else {
                   <span class="rubro-nombre">{{ r.nombre }}</span>
                   <code class="chip">{{ r.codigo }}</code>
+                  @if (r.esCajaChica) { <span class="cc-tag" title="Los gastos chicos de las obras se categorizan con los subrubros de este rubro">Caja chica</span> }
                 }
               </div>
               <div class="rubro-header__right" (click)="$event.stopPropagation()">
+                <button type="button" class="cc-btn" [class.cc-btn--on]="r.esCajaChica" (click)="toggleCajaChica(r)" [title]="r.esCajaChica ? 'Quitar como caja chica' : 'Usar este rubro como caja chica / gastos varios'">{{ r.esCajaChica ? '✓ Es la caja chica' : 'Usar como caja chica' }}</button>
                 <span class="sub-pill">{{ countSubrubros(r._id) }} sub</span>
                 <span class="badge" [class.badge--on]="r.activo" [class.badge--off]="!r.activo">
                   {{ r.activo ? 'Activo' : 'Inactivo' }}
@@ -285,6 +304,13 @@
                     </div>
                   } @empty {
                     <p class="sub-empty">Sin subrubros aún</p>
+                    @if (r.esCajaChica) {
+                      <div class="cc-sug">
+                        <p>Este es el rubro de la caja chica: cada subrubro es una categoría de gasto chico.</p>
+                        <button type="button" class="btn" [disabled]="cargandoCategorias()" (click)="cargarCategoriasSugeridas(r)">{{ cargandoCategorias() ? 'Cargando…' : 'Cargar categorías sugeridas' }}</button>
+                        <small>{{ CATEGORIAS_SUGERIDAS.join(' · ') }}</small>
+                      </div>
+                    }
                   }
                 </div>
 

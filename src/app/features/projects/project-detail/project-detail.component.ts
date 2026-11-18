@@ -27,10 +27,16 @@ import { ChatContextService } from '../../../core/services/chat-context.service'
 import { avanceObra } from '../../../shared/utils/avance';
 import { fileUrl } from '../../../shared/utils/file-url';
 import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
+import { GastosVariosComponent } from './gastos-varios/gastos-varios.component';
+import { AportesComponent } from './aportes/aportes.component';
 import { PersonasComponent } from './personas/personas.component';
+import { MonedaService } from '../../../core/services/moneda.service';
+import { MonedaToggleComponent } from '../../../shared/components/moneda-toggle/moneda-toggle.component';
+import { GastoVarioService } from '../../../core/services/gasto-vario.service';
+import { GastoVario } from '../../../shared/models/gasto-vario.model';
 import { MembersService, ProjectRole } from '../../../core/services/members.service';
 
-export type DetailTab = 'info' | 'compras' | 'resumen' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'documentos' | 'personas';
+export type DetailTab = 'info' | 'compras' | 'varios' | 'aportes' | 'resumen' | 'caja' | 'config' | 'planificacion' | 'selecciones' | 'documentos' | 'personas';
 
 /** Enlaces viejos (?tab=obra, ?tab=equipo) siguen funcionando. */
 const LEGACY_TABS: Record<string, DetailTab> = { obra: 'compras', pagos: 'compras', equipo: 'personas' };
@@ -57,7 +63,7 @@ export interface RubroResumen {
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, PersonasComponent, AvatarComponent, SafePipe, ArsNumPipe],
+  imports: [CommonModule, FormsModule, RouterLink, ObraComponent, CajaComponent, EtapasComponent, PlanificacionComponent, SeleccionesComponent, PersonasComponent, GastosVariosComponent, AportesComponent, AvatarComponent, MonedaToggleComponent, SafePipe, ArsNumPipe],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.scss',
 })
@@ -72,6 +78,9 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   private reservaSvc     = inject(ReservaService);
   private chatCtx        = inject(ChatContextService);
   private membersSvc     = inject(MembersService);
+  moneda = inject(MonedaService);
+  private gvSvc = inject(GastoVarioService);
+  gastosVarios = signal<GastoVario[]>([]);
 
   /** Mi rol en este proyecto: admin (superadmin) | editor | lector. Lo decide el backend. */
   myRole    = signal<ProjectRole | null>(null);
@@ -179,6 +188,18 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return Array.from(map.values());
   });
 
+  /** Monto en la moneda elegida (pesos o dólares). Si no hay tipo de cambio para convertir, 0 (y se avisa aparte). */
+  private cv(monto: number, moneda: string, tc?: number | null): number { return this.moneda.aVista(monto, moneda, tc) ?? 0; }
+  /** Cuántos montos de Plan vs. real no se pudieron convertir por falta de tipo de cambio. */
+  finanzasFaltaTC = computed(() => {
+    if (!this.resumenLoaded()) return 0;
+    const m = this.moneda; let n = 0;
+    for (const g of this.gastos()) if (!m.puedeConvertir(g.moneda, g.tipoCambio)) n++;
+    for (const v of this.gastosVarios()) if (!m.puedeConvertir(v.moneda, v.tipoCambio)) n++;
+    for (const p of this.planObra()) if (!m.puedeConvertir(p.moneda, null)) n++;
+    return n;
+  });
+
   // ── Finanzas: tabla completa con Plan ───────────────────
   finanzasData = computed(() => {
     if (!this.resumenLoaded()) return [];
@@ -195,11 +216,13 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       const rows = rubroSubs.map(sub => {
         const subIdStr   = String(sub._id);
         const subGastos  = gastos.filter(g => String(g.subrubroId?._id ?? '') === subIdStr);
-        const realTotal  = subGastos.reduce((acc, g) => acc + (g.monto ?? 0), 0);
-        const realPagado = subGastos.reduce((acc, g) => acc + totalPagadoGasto(g), 0);
+        const subVarios  = this.gastosVarios().filter(v => String(v.subrubroId?._id ?? '') === subIdStr);
+        // Todo en la moneda elegida; los gastos varios (caja chica) se gastan y pagan en el momento
+        const realTotal  = subGastos.reduce((acc, g) => acc + this.cv(g.monto ?? 0, g.moneda, g.tipoCambio), 0) + subVarios.reduce((acc, v) => acc + this.cv(v.monto, v.moneda, v.tipoCambio), 0);
+        const realPagado = subGastos.reduce((acc, g) => acc + this.cv(totalPagadoGasto(g), g.moneda, g.tipoCambio), 0) + subVarios.reduce((acc, v) => acc + this.cv(v.monto, v.moneda, v.tipoCambio), 0);
         const planEntry  = plan.find(p => p.subrubroId === subIdStr);
-        const planMonto  = planEntry?.monto ?? 0;
-        const planMoneda = planEntry?.moneda ?? 'ARS';
+        const planMonto  = planEntry ? this.cv(planEntry.monto, planEntry.moneda, null) : 0;
+        const planMoneda = this.moneda.vista();
         const pct        = planMonto > 0 ? Math.min(999, Math.round(realPagado / planMonto * 100)) : null;
         const hasData    = realTotal > 0 || realPagado > 0 || planMonto > 0;
         return { sub, realTotal, realPagado, planMonto, planMoneda, pct, hasData };
@@ -222,9 +245,9 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     };
   }
 
-  totalPresupuestado = computed(() => this.planObra().reduce((s, p) => s + p.monto, 0));
-  totalGastado       = computed(() => this.gastos().reduce((s, g) => s + g.monto, 0));
-  totalPagado        = computed(() => this.gastos().reduce((s, g) => s + totalPagadoGasto(g), 0));
+  totalPresupuestado = computed(() => this.planObra().reduce((s, p) => s + this.cv(p.monto, p.moneda, null), 0));
+  totalGastado       = computed(() => this.gastos().reduce((s, g) => s + this.cv(g.monto, g.moneda, g.tipoCambio), 0) + this.gastosVarios().reduce((s, v) => s + this.cv(v.monto, v.moneda, v.tipoCambio), 0));
+  totalPagado        = computed(() => this.gastos().reduce((s, g) => s + this.cv(totalPagadoGasto(g), g.moneda, g.tipoCambio), 0) + this.gastosVarios().reduce((s, v) => s + this.cv(v.monto, v.moneda, v.tipoCambio), 0));
   totalPorPagar      = computed(() => this.totalGastado() - this.totalPagado());
 
   saldoReservasPorMoneda = computed(() => {
@@ -246,6 +269,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.projectService.getById(id).subscribe({
       next: (p) => {
         this.project.set(p);
+        this.moneda.tcProyecto.set(p.tipoCambio ?? null);
         this.planObra.set(p.planObra ?? []);
         this.loading.set(false);
         this.membersSvc.myRole(id).subscribe({ next: r => this.myRole.set(r.role), error: () => this.myRole.set('lector') });
@@ -264,7 +288,13 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.refrescoTimer = setTimeout(() => { const p = this.project(); if (p) this.loadResumen(p._id); }, 500);
   }
 
+  guardarTipoCambio(tc: number) {
+    const p = this.project(); if (!p) return;
+    this.projectService.update(p._id, { tipoCambio: tc }).subscribe(up => { this.moneda.tcProyecto.set(up.tipoCambio ?? tc); this.project.update(x => x ? { ...x, tipoCambio: tc } : x); });
+  }
+
   loadResumen(projectId: string) {
+    this.gvSvc.list(projectId).subscribe(v => this.gastosVarios.set(v));
     this.reservaSvc.list(projectId).subscribe(r => this.reservas.set(r));
     this.cfgSvc.getRubros().subscribe(d => this.rubros.set(d));
     this.cfgSvc.getSubrubros().subscribe(d => {
@@ -291,6 +321,10 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       hint: 'Cuánto se planeó gastar, cuánto se gastó y cuánto falta, por rubro. También el plan semanal y los fondos reservados.' },
     { id: 'compras',     label: 'Compras',      group: ['compras'],
       hint: 'Cada compra, de la cotización al pago: pedí precios, elegí proveedor y registrá los pagos.' },
+    { id: 'varios',      label: 'Gastos varios', group: ['varios'],
+      hint: 'Gastos chicos de la obra (caja chica): sin pagos, ordenados por categoría. Se ven en lo gastado y en el plan.' },
+    { id: 'aportes',     label: 'Aportes',      group: ['aportes'],
+      hint: 'Lo que paga el propietario y en qué se fue usando. Él ve este mismo resumen desde su portal.' },
     { id: 'selecciones', label: 'Selecciones',  group: ['selecciones'],
       hint: 'Lista de cosas que el cliente tiene que elegir o comprar (grifería, revestimientos…) y su estado.' },
     { id: 'documentos',  label: 'Documentos',   group: ['documentos'],
@@ -303,24 +337,56 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   isGroupActive(t: { group: DetailTab[] }) { return t.group.includes(this.activeTab()); }
   activeSub = computed(() => this.NAV.find(t => t.sub && t.group.includes(this.activeTab()))?.sub ?? null);
 
-  /** Cifras de cabecera por moneda (de mayor a menor movimiento). Una obra puede tener gastos en ARS y en USD. */
+  /**
+   * Cifras de cabecera. Se muestran en la moneda elegida (pesos o dólares) usando el tipo de cambio de cada
+   * movimiento o, si no tiene, el del proyecto. Si falta el tipo de cambio, se muestran por moneda.
+   * Los gastos varios (caja chica) suman a lo gastado y a lo pagado.
+   */
   kpis = computed(() => {
     const p = this.project();
     if (!p || !this.resumenLoaded()) return null;
-    const f = (n: number, m: string) => `${m} ${Math.round(n).toLocaleString('es-AR')}`;
-    const plan = (p.planObra ?? []).map(x => ({ monto: x.monto, moneda: x.moneda as string }));
-    if (!plan.length && p.budget?.estimated) plan.push({ monto: p.budget.estimated, moneda: p.budget.currency });
-    const gst = this.gastos();
-    const monedas = [...new Set([...plan.map(x => x.moneda), ...gst.map(g => g.moneda as string)])];
-    const filas = monedas.map(m => {
-      const planM = plan.filter(x => x.moneda === m).reduce((s, x) => s + x.monto, 0);
-      const gastado = gst.filter(g => g.moneda === m).reduce((s, g) => s + g.monto, 0);
-      const pagado = gst.filter(g => g.moneda === m).reduce((s, g) => s + totalPagadoGasto(g), 0);
-      // lo que falta es la suma de lo pendiente en cada gasto (un sobrepago no compensa a otro gasto)
-      const pend = gst.filter(g => g.moneda === m).reduce((s, g) => s + Math.max(0, g.monto - totalPagadoGasto(g)), 0);
-      return { m, plan: planM, gastado, pagado, pend, pct: planM ? Math.round(gastado / planM * 100) : null as number | null };
+    const m = this.moneda; const vista = m.vista(); const otra = vista === 'ARS' ? 'USD' : 'ARS';
+    type It = { monto: number; moneda: string; tc: number | null | undefined };
+    const plan: It[] = (p.planObra ?? []).map(x => ({ monto: x.monto, moneda: x.moneda, tc: null }));
+    if (!plan.length && p.budget?.estimated) plan.push({ monto: p.budget.estimated, moneda: p.budget.currency, tc: null });
+    const gastado: It[] = [], pagado: It[] = [], pend: It[] = [];
+    for (const g of this.gastos()) {
+      const pg = totalPagadoGasto(g);
+      gastado.push({ monto: g.monto, moneda: g.moneda, tc: g.tipoCambio });
+      pagado.push({ monto: pg, moneda: g.moneda, tc: g.tipoCambio });
+      pend.push({ monto: Math.max(0, g.monto - pg), moneda: g.moneda, tc: g.tipoCambio });
+    }
+    for (const v of this.gastosVarios()) { gastado.push({ monto: v.monto, moneda: v.moneda, tc: v.tipoCambio }); pagado.push({ monto: v.monto, moneda: v.moneda, tc: v.tipoCambio }); }
+    const total = (l: It[], dest: 'ARS' | 'USD') => { let s = 0; for (const x of l) { const c = m.a(dest, x.monto, x.moneda, x.tc); if (c === null) return null; s += c; } return s; };
+    const f = (n: number, mon: string) => `${mon} ${Math.round(n).toLocaleString('es-AR')}`;
+    const conjuntos = { plan, gastado, pagado, pend };
+    const en = (dest: 'ARS' | 'USD') => {
+      const t = { plan: total(plan, dest), gastado: total(gastado, dest), pagado: total(pagado, dest), pend: total(pend, dest) };
+      return Object.values(t).some(x => x === null) ? null : t as Record<'plan' | 'gastado' | 'pagado' | 'pend', number>;
+    };
+    const prin = en(vista), alt = en(otra);
+    const avance = avanceObra(p.etapas);
+    if (prin) {
+      return {
+        convertido: true, faltaTC: false, avance,
+        filas: [{
+          m: vista, plan: prin.plan, gastado: prin.gastado, pagado: prin.pagado, pend: prin.pend,
+          pct: prin.plan ? Math.round(prin.gastado / prin.plan * 100) : null as number | null,
+          fPlan: prin.plan ? f(prin.plan, vista) : '—', fGastado: f(prin.gastado, vista), fPagado: f(prin.pagado, vista), fPend: f(prin.pend, vista),
+          alt: alt ? { plan: alt.plan ? f(alt.plan, otra) : '', gastado: f(alt.gastado, otra), pagado: f(alt.pagado, otra), pend: f(alt.pend, otra) } : null,
+        }],
+      };
+    }
+    // Sin tipo de cambio para convertir: se muestra por moneda, como se cargó
+    const monedas = [...new Set([...plan, ...gastado].map(x => x.moneda))];
+    const filas = monedas.map(mon => {
+      const s = (l: It[]) => l.filter(x => x.moneda === mon).reduce((t, x) => t + x.monto, 0);
+      const pl = s(plan), ga = s(gastado), pa = s(pagado), pe = s(pend);
+      return { m: mon, plan: pl, gastado: ga, pagado: pa, pend: pe, pct: pl ? Math.round(ga / pl * 100) : null as number | null,
+        fPlan: pl ? f(pl, mon) : '—', fGastado: f(ga, mon), fPagado: f(pa, mon), fPend: f(pe, mon), alt: null };
     }).sort((a, b) => (b.gastado + b.plan) - (a.gastado + a.plan));
-    return { filas: filas.map(x => ({ ...x, fPlan: x.plan ? f(x.plan, x.m) : '—', fGastado: f(x.gastado, x.m), fPagado: f(x.pagado, x.m), fPend: f(x.pend, x.m) })), avance: avanceObra(p.etapas) };
+    void conjuntos;
+    return { convertido: false, faltaTC: monedas.length > 1 || monedas[0] !== vista, avance, filas };
   });
 
   fmtFecha(d?: string | Date | null) {
@@ -517,7 +583,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     return [p.location?.address, p.location?.neighborhood, p.location?.city, p.location?.province].filter(Boolean).join(', ');
   }
 
-  fmt(n: number, moneda = 'ARS') { return moneda + ' ' + n.toLocaleString('es-AR', { maximumFractionDigits: 0 }); }
+  fmt(n: number, moneda = this.moneda.vista()) { return moneda + ' ' + n.toLocaleString('es-AR', { maximumFractionDigits: 0 }); }
   fmtM(n: number, m: Moneda) { return m + ' ' + Math.abs(n).toLocaleString('es-AR', { maximumFractionDigits: 0 }); }
 
   pctBar(num: number, den: number) { return den ? Math.min(100, Math.round(num / den * 100)) : 0; }

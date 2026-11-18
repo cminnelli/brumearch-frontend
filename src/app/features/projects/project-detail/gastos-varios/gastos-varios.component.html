@@ -1,0 +1,139 @@
+<section class="gv">
+  @if (loading()) {
+    <div class="skeleton" style="height:180px;border-radius:var(--radius-md)"></div>
+  } @else if (!rubroCaja()) {
+    <div class="empty-state">
+      <span class="empty-state__title">Todavía no definiste la caja chica</span>
+      <span class="empty-state__desc">Elegí cuál de tus rubros es la <b>caja chica / gastos varios</b>. Sus subrubros van a ser las categorías de estos gastos (por ejemplo ferretería, fletes, viáticos).</span>
+      <a routerLink="/config" [queryParams]="{ seccion: 'rubros' }" class="btn btn--primary">Ir al catálogo de rubros</a>
+    </div>
+  } @else if (!categorias().length) {
+    <div class="empty-state">
+      <span class="empty-state__title">El rubro "{{ rubroCaja()!.nombre }}" todavía no tiene categorías</span>
+      <span class="empty-state__desc">Agregale subrubros en el catálogo: cada uno es una categoría de gasto chico. Podés cargar una lista sugerida con un clic.</span>
+      <a routerLink="/config" [queryParams]="{ seccion: 'rubros' }" class="btn btn--primary">Definir categorías</a>
+    </div>
+  } @else {
+
+    <!-- Resumen -->
+    <header class="gv-top">
+      <div class="gv-total">
+        <span class="gv-lbl">Total de gastos varios{{ catId() !== 'todas' || q() || periodo() !== 'todos' ? ' (filtrado)' : '' }}</span>
+        <strong class="num">{{ m.fmt(total().valor, m.vista()) }}</strong>
+        <small>{{ filtrados().length }} gasto{{ filtrados().length !== 1 ? 's' : '' }}@if (!total().completo) { · <span class="gv-warn">algunos sin tipo de cambio</span> }</small>
+      </div>
+      <div class="gv-bars" aria-label="Gasto por categoría">
+        @for (c of porCategoria().slice(0, 5); track c.id) {
+          <button type="button" class="gv-bar" (click)="catId.set(catId() === c.id ? 'todas' : c.id)" [class.gv-bar--on]="catId() === c.id">
+            <span class="gv-bar__n">{{ c.nombre }}</span>
+            <span class="gv-bar__t"><i [style.width.%]="c.pct"></i></span>
+            <b class="num">{{ m.fmt(c.valor, m.vista()) }}</b>
+          </button>
+        } @empty { <span class="gv-muted">Todavía no hay gastos cargados.</span> }
+      </div>
+    </header>
+
+    <!-- Carga rápida -->
+    @if (canEdit) {
+      <form class="gv-form" (ngSubmit)="guardar()" [class.gv-form--edit]="editandoId()">
+        <div class="gv-form__title">{{ editandoId() ? 'Editar gasto' : 'Nuevo gasto vario' }}</div>
+        <div class="gv-form__grid">
+          <div class="gv-f"><label for="gv-fecha">Fecha</label><input id="gv-fecha" type="date" [(ngModel)]="form.fecha" name="fecha" required /></div>
+          <div class="gv-f gv-f--grow"><label for="gv-concepto">Qué se compró</label><input id="gv-concepto" [(ngModel)]="form.concepto" name="concepto" placeholder="Ej: Bolsas de cal, flete a obra…" required autocomplete="off" /></div>
+          <div class="gv-f"><label for="gv-cat">Categoría</label>
+            <select id="gv-cat" [(ngModel)]="form.subrubroId" name="subrubroId" required>
+              <option value="" disabled>Elegí una</option>
+              @for (c of categorias(); track c._id) { <option [value]="c._id">{{ c.nombre }}</option> }
+            </select></div>
+          <div class="gv-f"><label for="gv-monto">Monto</label>
+            <div class="gv-money">
+              <select [(ngModel)]="form.moneda" name="moneda" aria-label="Moneda"><option value="ARS">$</option><option value="USD">US$</option></select>
+              <input id="gv-monto" type="number" min="0" step="any" [(ngModel)]="form.monto" name="monto" placeholder="0" required />
+            </div></div>
+        </div>
+        <div class="gv-form__row2">
+          <app-tipo-cambio id="gv-tc" [moneda]="form.moneda" [monto]="form.monto" [(valor)]="form.tipoCambio" />
+          <div class="gv-f gv-f--grow"><label for="gv-notas">Nota (opcional)</label><input id="gv-notas" [(ngModel)]="form.notas" name="notas" placeholder="Opcional" /></div>
+          <label class="gv-file"><span>{{ archivo ? '📎 ' + archivo.name : '+ Comprobante' }}</span><input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" (change)="onArchivo($event)" /></label>
+          <div class="gv-form__btns">
+            @if (editandoId()) { <button type="button" class="btn btn--ghost btn--sm" (click)="cancelarEdicion()">Cancelar</button> }
+            <button class="btn btn--primary" type="submit" [disabled]="guardando()">{{ guardando() ? 'Guardando…' : editandoId() ? 'Guardar cambios' : 'Agregar gasto' }}</button>
+          </div>
+        </div>
+        @if (error()) { <p class="gv-error" role="alert">{{ error() }}</p> }
+      </form>
+    }
+
+    <!-- Filtros -->
+    <div class="gv-tools">
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <span class="sr-only">Buscar por nombre</span>
+        <input type="search" placeholder="Buscar por nombre" [value]="q()" (input)="q.set($any($event.target).value)" /></label>
+      <select class="gv-sel" [ngModel]="periodo()" (ngModelChange)="periodo.set($event)" name="periodo" aria-label="Período">
+        <option value="todos">Todo el período</option><option value="mes">Este mes</option><option value="mes_anterior">Mes anterior</option>
+      </select>
+      <div class="seg gv-view" role="group" aria-label="Vista">
+        <button type="button" [attr.aria-pressed]="vista() === 'lista'" (click)="setVista('lista')">Lista</button>
+        <button type="button" [attr.aria-pressed]="vista() === 'categorias'" (click)="setVista('categorias')">Por categoría</button>
+      </div>
+    </div>
+    <div class="gv-chips" role="group" aria-label="Filtrar por categoría">
+      <button type="button" class="gv-chip" [class.gv-chip--on]="catId() === 'todas'" (click)="catId.set('todas')">Todas <span>{{ items().length }}</span></button>
+      @for (c of categorias(); track c._id) {
+        <button type="button" class="gv-chip" [class.gv-chip--on]="catId() === c._id" [disabled]="!conteoCat(c._id)" (click)="catId.set(c._id)">{{ c.nombre }} <span>{{ conteoCat(c._id) }}</span></button>
+      }
+    </div>
+
+    <!-- Contenido -->
+    @if (!filtrados().length) {
+      <div class="empty-state"><span class="empty-state__title">{{ items().length ? 'Sin resultados' : 'Todavía no hay gastos varios' }}</span>
+        <span class="empty-state__desc">{{ items().length ? 'Probá con otro nombre, categoría o período.' : 'Cargá el primero con el formulario de arriba: concepto, categoría y monto alcanzan.' }}</span></div>
+    } @else if (vista() === 'lista') {
+      <div class="gv-table" role="table">
+        <div class="gv-head" role="row"><span>Fecha</span><span>Concepto</span><span>Categoría</span><span class="r">Monto</span><span></span></div>
+        @for (g of filtrados(); track g._id) {
+          <div class="gv-row-wrap">
+            <button type="button" class="gv-row" role="row" [attr.aria-expanded]="abierto() === g._id" (click)="abierto.set(abierto() === g._id ? null : g._id)">
+              <span class="gv-fecha">{{ fmtFecha(g.fecha) }}</span>
+              <strong class="gv-conc">{{ g.concepto }}</strong>
+              <span class="pill">{{ g.subrubroId?.nombre }}</span>
+              <span class="gv-monto num">{{ fmtVista(g) }}@if (esOtraMoneda(g)) { <small>{{ m.fmt(g.monto, g.moneda) }}</small> }</span>
+              <span class="gv-clip" [title]="g.comprobante ? 'Tiene comprobante' : ''">@if (g.comprobante) { 📎 }</span>
+            </button>
+            @if (abierto() === g._id) {
+              <div class="gv-det">
+                <dl>
+                  <div><dt>Monto cargado</dt><dd>{{ m.fmt(g.monto, g.moneda) }}@if (g.tipoCambio) { <small> · TC $ {{ g.tipoCambio.toLocaleString('es-AR') }}</small> }</dd></div>
+                  <div><dt>Categoría</dt><dd>{{ g.subrubroId?.nombre }}</dd></div>
+                  @if (g.notas) { <div><dt>Nota</dt><dd>{{ g.notas }}</dd></div> }
+                </dl>
+                @if (g.comprobante) {
+                  <a class="gv-comp" [href]="fileUrl(g.comprobante.filename)" target="_blank" rel="noopener">
+                    @if (esImagen(g)) { <img [src]="fileUrl(g.comprobante.filename)" alt="Comprobante" /> } @else { <span class="gv-comp__ico">PDF</span> }
+                    <span>{{ g.comprobante.originalName }}</span>
+                  </a>
+                }
+                @if (canEdit) { <div class="gv-det__btns"><button class="btn btn--ghost btn--sm" type="button" (click)="editar(g)">Editar</button><button class="btn btn--ghost btn--sm btn--del" type="button" (click)="eliminar(g)">Eliminar</button></div> }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="gv-cats">
+        @for (c of porCategoria(); track c.id) {
+          <article class="gv-cat">
+            <header><h4>{{ c.nombre }}</h4><b class="num">{{ m.fmt(c.valor, m.vista()) }}</b></header>
+            <div class="gv-cat__bar"><i [style.width.%]="c.pct"></i></div>
+            <ul>
+              @for (g of c.items; track g._id) {
+                <li><span class="gv-fecha">{{ fmtFecha(g.fecha) }}</span><span class="gv-conc2">{{ g.concepto }}</span><span class="num">{{ fmtVista(g) }}</span>
+                  @if (canEdit) { <button type="button" class="gv-mini" (click)="editar(g)" aria-label="Editar">✎</button> }</li>
+              }
+            </ul>
+          </article>
+        }
+      </div>
+    }
+  }
+</section>

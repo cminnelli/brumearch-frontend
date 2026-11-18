@@ -30,15 +30,19 @@
         @if (project()!.startDate) { · Inicio {{ project()!.startDate | date:'MMM yyyy' }} }
       </p>
 
+      <div class="proj-moneda">
+        <app-moneda-toggle [editable]="canEdit()" (tcChange)="guardarTipoCambio($event)" />
+        @if (kpis(); as kk) { @if (kk.faltaTC) { <span class="proj-moneda__aviso">Cargá el tipo de cambio para ver todo en {{ moneda.vista() === 'ARS' ? 'pesos' : 'dólares' }}.</span> } }
+      </div>
       @if (kpis(); as k) {
         <div class="proj-kpis" aria-label="Estado de la obra">
           <div class="pk"><span>Plan de costos</span>
-            @for (x of k.filas; track x.m) { @if (x.plan) { <strong class="num">{{ x.fPlan }}</strong> } } @empty { <strong class="num">—</strong> }</div>
+            @for (x of k.filas; track x.m) { @if (x.plan) { <strong class="num">{{ x.fPlan }}</strong>@if (x.alt?.plan) { <small class="alt">≈ {{ x.alt!.plan }}</small> } } } @empty { <strong class="num">—</strong> }</div>
           <div class="pk"><span>Gastado</span>
-            @for (x of k.filas; track x.m) { <strong class="num">{{ x.fGastado }}</strong>
+            @for (x of k.filas; track x.m) { <strong class="num">{{ x.fGastado }}</strong>@if (x.alt) { <small class="alt">≈ {{ x.alt.gastado }}</small> }
               @if (x.pct !== null) { <div class="progress" [class.progress--warn]="x.pct >= 85" [class.progress--bad]="x.pct > 100" [style.--v]="x.pct > 100 ? 100 : x.pct"><i></i></div> } }</div>
           <div class="pk"><span>Pagado</span>
-            @for (x of k.filas; track x.m) { <strong class="num">{{ x.fPagado }}</strong>@if (x.pend > 0) { <small>Faltan {{ x.fPend }}</small> } }</div>
+            @for (x of k.filas; track x.m) { <strong class="num">{{ x.fPagado }}</strong>@if (x.alt) { <small class="alt">≈ {{ x.alt.pagado }}</small> }@if (x.pend > 0) { <small>Faltan {{ x.fPend }}</small> } }</div>
           <div class="pk"><span>Avance de obra</span><strong class="num">{{ k.avance }}%</strong><div class="progress progress--dark" [style.--v]="k.avance"><i></i></div></div>
         </div>
       }
@@ -59,6 +63,13 @@
     }
     @if (activeHint()) { <p class="phint">{{ activeHint() }}</p> }
 
+
+    @if (activeTab() === 'varios') {
+      <div class="tab-content"><app-gastos-varios [projectId]="project()!._id" [canEdit]="canEdit()" (cambio)="refrescarDatos()" /></div>
+    }
+    @if (activeTab() === 'aportes') {
+      <div class="tab-content"><app-aportes [projectId]="project()!._id" [canEdit]="canEdit()" [propietario]="allOwners(project()!)[0]?.name || ''" /></div>
+    }
 
     @if (activeTab() === 'personas' && canEdit()) {
       <div class="tab-content">
@@ -205,6 +216,9 @@
     ════════════════════════════════════════════════════ -->
     @if (activeTab() === 'resumen') {
       <div class="tab-content">
+        @if (finanzasFaltaTC() > 0) {
+          <p class="fin-aviso">Hay {{ finanzasFaltaTC() }} monto{{ finanzasFaltaTC() !== 1 ? 's' : '' }} en {{ moneda.vista() === 'ARS' ? 'dólares' : 'pesos' }} que no se pueden sumar: cargá el tipo de cambio del proyecto (arriba) para verlos acá.</p>
+        }
 
         <!-- KPIs -->
         <div class="fin-kpis">

@@ -64,6 +64,7 @@ export interface Pago {
 
 export interface Presupuesto {
   _id: string;
+  tipoCambio?: number | null;
   project: string;
   subrubroId: { _id: string; nombre: string; codigo: string };
   proveedorId?: { _id: string; nombre: string };
@@ -78,6 +79,7 @@ export interface Presupuesto {
 
 export interface Gasto {
   _id: string;
+  tipoCambio?: number | null;
   project: string;
   presupuestoId?: { _id: string; descripcion?: string; monto: number; moneda: Moneda; archivos?: Archivo[] };
   subrubroId: { _id: string; nombre: string; codigo: string; rubroId?: { _id: string; nombre: string; codigo: string } };
@@ -135,6 +137,7 @@ export function egresadoReserva(r: Reserva): number {
 // ── Solicitudes de Cotización ─────────────────────────────
 export interface Cotizacion {
   _id:           string;
+  tipoCambio?:   number | null;
   proveedorId?:  { _id: string; nombre: string };
   monto?:        number;
   moneda:        Moneda;

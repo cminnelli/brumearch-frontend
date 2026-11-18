@@ -1468,3 +1468,8 @@ textarea { resize: vertical; }
 .rs-kv { display: flex; flex-direction: column; gap: .7rem; dt { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--c-text-muted); } dd { font-size: var(--text-base); display: flex; flex-direction: column; gap: .15rem; } }
 .rs-people { list-style: none; display: flex; flex-direction: column; gap: .75rem; li { display: flex; align-items: center; gap: .7rem; } strong { display: block; font-weight: 600; } small { display: block; font-size: var(--text-sm); color: var(--c-text-sub); } }
 .rs-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+.proj-moneda { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-1); &__aviso { font-size: var(--text-sm); color: var(--c-warn); font-weight: 500; } }
+.pk .alt { color: var(--c-text-muted); font-size: var(--text-sm); font-weight: 400; margin-top: -.15rem; }
+
+.fin-aviso { font-size: var(--text-sm); padding: .6rem .8rem; border-radius: var(--radius-sm); background: var(--c-warn-soft); color: var(--c-warn); font-weight: 500; margin-bottom: var(--sp-2); }

@@ -94,6 +94,7 @@
             <input type="number" [(ngModel)]="presForm.monto" name="pr_monto" placeholder="0" min="0" required />
           </div>
         </div>
+        <div class="field"><app-tipo-cambio id="pr_tc" [moneda]="presForm.moneda" [monto]="presForm.monto" [(valor)]="presForm.tipoCambio" /></div>
         <div class="field field--full">
           <label>Descripción</label>
           <input [(ngModel)]="presForm.descripcion" name="pr_desc" placeholder="Mano de obra albañilería…" />
@@ -286,9 +287,11 @@
           <span class="cp-card__lbl">Falta pagar</span>
           @for (r of resumenCompras(); track r.moneda) {
             <div class="cp-line">
-              <strong class="cp-card__big num" [class.cp-card__big--ok]="r.porPagar === 0">{{ r.porPagar === 0 ? 'Todo pagado' : fmt(r.porPagar, r.moneda) }}</strong>
+              <strong class="cp-card__big num" [class.cp-card__big--ok]="r.porPagar === 0">{{ r.porPagar === 0 ? 'Todo pagado' : m.fmt(r.porPagar, r.moneda) }}</strong>
+              @if (r.alt !== null && r.porPagar > 0) { <span class="cp-card__alt num">≈ {{ m.fmt(r.alt, r.altMoneda) }}</span> }
               <div class="progress progress--dark" [style.--v]="r.pct"><i></i></div>
-              <span class="cp-card__foot">Ya pagaste <b class="num">{{ fmt(r.pagado, r.moneda) }}</b> de <b class="num">{{ fmt(r.comprometido, r.moneda) }}</b></span>
+              <span class="cp-card__foot">Ya pagaste <b class="num">{{ m.fmt(r.pagado, r.moneda) }}</b> de <b class="num">{{ m.fmt(r.comprometido, r.moneda) }}</b></span>
+              @if (r.faltaTC) { <span class="cp-card__tc">Cargá el tipo de cambio del proyecto para ver todo en una sola moneda.</span> }
             </div>
           }
         </div>
@@ -321,10 +324,10 @@
               @for (p of PASOS; track $index) { <i [class.on]="$index <= r.paso" [class.cur]="$index === r.paso" [title]="p"></i> }
             </div>
           </div>
-          <div class="cp-c cp-c--amt num">@if (r.monto !== null) { {{ fmt(r.monto, r.moneda!) }} } @else { <span class="cp-dash">—</span> }</div>
+          <div class="cp-c cp-c--amt num">@if (r.monto !== null) { {{ mv(r.monto, r) }}@if (esOtraMoneda(r)) { <small class="cp-orig">{{ m.fmt(r.monto, r.moneda!) }}</small> } } @else { <span class="cp-dash">—</span> }</div>
           <div class="cp-c cp-c--pay">
             @if (r.type === 'gasto' && r.falta > 0) {
-              <b class="cp-falta num">{{ fmt(r.falta, r.moneda!) }}</b>
+              <b class="cp-falta num">{{ mv(r.falta, r) }}</b>
               <div class="progress progress--dark" [style.--v]="r.pagado! / r.monto! * 100"><i></i></div>
             } @else if (r.type === 'gasto') {
               <span class="cp-ok">✓ Pagado completo</span>
@@ -586,43 +589,32 @@
           <!-- Comprobantes -->
           <div class="dp-section">
             <div class="dp-section__header">
-              <span class="dp-section__label">Comprobantes</span>
-              <label class="dp-section__action" [class.dp-section__action--loading]="uploadingComprobanteId() === g._id">
-                @if (uploadingComprobanteId() === g._id) { Subiendo... } @else { + Agregar }
-                <input type="file" hidden (change)="onAddComprobante(g, $event)"
-                       accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png"
-                       [disabled]="uploadingComprobanteId() === g._id" />
+              <span class="dp-section__label">Comprobantes
+                @if (g.comprobante || g.comprobantes?.length) { <span class="dp-section__count">{{ (g.comprobante ? 1 : 0) + (g.comprobantes?.length ?? 0) }}</span> }
+              </span>
+            </div>
+            <div class="cmp" [class.cmp--drag]="arrastrando()" (dragover)="$event.preventDefault(); arrastrando.set(true)" (dragleave)="arrastrando.set(false)" (drop)="onDropComprobantes(g, $event)">
+              @if (g.comprobante; as c) {
+                <a class="cmp-tile" [href]="fileUrl(c.filename)" target="_blank" rel="noopener" [title]="c.originalName">
+                  @if (esImagen(c.mimetype)) { <img [src]="fileUrl(c.filename)" [alt]="c.originalName" loading="lazy" /> } @else { <span class="cmp-tile__ext">{{ extension(c.originalName) }}</span> }
+                  <span class="cmp-tile__name">{{ c.originalName }}</span>
+                </a>
+              }
+              @for (c of g.comprobantes ?? []; track c.filename) {
+                <div class="cmp-tile-wrap">
+                  <a class="cmp-tile" [href]="fileUrl(c.filename)" target="_blank" rel="noopener" [title]="c.originalName + ' · ' + fmtSize(c.size)">
+                    @if (esImagen(c.mimetype)) { <img [src]="fileUrl(c.filename)" [alt]="c.originalName" loading="lazy" /> } @else { <span class="cmp-tile__ext">{{ extension(c.originalName) }}</span> }
+                    <span class="cmp-tile__name">{{ c.originalName }}</span>
+                  </a>
+                  <button class="cmp-del" type="button" (click)="removeComprobanteFile(g, c._id!)" [attr.aria-label]="'Quitar ' + c.originalName" title="Quitar">×</button>
+                </div>
+              }
+              <label class="cmp-add" [class.cmp-add--loading]="uploadingComprobanteId() === g._id">
+                <span class="cmp-add__plus">{{ uploadingComprobanteId() === g._id ? '…' : '+' }}</span>
+                <span>{{ uploadingComprobanteId() === g._id ? 'Subiendo' : 'Agregar o soltar acá' }}</span>
+                <input type="file" hidden (change)="onAddComprobante(g, $event)" accept=".pdf,.xlsx,.xls,.docx,.jpg,.jpeg,.png" [disabled]="uploadingComprobanteId() === g._id" />
               </label>
             </div>
-            @if (g.comprobante || g.comprobantes?.length) {
-              <div class="file-list">
-                @if (g.comprobante) {
-                  <a class="file-card" [href]="fileUrl(g.comprobante.filename)" target="_blank">
-                    <span class="file-card__icon">{{ fileIcon(g.comprobante.mimetype) }}</span>
-                    <div class="file-card__body">
-                      <span class="file-card__name">{{ g.comprobante.originalName }}</span>
-                      <span class="file-card__size">{{ fmtSize(g.comprobante.size) }}</span>
-                    </div>
-                    <span class="file-card__arrow">↗</span>
-                  </a>
-                }
-                @for (c of g.comprobantes ?? []; track c.filename) {
-                  <div class="file-card file-card--deletable">
-                    <a [href]="fileUrl(c.filename)" target="_blank" class="file-card__link">
-                      <span class="file-card__icon">{{ fileIcon(c.mimetype) }}</span>
-                      <div class="file-card__body">
-                        <span class="file-card__name">{{ c.originalName }}</span>
-                        <span class="file-card__size">{{ fmtSize(c.size) }}</span>
-                      </div>
-                      <span class="file-card__arrow">↗</span>
-                    </a>
-                    <button class="file-card__del" (click)="removeComprobanteFile(g, c._id!)" title="Eliminar">×</button>
-                  </div>
-                }
-              </div>
-            } @else {
-              <span class="dp-empty">Sin comprobantes adjuntos</span>
-            }
           </div>
 
           <!-- Pagos -->
@@ -642,6 +634,16 @@
             </div>
 
             @if (g.pagos.length) {
+              <div class="pbar" role="img" [attr.aria-label]="'Pagos: ' + pctPagado(g) + '% del gasto'">
+                <div class="pbar__track">
+                  @for (sg of segmentosPagos(g).segs; track sg.id) { <i class="pbar__seg pbar__seg--{{ sg.estado }}" [style.width.%]="sg.pct" [title]="fmt(sg.monto, g.moneda)"></i> }
+                  @if (segmentosPagos(g).resto > 0) { <i class="pbar__rest" [style.width.%]="segmentosPagos(g).resto" [title]="'Falta ' + fmt(restante(g), g.moneda)"></i> }
+                </div>
+                <div class="pbar__leg">
+                  <span><i class="k k--ok"></i>Pagado y firmado</span><span><i class="k k--pagado"></i>Pagado, falta firma</span><span><i class="k k--pendiente"></i>Sin confirmar</span>
+                  @if (restante(g) > 0) { <span><i class="k k--rest"></i>Falta {{ fmt(restante(g), g.moneda) }}</span> }
+                </div>
+              </div>
               <div class="pg" role="table" aria-label="Pagos del gasto">
                 <div class="pg-head" role="row"><span>Fecha</span><span class="r">Monto</span><span>Detalle</span><span>Pagado</span><span>Firmado</span><span></span></div>
                 @for (pago of pagosVisibles(); track pago._id) {
@@ -770,6 +772,7 @@
                     <input type="number" [(ngModel)]="editGastoForm.monto" name="egMonto" min="0" />
                   </div>
                 </div>
+                <div class="field"><app-tipo-cambio id="eg_tc" [moneda]="editGastoForm.moneda" [monto]="editGastoForm.monto" [(valor)]="editGastoForm.tipoCambio" /></div>
                 <div class="field">
                   <label>Fecha</label>
                   <input type="date" [(ngModel)]="editGastoForm.fecha" name="egFecha" />
@@ -889,6 +892,7 @@
                       <input type="number" [(ngModel)]="cotizacionForm.monto" name="cq_monto" placeholder="0" min="0" />
                     </div>
                   </div>
+                  <div class="field"><app-tipo-cambio id="cq_tc" [moneda]="cotizacionForm.moneda" [monto]="cotizacionForm.monto" [(valor)]="cotizacionForm.tipoCambio" /></div>
                   <div class="field field--full">
                     <label for="cq_plazo">Plan de ejecución <span class="opt">(opcional)</span></label>
                     <textarea id="cq_plazo" rows="3" [(ngModel)]="cotizacionForm.plazo" name="cq_plazo" placeholder="Detalle de tiempos. Ej: 45 días en total. Inicio 10/03, estructura 3 semanas, mampostería 4 semanas…"></textarea>

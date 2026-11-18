@@ -135,6 +135,11 @@
         </div>
       }
 
+      <!-- Tab: Aportes -->
+      @if (tab() === 'aportes') {
+        <div class="cp-section"><app-client-aportes [projectId]="project()!._id" /></div>
+      }
+
       <!-- Tab: Finanzas -->
       @if (tab() === 'finanzas') {
         <app-client-caja [projectId]="project()!._id" />
@@ -162,6 +167,12 @@
           <path fill-rule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75Zm0 10.5a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75ZM2 10a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 2 10Z" clip-rule="evenodd"/>
         </svg>
         <span>Progreso</span>
+      </button>
+      <button class="cp-nav__btn" [class.cp-nav__btn--active]="tab() === 'aportes'" (click)="setTab('aportes')">
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm.75 3.5v.6c1.1.2 1.9.9 2.1 1.9h-1.4c-.1-.4-.5-.7-1.1-.7-.7 0-1.1.3-1.1.8 0 .4.3.7 1.3.9 1.6.4 2.4 1 2.4 2.2 0 1.1-.8 1.9-2.1 2.1v.6h-1.5v-.6c-1.2-.2-2-.9-2.2-2h1.5c.1.5.6.9 1.3.9.7 0 1.2-.3 1.2-.8s-.4-.7-1.4-1c-1.5-.4-2.3-1-2.3-2.1 0-1 .8-1.8 2-2v-.6h1.5Z"/>
+        </svg>
+        <span>Aportes</span>
       </button>
       <button class="cp-nav__btn" [class.cp-nav__btn--active]="tab() === 'finanzas'" (click)="setTab('finanzas')">
         <svg viewBox="0 0 20 20" fill="currentColor">
