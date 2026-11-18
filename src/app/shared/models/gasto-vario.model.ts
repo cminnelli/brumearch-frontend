@@ -28,11 +28,32 @@ export interface Aporte {
   notas?: string;
   comprobante?: Archivo;
   equiv: Equiv;
+  // Solo equipo (el propietario nunca recibe esto)
+  numero?: number;
+  asignaciones?: AsignacionAporte[];
+  utilidades?: UtilidadAporte[];
+  asignado?: number;
+  utilidad?: number;
+  saldo?: number;
 }
+
+export interface AsignacionAporte {
+  _id: string;
+  fecha: string;
+  gastoId: string;
+  pagoId: string;
+  monedaOperacion: Moneda;
+  montoOperacion: number;
+  descuenta: number;
+  concepto?: string;
+  gasto: { descripcion?: string; proveedor?: string; subrubro?: string; rubro?: string } | null;
+}
+export interface UtilidadAporte { _id: string; fecha: string; monto: number; nota?: string }
 
 export interface ResumenAportes {
   aportes: Aporte[];
   aportado: Equiv;
+  totales?: { asignado: Equiv; utilidad: Equiv; saldo: Equiv };
   tcReferencia: number | null;
   sinTC: number;
   proyecto?: { name: string };

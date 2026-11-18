@@ -74,7 +74,7 @@
       <div class="tab-content"><app-gastos-varios [projectId]="project()!._id" [canEdit]="canEdit()" (cambio)="refrescarDatos()" /></div>
     }
     @if (activeTab() === 'aportes') {
-      <div class="tab-content"><app-aportes [projectId]="project()!._id" [canEdit]="canEdit()" [propietario]="allOwners(project()!)[0]?.name || ''" /></div>
+      <div class="tab-content"><app-aportes [projectId]="project()!._id" [projectName]="project()!.name" (cambio)="refrescarDatos()" [canEdit]="canEdit()" [propietario]="allOwners(project()!)[0]?.name || ''" /></div>
     }
 
     @if (activeTab() === 'personas' && canEdit()) {

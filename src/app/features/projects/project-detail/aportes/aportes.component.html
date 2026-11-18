@@ -39,15 +39,116 @@
       <ul class="ap-list" aria-label="Pagos del propietario">
         @for (a of resumen()!.aportes; track a._id) {
           <li class="ap-card">
-            <div class="ap-date" aria-hidden="true"><b>{{ dia(a.fecha) }}</b><span>{{ mes(a.fecha) }}</span><small>{{ anio(a.fecha) }}</small></div>
-            <div class="ap-det">
-              <strong>{{ a.concepto || 'Pago' }}</strong>
-              <div class="ap-tags"><span class="ap-tag">{{ metodoLabel(a.metodo) }}</span>@if (a.origen) { <span class="ap-tag ap-tag--soft">{{ a.origen }}</span> }@if (a.referencia) { <span class="ap-tag ap-tag--soft">Ref. {{ a.referencia }}</span> }</div>
+            <div class="ap-top">
+              <div class="ap-date" aria-hidden="true"><b>{{ dia(a.fecha) }}</b><span>{{ mes(a.fecha) }}</span><small>{{ anio(a.fecha) }}</small></div>
+              <div class="ap-det">
+                <strong>@if (a.numero) { <span class="ap-num">N° {{ a.numero }}</span> }{{ a.concepto || 'Pago' }}</strong>
+                <div class="ap-tags"><span class="ap-tag">{{ metodoLabel(a.metodo) }}</span>@if (a.origen) { <span class="ap-tag ap-tag--soft">{{ a.origen }}</span> }@if (a.referencia) { <span class="ap-tag ap-tag--soft">Ref. {{ a.referencia }}</span> }@if (a.tipoCambio) { <span class="ap-tag ap-tag--soft">TC {{ a.tipoCambio.toLocaleString('es-AR') }}</span> }</div>
+              </div>
+              <div class="ap-monto num">{{ m.fmt(a.monto, a.moneda) }}@if (a.moneda !== m.vista()) { <small>≈ {{ enVista(a) }}</small> }</div>
+              <div class="ap-act">
+                @if (a.comprobante) { <a class="btn btn--ghost btn--sm" [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Comprobante</a> }
+                @if (canEdit) { <button class="btn btn--ghost btn--sm" type="button" (click)="editar(a)">Editar</button><button class="btn btn--ghost btn--sm btn--del" type="button" (click)="eliminar(a)" aria-label="Eliminar pago">×</button> }
+              </div>
             </div>
-            <div class="ap-monto num">{{ enVista(a) }}@if (esOtra(a)) { <small>{{ m.fmt(a.monto, a.moneda) }}@if (a.tipoCambio) { · TC {{ a.tipoCambio.toLocaleString('es-AR') }} }</small> }</div>
-            <div class="ap-act">
-              @if (a.comprobante) { <a class="btn btn--ghost btn--sm" [href]="fileUrl(a.comprobante.filename)" target="_blank" rel="noopener">Ver comprobante</a> }
-              @if (canEdit) { <button class="btn btn--ghost btn--sm" type="button" (click)="editar(a)">Editar</button><button class="btn btn--ghost btn--sm btn--del" type="button" (click)="eliminar(a)" aria-label="Eliminar pago">×</button> }
+
+            <!-- ¿Cómo se asignó? -->
+            <div class="ap-uso">
+              <div class="ap-bar" role="img" [attr.aria-label]="'Asignado ' + fm(a.asignado ?? 0, a.moneda) + ', utilidad ' + fm(a.utilidad ?? 0, a.moneda) + ', saldo ' + fm(a.saldo ?? 0, a.moneda)">
+                <i class="ap-bar__asig" [style.width.%]="reparto(a).asig"></i><i class="ap-bar__util" [style.width.%]="reparto(a).util"></i><i class="ap-bar__saldo" [style.width.%]="reparto(a).saldo"></i>
+              </div>
+              <div class="ap-leg">
+                <span><i class="d d--asig"></i>Asignado <b class="num">{{ fm(a.asignado ?? 0, a.moneda) }}</b></span>
+                <span><i class="d d--util"></i>Utilidad <b class="num">{{ fm(a.utilidad ?? 0, a.moneda) }}</b></span>
+                <span><i class="d d--saldo"></i>Saldo <b class="num">{{ fm(a.saldo ?? 0, a.moneda) }}</b></span>
+              </div>
+
+              @if (a.asignaciones?.length || a.utilidades?.length) {
+                <table class="ap-imp">
+                  <thead><tr><th>Fecha</th><th>Imputado a</th><th class="r">Se pagó</th><th class="r">Descuenta</th><th></th></tr></thead>
+                  <tbody>
+                    @for (x of a.asignaciones; track x._id) {
+                      <tr>
+                        <td class="f">{{ fmtFecha(x.fecha) }}</td>
+                        <td><strong>{{ x.gasto?.proveedor || x.gasto?.descripcion || 'Gasto' }}</strong><small>{{ x.gasto?.rubro }}@if (x.gasto?.subrubro) { · {{ x.gasto?.subrubro }} }</small></td>
+                        <td class="r num">{{ fm(x.montoOperacion, x.monedaOperacion) }}</td>
+                        <td class="r num">{{ fm(x.descuenta, a.moneda) }}</td>
+                        <td class="r ap-rowact">
+                          <button type="button" class="lnk" (click)="comprobante(x)" aria-label="Descargar comprobante de este pago">Comprobante</button>
+                          @if (canEdit) { <button type="button" class="lnk lnk--del" (click)="quitarAsignacion(a, x)" aria-label="Quitar asignación">✕</button> }
+                        </td>
+                      </tr>
+                    }
+                    @for (u of a.utilidades; track u._id) {
+                      <tr class="ap-imp__util">
+                        <td class="f">{{ fmtFecha(u.fecha) }}</td>
+                        <td><strong>Utilidad</strong>@if (u.nota) { <small>{{ u.nota }}</small> }</td>
+                        <td class="r"></td>
+                        <td class="r num">{{ fm(u.monto, a.moneda) }}</td>
+                        <td class="r ap-rowact">@if (canEdit) { <button type="button" class="lnk lnk--del" (click)="quitarUtilidad(a, u._id)" aria-label="Deshacer utilidad">✕</button> }</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <p class="ap-sin">Todavía no asignaste este pago a ningún gasto.</p>
+              }
+
+              @if (canEdit) {
+                <div class="ap-acc">
+                  <button type="button" class="btn btn--primary btn--sm" [disabled]="(a.saldo ?? 0) <= 0" (click)="abrirPanel(a, 'asignar')" [attr.aria-expanded]="panel()?.id === a._id && panel()?.tipo === 'asignar'">Asignar a un gasto</button>
+                  <button type="button" class="btn btn--ghost btn--sm" [disabled]="(a.saldo ?? 0) <= 0" (click)="abrirPanel(a, 'utilidad')" [attr.aria-expanded]="panel()?.id === a._id && panel()?.tipo === 'utilidad'">Pasar saldo a utilidad</button>
+                </div>
+              }
+
+              @if (panel(); as p) {
+                @if (p.id === a._id && p.tipo === 'asignar') {
+                  <div class="ap-pan">
+                    <div class="ap-pan__t">Asignar plata de este pago a un gasto <button type="button" class="lnk" (click)="cerrarPanel()">Cerrar</button></div>
+                    <label class="sr-only" for="ap-busca">Buscar gasto</label>
+                    <input id="ap-busca" class="ap-busca" type="search" placeholder="Buscar gasto, proveedor o rubro" [value]="busca()" (input)="busca.set($any($event.target).value)" />
+                    <ul class="ap-gastos" role="listbox" aria-label="Gastos con saldo por pagar">
+                      @for (g of gastosConSaldo(); track g._id) {
+                        <li><button type="button" role="option" class="ap-g" [class.ap-g--on]="gastoSelId() === g._id" [attr.aria-selected]="gastoSelId() === g._id" (click)="elegirGasto(g)">
+                          <span><strong>{{ nombreGasto(g) }}</strong><small>{{ g.subrubroId.rubroId?.nombre }} · {{ g.subrubroId.nombre }}</small></span>
+                          <span class="num">Falta {{ fm(pendiente(g), g.moneda) }}</span>
+                        </button></li>
+                      } @empty { <li class="ap-sin">No hay gastos con saldo por pagar.</li> }
+                    </ul>
+                    @if (gastoSel()) {
+                      <div class="ap-pan__row">
+                        <div class="ap-f"><label>Se pagó en</label>
+                          <div class="seg" role="group" aria-label="Moneda de la operación">
+                            <button type="button" [attr.aria-pressed]="formAsig.moneda === 'ARS'" (click)="formAsig.moneda = 'ARS'">Pesos</button>
+                            <button type="button" [attr.aria-pressed]="formAsig.moneda === 'USD'" (click)="formAsig.moneda = 'USD'">Dólares</button>
+                          </div></div>
+                        <div class="ap-f"><label for="ap-am">Monto</label><input id="ap-am" type="number" min="0" step="any" [(ngModel)]="formAsig.monto" name="am" placeholder="0" /></div>
+                        <div class="ap-f"><label for="ap-af">Fecha</label><input id="ap-af" type="date" [(ngModel)]="formAsig.fecha" name="af" /></div>
+                        <button type="button" class="lnk ap-todo" (click)="pagarLoQueFalta(a)">Pagar lo que falta</button>
+                      </div>
+                      @if (descuentaPreview(a); as d) {
+                        <p class="ap-calc">Descuenta <b>{{ fm(d, a.moneda) }}</b> del saldo@if (formAsig.moneda !== a.moneda) { (tipo de cambio del pago: $ {{ a.tipoCambio?.toLocaleString('es-AR') }}) }. Quedan <b>{{ fm((a.saldo ?? 0) - d, a.moneda) }}</b>.</p>
+                      } @else if (formAsig.monto && formAsig.moneda !== a.moneda && !a.tipoCambio) {
+                        <p class="ap-error">Este pago no tiene tipo de cambio: editalo y cargalo para poder pagar en otra moneda.</p>
+                      }
+                    }
+                    @if (errorPanel()) { <p class="ap-error" role="alert">{{ errorPanel() }}</p> }
+                    <div class="ap-form__btns"><button type="button" class="btn btn--primary" [disabled]="!puedeAsignar(a)" (click)="asignar(a)">{{ trabajando() ? 'Asignando…' : 'Asignar pago' }}</button></div>
+                  </div>
+                }
+                @if (p.id === a._id && p.tipo === 'utilidad') {
+                  <div class="ap-pan">
+                    <div class="ap-pan__t">Pasar saldo a utilidad <button type="button" class="lnk" (click)="cerrarPanel()">Cerrar</button></div>
+                    <div class="ap-pan__row">
+                      <div class="ap-f"><label for="ap-um">Monto ({{ a.moneda }})</label><input id="ap-um" type="number" min="0" step="any" [(ngModel)]="formUtil.monto" name="um" /></div>
+                      <div class="ap-f ap-f--grow"><label for="ap-un">Nota (opcional)</label><input id="ap-un" [(ngModel)]="formUtil.nota" name="un" placeholder="Ej: honorarios" /></div>
+                    </div>
+                    <p class="ap-calc">Saldo disponible: <b>{{ fm(a.saldo ?? 0, a.moneda) }}</b></p>
+                    @if (errorPanel()) { <p class="ap-error" role="alert">{{ errorPanel() }}</p> }
+                    <div class="ap-form__btns"><button type="button" class="btn btn--primary" [disabled]="trabajando()" (click)="guardarUtilidad(a)">{{ trabajando() ? 'Guardando…' : 'Pasar a utilidad' }}</button></div>
+                  </div>
+                }
+              }
             </div>
           </li>
         }

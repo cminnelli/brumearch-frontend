@@ -324,7 +324,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     { id: 'varios',      label: 'Gastos varios', group: ['varios'],
       hint: 'Gastos chicos de la obra (caja chica): sin pagos, ordenados por categoría. Se ven en lo gastado y en el plan.' },
     { id: 'aportes',     label: 'Ingresos',      group: ['aportes'],
-      hint: 'Lo que va pagando el propietario. Es un registro aparte de los gastos: él solo ve sus pagos, nunca costos ni margen.' },
+      hint: 'Lo que va pagando el propietario y cómo lo asignaste a gastos y utilidad. El propietario solo ve sus pagos, nunca las asignaciones ni la utilidad.' },
     { id: 'selecciones', label: 'Selecciones',  group: ['selecciones'],
       hint: 'Lista de cosas que el cliente tiene que elegir o comprar (grifería, revestimientos…) y su estado.' },
     { id: 'documentos',  label: 'Documentos',   group: ['documentos'],
