@@ -1,5 +1,5 @@
 .ar { display: flex; flex-direction: column; gap: var(--sp-2); }
-.ar-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: var(--sp-3); align-items: end; padding: var(--sp-3) var(--sp-4); border-radius: var(--radius-md); background: #111; color: #fff; @media (max-width: 760px) { grid-template-columns: 1fr; } }
+.ar-hero { display: grid; grid-template-columns: 1fr; gap: var(--sp-3); align-items: end; padding: var(--sp-3) var(--sp-4); border-radius: var(--radius-md); background: #111; color: #fff; @media (max-width: 760px) { grid-template-columns: 1fr; } }
 .ar-hero__main { display: flex; flex-direction: column; gap: .3rem; min-width: 0;
   strong { font-family: var(--font-head); font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1; font-weight: 700; letter-spacing: -.03em; color: #5ee08a; white-space: nowrap; }
   small { color: rgba(255,255,255,.65); font-size: var(--text-sm); } }

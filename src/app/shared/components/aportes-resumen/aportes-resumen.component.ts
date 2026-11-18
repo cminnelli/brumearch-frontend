@@ -29,14 +29,5 @@ export class AportesResumenComponent {
   secundario(e: { ARS: number; USD: number }) { return this.sinConversion() ? '—' : this.m.fmt(e[this.otra()], this.otra()); }
 
   ultimo() { const f = this._r()?.aportes?.[0]?.fecha; return f ? new Date(f).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
-  /** Un pago = una barra (en orden cronológico), para ver el ritmo de cobros de un vistazo. */
-  barras = computed(() => {
-    const r = this._r(); if (!r) return [];
-    const v = this.vista();
-    const l = [...r.aportes].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).slice(-12);
-    const max = Math.max(1, ...l.map(a => a.equiv[v]));
-    return l.map(a => ({ id: a._id, alto: Math.max(8, a.equiv[v] / max * 100), mes: new Date(a.fecha).toLocaleDateString('es-AR', { month: 'short', timeZone: 'UTC' }).replace('.', ''),
-      titulo: `${new Date(a.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })} · ${this.m.fmt(a.equiv[v], v)}` }));
-  });
   sinAportes = computed(() => (this._r()?.aportes.length ?? 0) === 0);
 }

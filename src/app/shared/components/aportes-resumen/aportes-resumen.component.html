@@ -17,13 +17,6 @@
           </div>
         }
       </div>
-      @if (barras().length) {
-        <div class="ar-bars" role="img" aria-label="Pagos en el tiempo">
-          @for (b of barras(); track b.id) {
-            <div class="ar-bar" [title]="b.titulo"><i [style.height.%]="b.alto"></i><small>{{ b.mes }}</small></div>
-          }
-        </div>
-      }
     </div>
 
     @if (d.sinTC > 0 && !m.tcProyecto()) {

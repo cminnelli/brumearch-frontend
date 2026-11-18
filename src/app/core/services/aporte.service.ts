@@ -14,8 +14,8 @@ export class AporteService {
   create(projectId: string, fd: FormData): Observable<Aporte> { return this.http.post<Aporte>(`${this.api}/projects/${projectId}/aportes`, fd); }
   update(projectId: string, id: string, fd: FormData): Observable<Aporte> { return this.http.put<Aporte>(`${this.api}/projects/${projectId}/aportes/${id}`, fd); }
   remove(projectId: string, id: string): Observable<void> { return this.http.delete<void>(`${this.api}/projects/${projectId}/aportes/${id}`); }
-  /** Pagar un gasto con plata de un aporte (crea el pago en Compras). Devuelve el resumen actualizado. */
-  asignar(projectId: string, id: string, body: { gastoId: string; monedaOperacion: string; montoOperacion: number; metodoPago?: string; fecha?: string; concepto?: string }): Observable<ResumenAportes> {
+  /** Pagar uno o varios gastos con plata de un aporte (crea los pagos en Compras). Devuelve el resumen actualizado. */
+  asignar(projectId: string, id: string, body: { items: { gastoId: string; montoOperacion: number; monedaOperacion: string }[]; metodoPago?: string; fecha?: string; concepto?: string }): Observable<ResumenAportes> {
     return this.http.post<ResumenAportes>(`${this.api}/projects/${projectId}/aportes/${id}/asignaciones`, body);
   }
   quitarAsignacion(projectId: string, id: string, asigId: string): Observable<ResumenAportes> { return this.http.delete<ResumenAportes>(`${this.api}/projects/${projectId}/aportes/${id}/asignaciones/${asigId}`); }

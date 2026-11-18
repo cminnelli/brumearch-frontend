@@ -90,8 +90,10 @@ export class AportesComponent implements OnInit {
   gastos = signal<Gasto[]>([]);
   panel = signal<{ id: string; tipo: 'asignar' | 'utilidad' } | null>(null);
   busca = signal('');
-  gastoSelId = signal<string | null>(null);
-  formAsig: { moneda: 'ARS' | 'USD'; monto: number | null; fecha: string; concepto: string; metodo: 'efectivo' | 'transferencia' | 'cheque' } = { moneda: 'ARS', monto: null, fecha: hoyISO(), concepto: '', metodo: 'efectivo' };
+  /** Gastos marcados para pagar con este aporte, cada uno con su monto y la moneda en que se pagó. */
+  lineas: { gastoId: string; monto: number | null; moneda: 'ARS' | 'USD' }[] = [];
+  metodo: 'efectivo' | 'transferencia' | 'cheque' = 'efectivo';
+  fechaAsig = hoyISO();
   formUtil: { monto: number | null; nota: string } = { monto: null, nota: '' };
   errorPanel = signal('');
   trabajando = signal(false);
@@ -105,7 +107,6 @@ export class AportesComponent implements OnInit {
     return this.gastos().filter(g => this.pendiente(g) > 0.005)
       .filter(g => !q || `${g.proveedorId?.nombre ?? ''} ${g.descripcion ?? ''} ${g.subrubroId?.nombre ?? ''} ${g.subrubroId?.rubroId?.nombre ?? ''}`.toLowerCase().includes(q));
   });
-  gastoSel = computed(() => this.gastos().find(g => g._id === this.gastoSelId()) ?? null);
   nombreGasto(g: Gasto) { return g.proveedorId?.nombre || g.descripcion || g.subrubroId?.nombre || 'Gasto'; }
 
   /** Pasa un monto de una moneda a otra con el tipo de cambio ÚNICO del aporte. null si hace falta y no hay. */
@@ -117,36 +118,42 @@ export class AportesComponent implements OnInit {
   fm(n: number, mon: string) { return `${mon} ${(Math.round(n * 100) / 100).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`; }
 
   abrirPanel(a: Aporte, tipo: 'asignar' | 'utilidad') {
-    this.errorPanel.set(''); this.busca.set(''); this.gastoSelId.set(null);
-    this.formAsig = { moneda: 'ARS', monto: null, fecha: hoyISO(), concepto: '', metodo: 'efectivo' };
+    this.errorPanel.set(''); this.busca.set(''); this.lineas = []; this.metodo = 'efectivo'; this.fechaAsig = hoyISO();
     this.formUtil = { monto: Math.round((a.saldo ?? 0) * 100) / 100 || null, nota: '' };
     this.panel.set(this.panel()?.id === a._id && this.panel()?.tipo === tipo ? null : { id: a._id, tipo });
     this.cargarGastos();
   }
-  cerrarPanel() { this.panel.set(null); this.errorPanel.set(''); }
-  elegirGasto(g: Gasto) { this.gastoSelId.set(g._id); this.errorPanel.set(''); }
+  cerrarPanel() { this.panel.set(null); this.errorPanel.set(''); this.lineas = []; }
 
-  /** Atajo: pagar todo lo que falta del gasto elegido, en la moneda de la operación. */
-  pagarLoQueFalta(a: Aporte) {
-    const g = this.gastoSel(); if (!g) return;
-    const v = this.conv(this.pendiente(g), g.moneda, this.formAsig.moneda, a.tipoCambio);
-    this.formAsig.monto = v === null ? null : Math.round(v * 100) / 100;
+  linea(g: Gasto) { return this.lineas.find(l => l.gastoId === g._id) ?? null; }
+  estaSel(g: Gasto) { return !!this.linea(g); }
+  /** Marca o desmarca un gasto. Al marcarlo propone pagar lo que falta, en la moneda del gasto. */
+  toggleGasto(g: Gasto, a: Aporte) {
+    this.errorPanel.set('');
+    if (this.estaSel(g)) { this.lineas = this.lineas.filter(l => l.gastoId !== g._id); return; }
+    const l = { gastoId: g._id, monto: null as number | null, moneda: (g.moneda === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD' };
+    this.lineas = [...this.lineas, l];
+    this.llenar(l, g, a);
   }
-  /** Cuánto descuenta del saldo la operación que se está armando (en la moneda del aporte). */
-  descuentaPreview(a: Aporte): number | null {
-    const m = this.formAsig.monto; if (!m || m <= 0) return null;
-    return this.conv(m, this.formAsig.moneda, a.moneda, a.tipoCambio);
+  /** Pone en el monto todo lo que falta del gasto, expresado en la moneda elegida. */
+  llenar(l: { monto: number | null; moneda: 'ARS' | 'USD' }, g: Gasto, a: Aporte) {
+    const v = this.conv(this.pendiente(g), g.moneda, l.moneda, a.tipoCambio);
+    l.monto = v === null ? null : Math.round(v * 100) / 100;
   }
-  puedeAsignar(a: Aporte) {
-    const d = this.descuentaPreview(a);
-    return !!this.gastoSel() && d !== null && d <= (a.saldo ?? 0) + 0.005 && !this.trabajando();
+  /** Cuánto descuenta del saldo en total (en la moneda del aporte). null si falta un monto o un tipo de cambio. */
+  totalDescuenta(a: Aporte): number | null {
+    let t = 0;
+    for (const l of this.lineas) { if (!l.monto || l.monto <= 0) return null; const d = this.conv(l.monto, l.moneda, a.moneda, a.tipoCambio); if (d === null) return null; t += d; }
+    return this.lineas.length ? t : null;
   }
+  puedeAsignar(a: Aporte) { const d = this.totalDescuenta(a); return d !== null && d <= (a.saldo ?? 0) + 0.005 && !this.trabajando(); }
   asignar(a: Aporte) {
-    const g = this.gastoSel(); if (!g || !this.puedeAsignar(a)) return;
+    if (!this.puedeAsignar(a)) return;
     this.trabajando.set(true); this.errorPanel.set('');
-    this.svc.asignar(this.projectId, a._id, { gastoId: g._id, monedaOperacion: this.formAsig.moneda, montoOperacion: this.formAsig.monto!, metodoPago: this.formAsig.metodo, fecha: this.formAsig.fecha, concepto: this.formAsig.concepto || undefined }).subscribe({
+    const items = this.lineas.map(l => ({ gastoId: l.gastoId, montoOperacion: l.monto!, monedaOperacion: l.moneda }));
+    this.svc.asignar(this.projectId, a._id, { items, metodoPago: this.metodo, fecha: this.fechaAsig }).subscribe({
       next: r => { this.resumen.set(r); this.trabajando.set(false); this.cerrarPanel(); this.cargarGastos(); this.cambio.emit(); },
-      error: (e: HttpErrorResponse) => { this.trabajando.set(false); this.errorPanel.set(e.error?.message ?? 'No se pudo asignar el pago.'); },
+      error: (e: HttpErrorResponse) => { this.trabajando.set(false); this.errorPanel.set(e.error?.message ?? 'No se pudo asignar.'); },
     });
   }
   async quitarAsignacion(a: Aporte, x: AsignacionAporte) {
@@ -174,12 +181,6 @@ export class AportesComponent implements OnInit {
     if (!await this.confirmSvc.confirm('El monto vuelve al saldo del aporte.', '¿Deshacer esta utilidad?')) return;
     this.svc.quitarUtilidad(this.projectId, a._id, uid).subscribe(r => this.resumen.set(r));
   }
-  /** Reparto del aporte para la barra: asignado / utilidad / saldo, en %. */
-  reparto(a: Aporte) {
-    const t = a.monto || 1;
-    return { asig: Math.min(100, (a.asignado ?? 0) / t * 100), util: Math.min(100, (a.utilidad ?? 0) / t * 100), saldo: Math.max(0, (a.saldo ?? 0) / t * 100) };
-  }
-
   metodoLabel(id?: string) { return this.metodos.find(x => x.id === id)?.l ?? ''; }
   fmtFecha(d: string) { return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
   enVista(a: Aporte) { return this.m.fmt(a.equiv[this.m.vista()], this.m.vista()); }
